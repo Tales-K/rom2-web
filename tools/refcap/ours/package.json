@@ -1,0 +1,8 @@
+{
+  "name": "allods2-refcap-ours",
+  "private": true,
+  "type": "module",
+  "description": "Captura automatica do nosso jogo (Vite dev) para comparacao com o original. Usa o Chrome/Edge ja instalados (puppeteer-core nao baixa navegador).",
+  "scripts": { "capture": "node capture.mjs" },
+  "dependencies": { "puppeteer-core": "24.43.1" }
+}

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allods 2 Map Viewer</title>
+<style>
+  :root { --bg:#14110d; --panel:#1d1912; --line:#3a3226; --ink:#e8dcc0; --mute:#9a8c6e; --accent:#d8a24a; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; background:var(--bg); color:var(--ink); font:13px/1.4 system-ui,Segoe UI,sans-serif; }
+  #app { display:grid; grid-template-columns:1fr 340px; height:100%; }
+  #stage { position:relative; overflow:hidden; }
+  canvas { display:block; width:100%; height:100%; cursor:grab; image-rendering:pixelated; }
+  canvas.drag { cursor:grabbing; }
+  #bar { position:absolute; left:8px; top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+         background:rgba(20,17,13,.88); border:1px solid var(--line); border-radius:6px; padding:6px 8px; }
+  #hud { position:absolute; left:8px; bottom:8px; background:rgba(20,17,13,.88); border:1px solid var(--line);
+         border-radius:6px; padding:4px 8px; color:var(--mute); font-variant-numeric:tabular-nums; }
+  select,button,label { color:var(--ink); }
+  select,button { background:#2a2419; border:1px solid var(--line); border-radius:4px; padding:3px 6px; }
+  label { display:inline-flex; gap:4px; align-items:center; color:var(--mute); }
+  aside { background:var(--panel); border-left:1px solid var(--line); overflow:auto; padding:10px 12px; }
+  h2 { font-size:13px; margin:14px 0 6px; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; }
+  h2:first-child { margin-top:0; }
+  .row { padding:3px 0; border-bottom:1px dotted var(--line); }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:-1px; border:1px solid #000; }
+  .trig { padding:6px 0; border-bottom:1px solid var(--line); }
+  .trig b { color:var(--ink); }
+  .trig .k { color:var(--accent); }
+  .trig .c { color:var(--mute); }
+  .off { opacity:.55; }
+  @media (max-width:760px) { #app { grid-template-columns:1fr; grid-template-rows:60% 40%; } aside { border-left:0; border-top:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="bar">
+      <select id="mapSel" aria-label="Mapa"></select>
+      <label><input type="checkbox" id="lObjs" checked> objetos</label>
+      <label><input type="checkbox" id="lUnits" checked> unidades</label>
+      <label><input type="checkbox" id="lStruct" checked> estruturas</label>
+      <label><input type="checkbox" id="lAlt"> altitude</label>
+      <button id="fit">ajustar</button>
+    </div>
+    <div id="hud">carregando…</div>
+  </div>
+  <aside id="side"></aside>
+</div>
+<script>
+"use strict";
+const TILE = 32, STRIDE = 16;
+const PCOL = ["#fff","#ff5a5a","#6fdc6f","#5aa0ff","#ffd84a","#ff6fff","#5af0f0","#ff9a3c","#b48cff","#c0c0c0"];
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const $ = id => document.getElementById(id);
+let idx, map, terrain = [], cam = { x:0, y:0, z:1 }, dpr = 1, dirty = true, hover = null;
+let unitDefs = {}, unitImgs = {}, objDefs = {}, objImgs = {}, stDefs = {}, stImgs = {};
+function stImg(id) {
+  if (!(id in stImgs)) {
+    stImgs[id] = null;
+    if (stDefs[id]) loadImg("assets/structures/st_" + id + ".png").then(i => { stImgs[id] = i; dirty = true; }).catch(() => {});
+  }
+  return stImgs[id];
+}
+function objImg(id) {
+  if (!(id in objImgs)) {
+    objImgs[id] = null;
+    if (objDefs[id]) loadImg("assets/objects/obj_" + id + ".png").then(i => { objImgs[id] = i; dirty = true; }).catch(() => {});
+  }
+  return objImgs[id];
+}
+const FACING = 4; // direção mostrada (os sprites têm 8 direções; a direção real das unidades ainda não foi decodificada)
+function unitImg(kind) {
+  if (!(kind in unitImgs)) {
+    unitImgs[kind] = null;
+    if (unitDefs[kind]) loadImg("assets/units/unit_" + kind + ".png").then(i => { unitImgs[kind] = i; dirty = true; }).catch(() => {});
+  }
+  return unitImgs[kind];
+}
+
+function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error(src)); i.src = src; }); }
+
+async function init() {
+  idx = await (await fetch("data/index.json")).json();
+  try { unitDefs = await (await fetch("data/units.json")).json(); } catch (e) { unitDefs = {}; }
+  try { objDefs = await (await fetch("data/objects.json")).json(); } catch (e) { objDefs = {}; }
+  try { stDefs = await (await fetch("data/structures.json")).json(); } catch (e) { stDefs = {}; }
+  terrain = await Promise.all(idx.terrain.map(n => loadImg("assets/terrain/" + n + ".png")));
+  const sel = $("mapSel");
+  idx.maps.forEach(m => { const o = document.createElement("option"); o.value = m.name; o.textContent = (m.source === "scenario" ? "missão " : "") + m.name.replace("mp_","mp ") + " — " + m.w + "×" + m.h; sel.appendChild(o); });
+  sel.onchange = () => openMap(sel.value);
+  ["lObjs","lUnits","lStruct","lAlt"].forEach(i => $(i).onchange = () => dirty = true);
+  $("fit").onclick = fit;
+  const hash = decodeURIComponent(location.hash.slice(1));
+  sel.value = idx.maps.some(m => m.name === hash) ? hash : "10";
+  await openMap(sel.value);
+}
+
+async function openMap(name) {
+  map = await (await fetch("data/maps/" + name + ".json")).json();
+  location.hash = name;
+  fit(); renderSide(); dirty = true;
+}
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.max(1, Math.round(r.width * dpr)); cv.height = Math.max(1, Math.round(r.height * dpr));
+  dirty = true;
+}
+function fit() {
+  if (!map) return;
+  const r = cv.getBoundingClientRect();
+  cam.z = Math.min(r.width / (map.w * TILE), r.height / (map.h * TILE));
+  cam.x = (map.w * TILE - r.width / cam.z) / 2; cam.y = (map.h * TILE - r.height / cam.z) / 2;
+  dirty = true;
+}
+
+function draw() {
+  requestAnimationFrame(draw);
+  if (!dirty || !map) return; dirty = false;
+  const W = cv.width, H = cv.height, z = cam.z * dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle = "#14110d"; ctx.fillRect(0,0,W,H);
+  ctx.imageSmoothingEnabled = z < 1;
+  const x0 = Math.max(0, Math.floor(cam.x / TILE)), y0 = Math.max(0, Math.floor(cam.y / TILE));
+  const x1 = Math.min(map.w, Math.ceil((cam.x + W / z) / TILE)), y1 = Math.min(map.h, Math.ceil((cam.y + H / z) / TILE));
+  const alt = $("lAlt").checked;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const i = y * map.w + x, id = map.tiles[i], f = id >> 4, row = id & 15, img = terrain[f];
+    const dx = (x * TILE - cam.x) * z, dy = (y * TILE - cam.y) * z, s = TILE * z + 0.6;
+    if (img && (row + 1) * TILE <= img.height) ctx.drawImage(img, 0, row * TILE, TILE, TILE, dx, dy, s, s);
+    else { ctx.fillStyle = "#f0f"; ctx.fillRect(dx, dy, s, s); }
+    if (alt) { ctx.fillStyle = "rgba(255,255,255," + (map.alt[i] / 255 * 0.7).toFixed(3) + ")"; ctx.fillRect(dx, dy, s, s); }
+  }
+  if ($("lObjs").checked && z >= 0.3) {
+    ctx.imageSmoothingEnabled = false;
+    for (const [ox, oy, id] of map.objs) {
+      if (ox < x0 - 3 || ox > x1 + 3 || oy < y0 - 3 || oy > y1 + 4) continue;
+      const def = objDefs[id], img = def && objImg(id);
+      if (!img) continue;
+      const px = ((ox + 0.5) * TILE - cam.x) * z, py = ((oy + 1) * TILE - 4 - cam.y) * z;
+      ctx.drawImage(img, px - def.w * z / 2, py - def.h * z, def.w * z, def.h * z);
+    }
+  }
+  if ($("lStruct").checked) {
+    ctx.strokeStyle = "#ffd84a"; ctx.lineWidth = Math.max(1, 2 * dpr);
+    for (const s of map.structures) {
+      const px = (s.x * TILE - cam.x) * z, py = (s.y * TILE - cam.y) * z, r = 9 * z;
+      const def = stDefs[s.kind], img = def && z >= 0.3 ? stImg(s.kind) : null;
+      if (img) { // (x,y) = centro da célula do canto superior esquerdo da pegada; a imagem tem FullHeight linhas e a pegada fica embaixo
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, ((s.x - 0.5) * TILE - cam.x) * z, ((s.y - 0.5 + def.th) * TILE - def.h - cam.y) * z, def.w * z, def.h * z);
+      } else ctx.strokeRect(px - r, py - r, 2 * r, 2 * r);
+    }
+  }
+  if ($("lUnits").checked) {
+    for (const u of [...map.units].sort((a, b) => a.y - b.y)) {
+      const px = (u.x * TILE - cam.x) * z, py = (u.y * TILE - cam.y) * z, r = Math.max(3 * dpr, 7 * z);
+      const def = unitDefs[u.kind], img = z >= 0.45 ? unitImg(u.kind) : null;
+      if (def && img) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, FACING * def.w, 0, def.w, def.h, px - def.w * z / 2, py + 8 * z - def.h * z, def.w * z, def.h * z);
+        ctx.fillStyle = PCOL[u.player % PCOL.length]; ctx.fillRect(px - 3 * z, py + 10 * z, 6 * z, 2 * z); // faixa na cor do jogador
+        continue;
+      }
+      ctx.beginPath(); ctx.arc(px, py, r, 0, 6.2832); ctx.fillStyle = PCOL[u.player % PCOL.length]; ctx.fill();
+      ctx.lineWidth = dpr; ctx.strokeStyle = "#000"; ctx.stroke();
+    }
+  }
+}
+
+function world(ev) { const r = cv.getBoundingClientRect(); return { x: cam.x + (ev.clientX - r.left) / cam.z, y: cam.y + (ev.clientY - r.top) / cam.z }; }
+let drag = null;
+cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; cv.classList.add("drag"); });
+cv.addEventListener("pointerup", () => { drag = null; cv.classList.remove("drag"); });
+cv.addEventListener("pointermove", e => {
+  if (drag) { cam.x = drag.cx - (e.clientX - drag.x) / cam.z; cam.y = drag.cy - (e.clientY - drag.y) / cam.z; dirty = true; }
+  if (!map) return;
+  const w = world(e), tx = Math.floor(w.x / TILE), ty = Math.floor(w.y / TILE);
+  if (tx >= 0 && ty >= 0 && tx < map.w && ty < map.h) {
+    const i = ty * map.w + tx, id = map.tiles[i];
+    let extra = "";
+    const st = map.structures.find(s => Math.abs(s.x - w.x / TILE) < 1.2 && Math.abs(s.y - w.y / TILE) < 1.2);
+    if (st && stDefs[st.kind]) extra += " | estrutura: " + stDefs[st.kind].name;
+    const u = map.units.find(u => Math.abs(u.x - w.x / TILE) < .6 && Math.abs(u.y - w.y / TILE) < .6);
+    if (u) { const p = map.players.find(p => p.id === u.player); extra = " | " + (unitDefs[u.kind] ? unitDefs[u.kind].name : "unidade tipo " + u.kind) + " (" + (p ? p.name : "jogador " + u.player) + ")"; }
+    $("hud").textContent = "célula " + tx + "," + ty + " | tile " + id + " (arq " + (id >> 4) + ", linha " + (id & 15) + ") | altitude " + map.alt[i] + extra;
+  }
+});
+cv.addEventListener("wheel", e => {
+  e.preventDefault();
+  const before = world(e), k = Math.exp(-e.deltaY * 0.0015);
+  cam.z = Math.min(4, Math.max(0.05, cam.z * k));
+  const r = cv.getBoundingClientRect();
+  cam.x = before.x - (e.clientX - r.left) / cam.z; cam.y = before.y - (e.clientY - r.top) / cam.z; dirty = true;
+}, { passive: false });
+window.addEventListener("resize", resize);
+
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c])); }
+function renderSide() {
+  const m = map;
+  let h = "<h2>" + esc(m.name) + "</h2><div class='row'>" + m.w + "×" + m.h + " células · versão 0x" + m.version.toString(16) + " · " + m.units.length + " unidades · " + m.structures.length + " estruturas</div>";
+  h += "<h2>Jogadores</h2>" + m.players.map(p => "<div class='row'><span class='dot' style='background:" + PCOL[p.id % PCOL.length] + "'></span>#" + p.id + " " + esc(p.name) + "</div>").join("");
+  h += "<h2>Gatilhos (" + m.triggers.length + ")</h2>";
+  h += m.triggers.map(t => "<div class='trig" + (t.enabled ? "" : " off") + "'><b>" + esc(t.name) + "</b><br><span class='k'>SE</span> " +
+    (t.if.length ? t.if.map(c => "<span class='c'>" + esc(c.a) + " " + esc(c.op) + " " + esc(c.b) + "</span>").join(" <span class='k'>E</span> ") : "<span class='c'>sempre</span>") +
+    "<br><span class='k'>ENTÃO</span> " + (t.then.length ? t.then.map(esc).join(", ") : "<span class='c'>(nada)</span>") + "</div>").join("");
+  h += "<h2>Ações (" + m.actions.length + ")</h2>" + m.actions.map(a => "<div class='row'>" + esc(a.name) + "<br><span class='c' style='color:var(--mute)'>" + esc(a.text) + "</span></div>").join("");
+  h += "<h2>Valores (" + m.values.length + ")</h2>" + m.values.map(v => "<div class='row'>" + esc(v.name) + "<br><span style='color:var(--mute)'>" + esc(v.text) + "</span></div>").join("");
+  $("side").innerHTML = h; $("side").scrollTop = 0;
+}
+
+resize(); init().then(() => { resize(); fit(); $("hud").textContent = "arraste para mover · roda do mouse para zoom · passe o mouse nas células"; requestAnimationFrame(draw); }).catch(e => { $("hud").textContent = "erro: " + e.message; });
+</script>
+</body>
+</html>

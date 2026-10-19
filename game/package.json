@@ -1,0 +1,23 @@
+{
+  "name": "allods2-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test:script": "tsx src/script/test/run.ts",
+    "test:missions": "tsx src/sim/test/missions_smoke.ts",
+    "test:campaign": "tsx src/campaign/test/run.ts && tsx src/campaign/test/e2e.ts",
+    "test:sim": "tsx src/sim/test/mission10.ts && tsx src/sim/test/mission20.ts && tsx src/sim/test/missions_kaarg.ts && tsx src/sim/test/missions_druids.ts && tsx src/sim/test/missions_70s.ts && tsx src/sim/test/missions_80s.ts && tsx src/sim/test/missions_90s.ts && tsx src/sim/test/snapshot.ts && tsx src/sim/test/savemanager.ts && tsx src/sim/test/saveroundtrip.ts && tsx src/sim/test/ai.ts && tsx src/mission/relief_test.ts"
+  },
+  "dependencies": {
+    "pixi.js": "^8.22.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.4"
+  }
+}

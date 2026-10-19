@@ -1,0 +1,379 @@
+/**
+ * Testes headless de IA e magias (sem navegador). Rodar em game/:  npx tsx src/sim/test/ai.ts   (faz parte de npm run test:sim)
+ * Mundo sintético (grade aberta 48×48) com templates reais de data/unit-templates.json e magias de data/spells.json.
+ */
+import { Grid } from "../grid";
+import { World, type Unit, type UnitInit } from "../world";
+import { fromTemplate, genericStats, heroDerived, heroStartSkillExp, skillFromExp, type HeroItem, type TemplateJson } from "../stats";
+import { buildSpell, SPELL, type SpellTable } from "../spells";
+import { applyAiSettings, attachFollowers, autocastLevel, cycleAutocast, installMissionAi, setAutocastLevel } from "../behaviors";
+import { restoreWorld, snapshotWorld } from "../snapshot";
+import type { SimEvent } from "../types";
+
+interface NodeProc { exitCode?: number; getBuiltinModule(name: string): unknown; }
+const proc = (globalThis as unknown as { process: NodeProc }).process;
+const { existsSync, readFileSync } = proc.getBuiltinModule("node:fs") as { existsSync(p: string): boolean; readFileSync(p: string, enc: "utf8"): string };
+const { dirname, join } = proc.getBuiltinModule("node:path") as { dirname(p: string): string; join(...p: string[]): string };
+const { fileURLToPath } = proc.getBuiltinModule("node:url") as { fileURLToPath(u: string): string };
+const PUB = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "public");
+function json<T>(rel: string): T | undefined {
+  const p = join(PUB, rel);
+  return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) as T : undefined;
+}
+
+let passes = 0, failures = 0;
+function check(cond: unknown, msg: string): void {
+  if (cond) { passes++; console.log(`  ok   ${msg}`); } else { failures++; console.log(`  FALHOU: ${msg}`); }
+}
+
+const templates = json<Record<string, TemplateJson>>("data/unit-templates.json") ?? {};
+const spells = json<SpellTable>("data/spells.json") ?? {};
+const items = json<Record<string, HeroItem & { slot?: string }>>("data/items.json") ?? {};
+if (!Object.keys(templates).length || !Object.keys(spells).length) console.log("  (aviso) data/unit-templates.json ou spells.json ausente: testes vão falhar");
+
+const TIMING = { attackTicks: 12, hitTick: 6, attackDelay: 4, dyingTicks: 14 };
+
+/** Mundo 48×48 aberto, 3 jogadores: 1 (humano) × 2 em guerra; 3 neutro. */
+function makeWorld(seed = 7): World {
+  const g = new Grid(48, 48);
+  for (let x = 0; x < 48; x++) { g.block[x] = 8; g.block[47 * 48 + x] = 8; g.block[x * 48] = 8; g.block[x * 48 + 47] = 8; }
+  const w = new World(g, 3, seed);
+  w.dip[1]![2] = 1; w.dip[2]![1] = 1;
+  return w;
+}
+
+function mon(w: World, serverId: number, player: number, x: number, y: number): Unit {
+  const t = templates[String(serverId)]!;
+  const st = fromTemplate(t, genericStats(String(t.name)), false);
+  const init: UnitInit = { kind: String(t.typeId), typeId: Number(t.typeId), player, x, y, stats: st, timing: TIMING, name: String(t.name) };
+  return w.spawn(init);
+}
+
+function heroMage(w: World, x: number, y: number, astralSkill = 30): Unit {
+  const st = heroDerived("Maga", true, true, { body: 19, reaction: 23, mind: 30, spirit: 42 }, { fire: 20, astral: astralSkill }, 7000, []);
+  const h = w.spawn({ kind: "hero_mage", typeId: 0, player: 1, x, y, stats: st, timing: TIMING, isHero: true, name: "Maga" });
+  const ex = Math.floor((Math.pow(1.1, astralSkill) - 1) * 1000);
+  h.heroInfo = { mage: true, alignment: "fire", skillExp: { fire: 6000, astral: ex, air: ex, water: ex, earth: ex } };
+  return h;
+}
+
+function heroFighter(w: World, x: number, y: number): Unit {
+  const eq = ["260", "2067", "3102", "2326", "2586", "46863"].map(id => items[id]).filter(Boolean) as HeroItem[];
+  const sx = heroStartSkillExp(false, "blade");
+  const skills: Record<string, number> = {};
+  for (const [k, v] of Object.entries(sx)) skills[k] = skillFromExp(v);
+  const st = heroDerived("Aldor", false, false, { body: 40, reaction: 36, mind: 25, spirit: 17 }, skills, Object.values(sx).reduce((a, b) => a + b, 0), eq);
+  const h = w.spawn({ kind: "hero_swordsman", typeId: 0, player: 1, x, y, stats: st, timing: TIMING, isHero: true, name: "Aldor" });
+  h.heroInfo = { mage: false, alignment: "blade", skillExp: sx };
+  return h;
+}
+
+function run(w: World, ticks: number, each?: (ev: SimEvent[]) => boolean | void): number {
+  for (let i = 0; i < ticks; i++) {
+    w.step();
+    const stop = each?.(w.events);
+    w.events.length = 0;
+    if (stop === true) return i;
+  }
+  return ticks;
+}
+const sec = (s: number) => Math.round(s * 20);
+const dist = (a: Unit, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+
+// ------------------------------------------------------------------------------------------------ herói inicial (exe)
+console.log("\n[herói] habilidades iniciais [exe 0x514f59] e atributos do Aldor padrão (gabarito: captura do original)");
+{
+  const sx = heroStartSkillExp(false, "blade");
+  check(sx.blade === 5727 && sx.shooting === 1593, `guerreiro: Blade 20 + Shooting 10 (exp ${JSON.stringify(sx)})`);
+  check(Object.values(sx).reduce((a, b) => a + b, 0) === 7320, "XP total 7320 (como no painel do original)");
+  const w = makeWorld();
+  const h = heroFighter(w, 10, 10);
+  check(h.maxHp === 142, `Health 142 (${h.maxHp})`);
+  check(h.stats.attack === 78 && h.stats.damage.min === 12 && h.stats.damage.max === 19, `Attack 78, Dmg 12-19 (${h.stats.attack}, ${h.stats.damage.min}-${h.stats.damage.max})`);
+  check(h.stats.defense === 43 && h.stats.absorption === 4, `Defense 43, Absorb 4 (${h.stats.defense}, ${h.stats.absorption})`);
+  check(Math.round(h.stats.sight * 10) / 10 === 6.4 && Math.round(h.stats.speed * 16) === 19, `Sight 6.4, Speed 19 (${h.stats.sight.toFixed(2)}, ${Math.round(h.stats.speed * 16)})`);
+  const m = heroStartSkillExp(true, "fire");
+  check(m.fire === 5727 && m.astral === 1593, "mago: Fire 20 + Astral 10");
+}
+
+// ------------------------------------------------------------------------------------------------ magias: montagem
+console.log("\n[magias] montagem a partir de spells.json");
+{
+  const fb = buildSpell(2, spells["2"], 30);
+  check(fb.kind === "ball" && fb.min === 14 && fb.max === 26 && fb.range === 11 && fb.mana === 30, `Fireball poder 30: ${fb.min}-${fb.max}, alcance ${fb.range}, mana ${fb.mana}`);
+  const all = Object.keys(spells).map(Number).map(id => buildSpell(id, spells[String(id)], 40));
+  check(all.length === 29 && all.every(s => s.kind && s.target), "29 magias montadas, todas com tipo e alvo");
+  const bless = buildSpell(20, spells["20"], 50);
+  check(bless.effects?.[0]?.kind === "bless" && bless.effects[0].amount === 50, "Bless: chance = poder (50%)");
+}
+
+// ------------------------------------------------------------------------------------------------ IA de monstros
+console.log("\n[IA] ogro vigia o posto, persegue dentro do raio e volta");
+{
+  const w = makeWorld();
+  const ogre = mon(w, 616, 2, 20, 20);
+  const h = heroFighter(w, 26, 20);  // 6 células: dentro do raio de guarda (8) do posto
+  installMissionAi(w, { spells });
+  h.hp = h.maxHp = 5000;              // herói "imortal" para medir
+  let attacked = false;
+  run(w, sec(10), ev => { if (ev.some(e => e.type === "attack" && e.unit === ogre.id)) attacked = true; return attacked; });
+  check(attacked, "ogro ataca quem entra no raio de guarda do posto");
+  w.teleport(h, 40, 40);
+  const t = run(w, sec(30), () => ogre.cx === 20 && ogre.cy === 20 && ogre.order.type === "none");
+  check(ogre.cx === 20 && ogre.cy === 20, `ogro voltou ao posto (${ogre.cx},${ogre.cy}) em ${(t / 20).toFixed(1)} s`);
+  // fora do raio não é visto como alvo
+  const w2 = makeWorld();
+  const o2 = mon(w2, 616, 2, 20, 20);
+  heroFighter(w2, 31, 20);
+  installMissionAi(w2, { spells });
+  run(w2, sec(8));
+  check(o2.cx === 20 && o2.cy === 20 && o2.order.type === "none", "herói a 11 células (fora do raio 8): ogro fica no posto");
+}
+
+console.log("\n[IA] alerta de grupo: quem apanha avisa os companheiros");
+{
+  const w = makeWorld();
+  const a = mon(w, 608, 2, 20, 20), b = mon(w, 608, 2, 23, 22);
+  const h = heroFighter(w, 33, 20);
+  installMissionAi(w, { spells });
+  h.hp = h.maxHp = 5000;
+  w.damage(h, a, 1);
+  run(w, sec(3));
+  check(b.order.type === "attack" || b.order.type === "cast" || b.state === "attack", `o companheiro também ataca (${b.order.type})`);
+}
+
+console.log("\n[magia de IA] xamã orc cura aliados e se protege; lich lança magias ofensivas");
+{
+  const w = makeWorld();
+  const shaman = mon(w, 653, 2, 20, 20), orc = mon(w, 608, 2, 22, 20);
+  installMissionAi(w, { spells });
+  check(shaman.spells.some(s => Number(s.id) === SPELL.Heal), `xamã conhece Heal (${shaman.spells.map(s => s.name).join(", ")})`);
+  orc.hp = 10;
+  let healed = false;
+  run(w, sec(10), ev => { if (ev.some(e => e.type === "heal" && e.unit === orc.id)) healed = true; return healed; });
+  check(healed && orc.hp > 10, `xamã curou o orc ferido (vida ${orc.hp}/${orc.maxHp})`);
+
+  const w2 = makeWorld(11);
+  const lich = mon(w2, 672, 2, 20, 20);
+  const h = heroFighter(w2, 26, 20);
+  installMissionAi(w2, { spells });
+  h.hp = h.maxHp = 5000;
+  const cast = new Set<string>();
+  run(w2, sec(30), ev => { for (const e of ev) if (e.type === "spell" && e.unit === lich.id) cast.add(e.spell); });
+  check(cast.size >= 2, `lich lançou magias ofensivas variadas (${[...cast].map(id => spells[id]?.name).join(", ")})`);
+}
+
+console.log("\n[magia de chance] Troll.4 (Hydun): Stone Curse 10% no lugar do golpe [exe 0x56acc8]");
+{
+  const w = makeWorld(3);
+  const troll = mon(w, 623, 2, 20, 20);
+  const h = heroFighter(w, 21, 20);
+  installMissionAi(w, { spells });
+  h.hp = h.maxHp = 100000;
+  check(troll.procSpells.length === 1 && troll.procSpells[0]!.chance === 10, "Troll.4 tem Stone Curse com 10%");
+  let stoned = false;
+  run(w, sec(90), ev => { if (ev.some(e => e.type === "effect" && e.unit === h.id && e.kind === "stone" && e.on)) stoned = true; return stoned; });
+  check(stoned && h.hasBuff("stone"), "herói virou pedra");
+  const sp = h.stats.speed;
+  check(w.speedOf(h) === 0 && sp > 0, "petrificado não anda");
+}
+
+// ------------------------------------------------------------------------------------------------ fuga/recuo
+console.log("\n[fuga/recuo] Wimpy, Withdraw e Retreat Mode");
+{
+  const w = makeWorld();
+  const bat = mon(w, 624, 2, 20, 20);   // Bat: Wimpy 4
+  const h = heroFighter(w, 22, 20);
+  installMissionAi(w, { spells });
+  check(bat.wimpyHp === 4, `morcego foge com vida ≤ 4 (${bat.wimpyHp})`);
+  bat.hp = 3;
+  let fled = false;
+  run(w, sec(3), ev => { if (ev.some(e => e.type === "flee" && e.unit === bat.id)) fled = true; return fled; });
+  check(fled, "morcego ferido foge");
+  run(w, sec(4));
+  check(dist(bat, h) > 4, `e se afasta (${dist(bat, h).toFixed(1)} células)`);
+
+  const w2 = makeWorld();
+  const archer = mon(w2, 612, 2, 20, 20); // Orc Archer: Withdraw 90 (> vida 60) → sempre recua de quem chega a 2 células
+  const h2 = heroFighter(w2, 26, 20);
+  installMissionAi(w2, { spells });
+  h2.hp = h2.maxHp = 5000;
+  w2.command(h2, { type: "attack", target: archer.id });
+  let retreats = 0;
+  run(w2, sec(15), () => { if (archer.order.type === "retreat") retreats++; });
+  check(retreats > 0, "arqueiro orc recua quando o herói encosta (kiting)");
+
+  const w3 = makeWorld();
+  const h3 = heroFighter(w3, 10, 10);
+  const merc = mon(w3, 612, 1, 12, 10);
+  installMissionAi(w3, { spells, settings: { retreatMode: "medium" } });
+  check(h3.wimpyHp === Math.floor(h3.maxHp * 0.3) && merc.withdrawHp === Math.floor(merc.maxHp * 0.6), `Retreat Mode médio: fuga 30%, arqueiro recua a 60% (${h3.wimpyHp}, ${merc.withdrawHp})`);
+  applyAiSettings(w3, { retreatMode: "never" });
+  check(h3.wimpyHp === 0 && merc.withdrawHp === 0, "Retreat Mode nunca: sem fuga");
+}
+
+// ------------------------------------------------------------------------------------------------ aliados
+console.log("\n[aliados] mercenário segue o herói (formação) e o defende");
+{
+  const w = makeWorld();
+  const h = heroFighter(w, 10, 10);
+  const m1 = mon(w, 608, 1, 8, 10), m2 = mon(w, 612, 1, 8, 12);
+  installMissionAi(w, { spells, settings: { formationMode: "on" } });
+  attachFollowers(w, h, [m1, m2]);
+  w.command(h, { type: "move", x: 30, y: 10 });
+  run(w, sec(25), () => h.cx === 30 && dist(m1, h) <= 3 && dist(m2, h) <= 3);
+  check(dist(m1, h) <= 3.2 && dist(m2, h) <= 3.2, `seguem o herói (distâncias ${dist(m1, h).toFixed(1)}, ${dist(m2, h).toFixed(1)})`);
+  const enemy = mon(w, 608, 2, 34, 14);
+  h.hp = h.maxHp = 5000;
+  w.damage(enemy, h, 1);
+  let defended = false;
+  run(w, sec(6), () => { defended = (m1.order.type === "attack" && m1.order.target === enemy.id) || (m2.order.type === "attack" && m2.order.target === enemy.id); return defended; });
+  check(defended, "mercenário ataca quem bateu no herói");
+}
+
+// ------------------------------------------------------------------------------------------------ herói automático
+console.log("\n[herói] comportamento automático e modos de comando");
+{
+  const w = makeWorld();
+  const h = heroFighter(w, 20, 20);
+  const orc = mon(w, 608, 2, 21, 20);
+  installMissionAi(w, { spells });
+  w.dip[2]![1] = 0; // o orc não ataca: medimos só a reação do herói parado
+  let hit = false;
+  run(w, sec(4), ev => { if (ev.some(e => e.type === "attack" && e.unit === h.id)) hit = true; return hit; });
+  check(hit, "herói parado ataca inimigo ao alcance (Stand ground automático)");
+  // Guard: volta ao posto
+  const w2 = makeWorld();
+  const h2 = heroFighter(w2, 20, 20);
+  const o2 = mon(w2, 608, 2, 26, 20);
+  installMissionAi(w2, { spells });
+  w2.dip[2]![1] = 0;
+  w2.command(h2, { type: "guard", x: 20, y: 20 });
+  let went = false;
+  run(w2, sec(8), () => { if (h2.order.type === "attack") went = true; return went; });
+  check(went, "Guard: herói sai do posto para atacar quem entra no raio");
+  w2.kill(o2, h2);
+  run(w2, sec(10), () => h2.cx === 20 && h2.cy === 20);
+  check(h2.cx === 20 && h2.cy === 20 && h2.order.type === "guard", `Guard: volta ao posto depois (${h2.cx},${h2.cy}, ordem ${h2.order.type})`);
+  // Stand ground: não persegue
+  const w3 = makeWorld();
+  const h3 = heroFighter(w3, 20, 20);
+  mon(w3, 608, 2, 24, 20);
+  installMissionAi(w3, { spells });
+  w3.dip[2]![1] = 0;
+  w3.command(h3, { type: "hold" });
+  run(w3, sec(5));
+  check(h3.cx === 20 && h3.cy === 20, "Stand ground: não sai do lugar por inimigo fora do alcance");
+  // Retreat
+  const w4 = makeWorld();
+  const h4 = heroFighter(w4, 20, 20);
+  mon(w4, 608, 2, 22, 20);
+  installMissionAi(w4, { spells });
+  w4.command(h4, { type: "retreat" });
+  run(w4, sec(6));
+  check(h4.cx < 18, `Retreat: herói se afasta dos inimigos (x ${h4.cx})`);
+}
+
+console.log("\n[autocast] herói mago (CTRL+U)");
+{
+  const w = makeWorld();
+  const h = heroMage(w, 20, 20, 30);
+  const m = mon(w, 608, 1, 22, 20);
+  installMissionAi(w, { spells, heroSpellIds: [24, 27, 20, 21] });
+  check(autocastLevel(w) === 1, "nível padrão 1 (Heal/Shield)");
+  h.hp = Math.floor(h.maxHp / 2);
+  const casts: string[] = [];
+  run(w, sec(6), ev => { for (const e of ev) if (e.type === "spell" && e.unit === h.id) casts.push(`${spells[e.spell]?.name}${e.target === h.id ? "@self" : "@" + e.target}`); });
+  check(casts.includes("Heal@self"), `cura a si mesmo (${casts.join(", ")})`);
+  check(casts.includes("Shield@self"), "põe Shield em si");
+  check(cycleAutocast(w) === 2, "CTRL+U → nível 2");
+  m.lastHurtTick = w.tick; // mercenário em combate
+  h.mana = h.maxMana;
+  const c2: string[] = [];
+  run(w, sec(8), ev => { for (const e of ev) if (e.type === "spell" && e.unit === h.id) c2.push(`${spells[e.spell]?.name}@${e.target}`); m.lastHurtTick = w.tick; });
+  check(c2.some(s => s.startsWith("Bless") || s.startsWith("Haste")), `nível 2: Bless/Haste em quem luta (${c2.join(", ")})`);
+  setAutocastLevel(w, 0);
+  h.hp = 5;
+  const c3: string[] = [];
+  run(w, sec(4), ev => { for (const e of ev) if (e.type === "spell" && e.unit === h.id) c3.push(e.spell); });
+  check(c3.length === 0, "autocast desligado: nada");
+}
+
+// ------------------------------------------------------------------------------------------------ efeitos das magias
+console.log("\n[magias] efeitos");
+{
+  const w = makeWorld(5);
+  const h = heroMage(w, 10, 20, 40);
+  const a = mon(w, 608, 2, 20, 20), b = mon(w, 608, 2, 21, 20), far = mon(w, 608, 2, 20, 26);
+  const skel = mon(w, 664, 2, 33, 33);
+  skel.ai = { type: "hold" };
+  installMissionAi(w, { spells, heroSpellIds: [2, 3, 6, 9, 11, 12, 14, 15, 17, 18, 21, 22, 23, 26, 28, 29] });
+  for (const u of [a, b, far]) { u.ai = { type: "hold" }; u.hp = u.maxHp = 10000; }
+  w.dip[2]![1] = 0;
+  setAutocastLevel(w, 0);
+  const cast = (id: number, target?: Unit, x?: number, y?: number) => {
+    h.mana = h.maxMana = 5000;
+    h.cooldown = 0;
+    w.command(h, { type: "cast", spell: String(id), target: target?.id, x, y });
+    run(w, sec(3), () => h.order.type === "none" && h.state === "idle");
+  };
+  const hpA = a.hp, hpB = b.hp, hpF = far.hp;
+  h.x = 14.5; w.teleport(h, 14, 20);
+  cast(SPELL.Fireball, a);
+  run(w, sec(2));
+  check(a.hp < hpA && b.hp < hpB && far.hp === hpF, `Fireball explode em raio (A ${hpA - a.hp}, B ${hpB - b.hp}, longe 0)`);
+  const before = a.hp;
+  cast(SPELL.WallOfFire, undefined, 20, 20);
+  check(w.areas.some(x => x.spell === String(SPELL.WallOfFire)), "Wall of Fire cria área no chão");
+  run(w, sec(4));
+  check(a.hp < before, `Wall of Fire queima com o tempo (${before - a.hp})`);
+  cast(SPELL.PoisonCloud, undefined, 21, 20);
+  run(w, sec(3));
+  check(b.hasBuff("poison"), "Poison Cloud envenena");
+  const spd = w.speedOf(h);
+  cast(SPELL.Haste, h);
+  check(w.speedOf(h) > spd, `Haste acelera (${spd.toFixed(2)} → ${w.speedOf(h).toFixed(2)} c/s)`);
+  cast(SPELL.Slow, a);
+  check(w.speedOf(a) < a.stats.speed, "Slow reduz a velocidade do alvo");
+  cast(SPELL.Curse, a);
+  check(a.hasBuff("curse"), "Curse no alvo");
+  cast(SPELL.StoneCurse, far);
+  check(far.hasBuff("stone") && w.stunned(far), "Stone Curse petrifica");
+  const aHp = a.hp; h.hp = 1;
+  cast(SPELL.DrainLife, a);
+  run(w, sec(2));
+  check(a.hp < aHp && h.hp > 1, `Drain Life tira e devolve vida (alvo −${aHp - a.hp}, herói ${h.hp})`);
+  cast(SPELL.Invisibility, h);
+  check(h.hasBuff("invisible") && !w.canSee(a, h), `Invisibility: inimigo comum não vê o herói (${JSON.stringify(h.buffs.map(b => [b.kind, b.amount]))}, mana ${h.mana}, ${h.spells.find(s => s.id === "12")?.name})`);
+  cast(SPELL.Light, undefined, 20, 20);
+  run(w, sec(2));
+  check(w.sightOf(a) > a.stats.sight, "Light aumenta a visão de quem está na área");
+  const hx = h.cx;
+  cast(SPELL.Teleport, undefined, 30, 30);
+  check(h.cx !== hx && Math.abs(h.cx - 30) <= 1 && Math.abs(h.cy - 30) <= 1, `Teleport leva o herói ao ponto (${h.cx},${h.cy})`);
+  cast(SPELL.WallOfEarth, undefined, 34, 30);
+  check(w.areas.some(x => x.kind === "wall") && !w.grid.walkable(34, 30), "Wall of Earth bloqueia a passagem");
+  // Control Spirit em esqueleto
+  cast(SPELL.AnimateDead, skel);
+  check(skel.player === 1, `Animate Dead (Control Spirit) toma o esqueleto (dono ${skel.player})`);
+  // snapshot com áreas/efeitos ativos → mesmo estado depois
+  const snap = snapshotWorld(w);
+  run(w, sec(5));
+  const after = JSON.stringify(snapshotWorld(w));
+  // remonta um mundo igual e aplica o snapshot
+  const w2 = makeWorld(5);
+  const h2 = heroMage(w2, 10, 20, 40);
+  const a2 = mon(w2, 608, 2, 20, 20), b2 = mon(w2, 608, 2, 21, 20), f2 = mon(w2, 608, 2, 20, 26);
+  void h2; void a2; void b2; void f2;
+  mon(w2, 664, 2, 33, 33).ai = { type: "hold" };
+  installMissionAi(w2, { spells, heroSpellIds: [2, 3, 6, 9, 11, 12, 14, 15, 17, 18, 21, 22, 23, 26, 28, 29] });
+  restoreWorld(w2, JSON.parse(JSON.stringify(snap)));
+  check(!w2.grid.walkable(34, 30), "restaurar o snapshot reaplica a Wall of Earth");
+  run(w2, sec(5));
+  check(JSON.stringify(snapshotWorld(w2)) === after, "snapshot com áreas/efeitos: continuação idêntica (determinístico)");
+  run(w, sec(40));
+  check(w.grid.walkable(34, 30) && !w.areas.length, "áreas expiram e a parede some");
+}
+
+console.log(`\n${passes} ok, ${failures} falha(s)`);
+if (failures) proc.exitCode = 1;
