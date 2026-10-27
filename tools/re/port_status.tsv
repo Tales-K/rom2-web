@@ -196,7 +196,7 @@ addr	name	size	file	line	status	ts	note
 0x4f0548	FUN_004f0548	32	game/g_4f0000.c	143	pending		
 0x4f0568	FUN_004f0568	324	game/g_4f0000.c	154	pending		
 0x4f06ac	FUN_004f06ac	390	game/g_4f0000.c	199	pending		
-0x4f0832	FUN_004f0832	61	game/g_4f0000.c	263	pending		
+0x4f0832	FUN_004f0832	61	game/g_4f0000.c	263	pending		stub NotPorted em walk_action.ts:fn_0x5503af (exec 0; objeto de célula de tipo ≠ 0x17)
 0x4f086f	FUN_004f086f	70	game/g_4f0000.c	278	pending		
 0x4f08c0	Server_Tick	689	game/g_4f0000.c	304	pending		
 0x4f0b71	FUN_004f0b71	246	game/g_4f0000.c	391	pending		
@@ -604,7 +604,7 @@ addr	name	size	file	line	status	ts	note
 0x52b152	~CAtlWinModule	72	game/g_520000.c	8088	pending		
 0x52b19a	FUN_0052b19a	34	game/g_520000.c	8115	pending		
 0x52b1bc	FUN_0052b1bc	110	game/g_520000.c	8126	pending		
-0x52b22a	FUN_0052b22a	28	game/g_520000.c	8156	pending		
+0x52b22a	FUN_0052b22a	28	game/g_520000.c	8156	ported	walk_action.ts:fn_0x52b22a	pares 3 episódios 100% (exe_walkaction.ts)
 0x52b246	FUN_0052b246	59	game/g_520000.c	8166	pending		
 0x52b2bd	FUN_0052b2bd	100	game/g_520000.c	8193	pending		
 0x52b321	FUN_0052b321	312	game/g_520000.c	8221	pending		
@@ -690,20 +690,20 @@ addr	name	size	file	line	status	ts	note
 0x53af10	FUN_0053af10	71	game/g_530000.c	6145	pending		
 0x53af60	FUN_0053af60	77	game/g_530000.c	6160	pending		
 0x53afb0	FUN_0053afb0	50	game/g_530000.c	6173	pending		
-0x53aff0	FUN_0053aff0	19	game/g_530000.c	6188	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
+0x53aff0	FUN_0053aff0	19	game/g_530000.c	6188	out		MFC: exe/mfc.ts:CListPtr.removeAll; provada por exe_walkaction.ts (0x54ec6a)
 0x53b010	FUN_0053b010	77	game/g_530000.c	6198	pending		
-0x53b060	FUN_0053b060	14	game/g_530000.c	6211	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
-0x53b070	FUN_0053b070	67	game/g_530000.c	6220	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
-0x53b0c0	FUN_0053b0c0	17	game/g_530000.c	6240	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
-0x53b0e0	FUN_0053b0e0	41	game/g_530000.c	6249	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
+0x53b060	FUN_0053b060	14	game/g_530000.c	6211	out		MFC: exe/mfc.ts:CListPtrIter; provada por exe_walkaction.ts (0x56fc69)
+0x53b070	FUN_0053b070	67	game/g_530000.c	6220	out		MFC: exe/mfc.ts:CListPtrIter; provada por exe_walkaction.ts (0x56fc69)
+0x53b0c0	FUN_0053b0c0	17	game/g_530000.c	6240	out		MFC: exe/mfc.ts:CListPtrIter; provada por exe_walkaction.ts (0x56fc69)
+0x53b0e0	FUN_0053b0e0	41	game/g_530000.c	6249	out		MFC: exe/mfc.ts:CListPtrIter; provada por exe_walkaction.ts (0x56fc69)
 0x53b110	FUN_0053b110	14	game/g_530000.c	6266	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
 0x53b120	FUN_0053b120	67	game/g_530000.c	6275	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
 0x53b170	FUN_0053b170	41	game/g_530000.c	6295	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
 0x53b1a0	FUN_0053b1a0	17	game/g_530000.c	6312	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
 0x53b1c0	FUN_0053b1c0	39	game/g_530000.c	6321	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
 0x53b1f0	FUN_0053b1f0	50	game/g_530000.c	6334	pending		
-0x53b230	FUN_0053b230	115	game/g_530000.c	6349	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
-0x53b2b0	FUN_0053b2b0	39	game/g_530000.c	6370	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
+0x53b230	FUN_0053b230	115	game/g_530000.c	6349	out		MFC: exe/mfc.ts:CListPtr.removeAll; provada por exe_walkaction.ts (0x54ec6a)
+0x53b2b0	FUN_0053b2b0	39	game/g_530000.c	6370	out		MFC: exe/mfc.ts:CListPtrIter; provada por exe_walkaction.ts (0x56fc69)
 0x53b2e0	FUN_0053b2e0	109	game/g_530000.c	6383	pending		
 0x53b350	FUN_0053b350	91	game/g_530000.c	6405	pending		
 0x53b3b0	FUN_0053b3b0	50	game/g_530000.c	6432	pending		
@@ -756,8 +756,8 @@ addr	name	size	file	line	status	ts	note
 0x53c3f0	FUN_0053c3f0	24	game/g_530000.c	7305	pending		
 0x53c410	FUN_0053c410	92	game/g_530000.c	7315	pending		
 0x53c560	FUN_0053c560	81	game/g_530000.c	7387	pending		
-0x53c5c0	FUN_0053c5c0	87	game/g_530000.c	7410	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
-0x53c830	FUN_0053c830	211	game/g_530000.c	7553	pending		
+0x53c5c0	FUN_0053c5c0	87	game/g_530000.c	7410	out		MFC: exe/mfc.ts:CListPtr.addTail; provada por exe_walkaction.ts (0x52b22a, 0x54ec6a)
+0x53c830	FUN_0053c830	211	game/g_530000.c	7553	out		MFC: exe/mfc.ts:CListPtr.addTail; provada por exe_walkaction.ts (0x52b22a, 0x54ec6a)
 0x53c910	FUN_0053c910	71	game/g_530000.c	7584	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
 0x53c980	FUN_0053c980	19	game/g_530000.c	7609	pending		
 0x53c9a0	FUN_0053c9a0	55	game/g_530000.c	7619	pending		
@@ -796,7 +796,7 @@ addr	name	size	file	line	status	ts	note
 0x53d6b0	FUN_0053d6b0	87	game/g_530000.c	8496	pending		
 0x53d710	FUN_0053d710	211	game/g_530000.c	8516	pending		
 0x53d7f0	FUN_0053d7f0	71	game/g_530000.c	8547	pending		
-0x53d840	FUN_0053d840	25	game/g_530000.c	8562	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
+0x53d840	FUN_0053d840	25	game/g_530000.c	8562	out		MFC: exe/mfc.ts:CListPtr.addTail; provada por exe_walkaction.ts (0x52b22a, 0x54ec6a)
 0x53d860	FUN_0053d860	186	game/g_530000.c	8572	pending		
 0x53d920	FUN_0053d920	21	game/g_530000.c	8599	pending		
 0x53d940	FUN_0053d940	186	game/g_530000.c	8608	pending		
@@ -928,7 +928,7 @@ addr	name	size	file	line	status	ts	note
 0x542150	FUN_00542150	81	game/g_540000.c	2227	pending		
 0x5421b0	FUN_005421b0	115	game/g_540000.c	2250	out		MFC: exe/mfc.ts:CListWord.removeAll (CList::RemoveAll genérico); provada por exe_wave.ts (pares de 0x55f3e0/0x55f430/0x55f460/0x55f110/0x55f170/0x5421b0 e dos chamadores 100%)
 0x5422d0	FUN_005422d0	43	game/g_540000.c	2303	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x542300	FUN_00542300	89	game/g_540000.c	2316	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
+0x542300	FUN_00542300	89	game/g_540000.c	2316	out		MFC: exe/mfc.ts:CListWord.addTail; provada por exe_walkaction.ts (0x55574d)
 0x542360	FUN_00542360	17	game/g_540000.c	2336	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x542380	FUN_00542380	17	game/g_540000.c	2345	ported	unitGetKind	exe_walk.ts: pares 100% (3 episódios)
 0x5423a0	FUN_005423a0	11	game/g_540000.c	2354	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
@@ -1263,8 +1263,8 @@ addr	name	size	file	line	status	ts	note
 0x54d76e	Path_WaveSearch	3119	game/g_540000.c	12551	ported	wave.ts:pathWaveSearch	exe_wave.ts: pares 100% (3 episódios), 1 a cada 3 chamadas; + Unicorn fuzz_wave.py (refs/oracle/fuzz/0x54d76e.jsonl) 796/800 iguais, 4 indefinidos no exe (backtrace com lixo de pilha); stub cliente 0x5052d2
 0x54e58c	Path_BacktraceStatic	762	game/g_540000.c	12985	ported	wave.ts:pathBacktraceStatic	exe_wave.ts: pares 100% (3 episódios); + Unicorn fuzz_wave.py (refs/oracle/fuzz/0x54d76e.jsonl) 796/800 iguais, 4 indefinidos no exe; 1º passo sem vizinho = lixo de pilha no exe → a porta lança BACKTRACE_UB
 0x54e886	Path_BacktraceDynamic	762	game/g_540000.c	13114	ported	wave.ts:pathBacktraceDynamic	exe_wave.ts: pares 100% (3 episódios); + Unicorn fuzz_wave.py (refs/oracle/fuzz/0x54d76e.jsonl) 796/800 iguais, 4 indefinidos no exe; 1º passo sem vizinho = lixo de pilha no exe → a porta lança BACKTRACE_UB
-0x54ec6a	Grid_UnitsInRings	637	game/g_540000.c	13272	pending		
-0x54f618	FUN_0054f618	229	game/g_540000.c	13548	pending		
+0x54ec6a	Grid_UnitsInRings	637	game/g_540000.c	13272	ported	walk_action.ts:gridUnitsInRings	pares 3 episódios 100% (exe_walkaction.ts)
+0x54f618	FUN_0054f618	229	game/g_540000.c	13548	ported	walk_action.ts:fn_0x54f618	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
 0x54f84c	FUN_0054f84c	78	game/g_540000.c	13647	ported	occRecConstruct	exe_walk.ts: pares 100% (3 episódios)
 0x54f89a	FUN_0054f89a	27	game/g_540000.c	13669	ported	occRecClear	exe_walk.ts: pares 100% (3 episódios)
 0x54f955	FUN_0054f955	28	game/g_540000.c	13723	pending		
@@ -1285,10 +1285,10 @@ addr	name	size	file	line	status	ts	note
 0x54ffb0	FUN_0054ffb0	16	game/g_540000.c	14054	ported	path.ts:mapObjCellX	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x54ffc0	FUN_0054ffc0	17	game/g_540000.c	14063	ported	path.ts:mapObjCellY	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x550008	FUN_00550008	514	game/g_550000.c	3	pending		
-0x55020a	Unit_PlaceOnCells	421	game/g_550000.c	68	pending		
-0x5503af	FUN_005503af	744	game/g_550000.c	125	pending		
-0x550697	FUN_00550697	168	game/g_550000.c	214	pending		
-0x55073f	FUN_0055073f	353	game/g_550000.c	245	pending		
+0x55020a	Unit_PlaceOnCells	421	game/g_550000.c	68	ported	walk_action.ts:unitPlaceOnCells	pares 3 episódios 100% (exe_walkaction.ts)
+0x5503af	FUN_005503af	744	game/g_550000.c	125	ported	walk_action.ts:fn_0x5503af	pares 3 episódios 100% (exe_walkaction.ts); objeto de célula ≠ 0x17 chama 0x4f0832 NotPorted (exec 0)
+0x550697	FUN_00550697	168	game/g_550000.c	214	ported	walk_action.ts:fn_0x550697	pares 3 episódios 100% (exe_walkaction.ts)
+0x55073f	FUN_0055073f	353	game/g_550000.c	245	ported	walk_action.ts:fn_0x55073f	pares 3 episódios 100% (exe_walkaction.ts)
 0x5508a0	FUN_005508a0	198	game/g_550000.c	302	ported	wave.ts:fn_0x5508a0	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
 0x550966	FUN_00550966	237	game/g_550000.c	336	ported	wave.ts:fn_0x550966	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
 0x550a53	FUN_00550a53	67	game/g_550000.c	369	ported	wave.ts:fn_0x550a53	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
@@ -1314,7 +1314,7 @@ addr	name	size	file	line	status	ts	note
 0x553681	FUN_00553681	35	game/g_550000.c	1982	pending		
 0x5536a4	FUN_005536a4	323	game/g_550000.c	1992	pending		
 0x55385f	FUN_0055385f	31	game/g_550000.c	2085	ported	occRecCopy	exe_walk.ts: pares 100% (3 episódios)
-0x553891	Unit_RemoveFromCells	54	game/g_550000.c	2104	pending		
+0x553891	Unit_RemoveFromCells	54	game/g_550000.c	2104	ported	walk_action.ts:unitRemoveFromCells	pares 3 episódios 100% (exe_walkaction.ts)
 0x5538c7	FUN_005538c7	286	game/g_550000.c	2119	pending		
 0x5539e5	FUN_005539e5	162	game/g_550000.c	2174	pending		
 0x553a87	FUN_00553a87	44	game/g_550000.c	2211	pending		
@@ -1324,27 +1324,27 @@ addr	name	size	file	line	status	ts	note
 0x553d51	FUN_00553d51	2247	game/g_550000.c	2308	pending		
 0x554626	FUN_00554626	807	game/g_550000.c	2536	pending		
 0x55494d	Path_RockClass	650	game/g_550000.c	2628	pending		
-0x554fd2	FUN_00554fd2	516	game/g_550000.c	2816	pending		
+0x554fd2	FUN_00554fd2	516	game/g_550000.c	2816	ported	walk_action.ts:fn_0x554fd2	pares 3 episódios 100% (exe_walkaction.ts); AVANÇO DA POSIÇÃO FINA POR TIQUE (via 0x555b38 do despachante 0x56dca2 com IA+9==3)
 0x5551d6	FUN_005551d6	25	game/g_550000.c	2859	ported	mapObjCenterFraction	exe_walk.ts: pares 100% (3 episódios)
-0x5551ef	Unit_WalkWait	318	game/g_550000.c	2870	pending		
-0x55532d	FUN_0055532d	109	game/g_550000.c	2903	pending		
+0x5551ef	Unit_WalkWait	318	game/g_550000.c	2870	ported	walk_action.ts:unitWalkWait	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
+0x55532d	FUN_0055532d	109	game/g_550000.c	2903	ported	walk_action.ts:fn_0x55532d	pares 3 episódios 100% (exe_walkaction.ts)
 0x55539a	FUN_0055539a	119	game/g_550000.c	2922	pending		
-0x555411	Unit_ActionWalk	828	game/g_550000.c	2949	pending		
-0x55574d	Unit_ActionChase	1003	game/g_550000.c	3060	pending		
-0x555b38	Path_ClearDynamic	326	game/g_550000.c	3166	pending		
-0x555c7e	FUN_00555c7e	324	game/g_550000.c	3213	pending		
+0x555411	Unit_ActionWalk	828	game/g_550000.c	2949	ported	walk_action.ts:unitActionWalk	pares 3 episódios 100% (exe_walkaction.ts)
+0x55574d	Unit_ActionChase	1003	game/g_550000.c	3060	ported	walk_action.ts:unitActionChase	pares 3 episódios 100% (exe_walkaction.ts)
+0x555b38	Path_ClearDynamic	326	game/g_550000.c	3166	ported	walk_action.ts:pathClearDynamic	pares 3 episódios 100% (exe_walkaction.ts); ramo do teleporte (tipo 0x17) chama 0x55a96c NotPorted (exec 0)
+0x555c7e	FUN_00555c7e	324	game/g_550000.c	3213	ported	walk_action.ts:fn_0x555c7e	pares 3 episódios 100% (exe_walkaction.ts)
 0x555dc2	Path_RefreshDynamic	452	game/g_550000.c	3257	ported	wave.ts:pathRefreshDynamic	exe_wave.ts: pares 100% (3 episódios), 1 a cada 3 chamadas
 0x5563ca	FUN_005563ca	82	game/g_550000.c	3481	ported	wave.ts:fn_0x5563ca	exe_wave.ts: pares 100% (3 episódios)
 0x55641c	FUN_0055641c	30	game/g_550000.c	3506	pending		
-0x55643a	FUN_0055643a	13	game/g_550000.c	3519	pending		
+0x55643a	FUN_0055643a	13	game/g_550000.c	3519	out		destrutor/stub sem estado (thiscall vazio, ret 4)
 0x556447	FUN_00556447	13	game/g_550000.c	3528	out		destrutor/stub sem estado (só chama destrutor vazio ou retorna)
-0x556454	Unit_TurnStep	507	game/g_550000.c	3537	pending		
+0x556454	Unit_TurnStep	507	game/g_550000.c	3537	ported	walk_action.ts:unitTurnStep	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
 0x55687d	FUN_0055687d	103	game/g_550000.c	3647	ported	fn_0x55687d	exe_walk.ts: pares 100% (3 episódios)
-0x5568e4	FUN_005568e4	584	game/g_550000.c	3681	pending		
-0x556b2c	Dir_FromDelta16	588	game/g_550000.c	3796	pending		
-0x556d78	FUN_00556d78	42	game/g_550000.c	3898	pending		
-0x556da2	FUN_00556da2	43	game/g_550000.c	3911	pending		
-0x556dcd	AI_UnitDistance	393	game/g_550000.c	3925	pending		
+0x5568e4	FUN_005568e4	584	game/g_550000.c	3681	ported	walk_action.ts:fn_0x5568e4	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
+0x556b2c	Dir_FromDelta16	588	game/g_550000.c	3796	ported	walk_action.ts:dirFromDelta16	exec 0: varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
+0x556d78	FUN_00556d78	42	game/g_550000.c	3898	ported	walk_action.ts:fn_0x556d78	pares 3 episódios 100% (exe_walkaction.ts)
+0x556da2	FUN_00556da2	43	game/g_550000.c	3911	ported	walk_action.ts:fn_0x556da2	exec 0: varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
+0x556dcd	AI_UnitDistance	393	game/g_550000.c	3925	ported	walk_action.ts:aiUnitDistance	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
 0x556f56	FUN_00556f56	273	game/g_550000.c	3970	ported	wave.ts:fn_0x556f56	exec 0: Unicorn 20000 casos (refs/oracle/fuzz/0x556f56.jsonl) 100%
 0x557a89	FUN_00557a89	71	game/g_550000.c	4307	pending		
 0x557cf1	Dir_Sector16	535	game/g_550000.c	4440	ported	path.ts:dirSector16	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
@@ -1354,10 +1354,10 @@ addr	name	size	file	line	status	ts	note
 0x558b75	FUN_00558b75	29	game/g_550000.c	4967	pending		
 0x558b92	Grid_FineCoordCentroid	458	game/g_550000.c	4977	pending		
 0x558f4b	FUN_00558f4b	25	game/g_550000.c	5152	pending		
-0x558f64	FUN_00558f64	133	game/g_550000.c	5162	pending		
+0x558f64	FUN_00558f64	133	game/g_550000.c	5162	ported	walk_action.ts:fn_0x558f64	pares 3 episódios 100% (exe_walkaction.ts) (AX)
 0x558fe9	AI_TeleportTargetDist	135	game/g_550000.c	5206	ported	wave.ts:aiTeleportTargetDist	exe_wave.ts: pares 100% (3 episódios)
 0x55915a	FUN_0055915a	59	game/g_550000.c	5285	ported	fn_0x55915a	exe_walk.ts: pares 100% (3 episódios)
-0x559195	Unit_WalkFormula	929	game/g_550000.c	5302	pending		
+0x559195	Unit_WalkFormula	929	game/g_550000.c	5302	ported	walk_action.ts:unitWalkFormula	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts); x87: ftol(v*d*0.707 em double)
 0x559536	FUN_00559536	114	game/g_550000.c	5396	pending		
 0x5595e5	FUN_005595e5	156	game/g_550000.c	5433	pending		
 0x5596ff	FUN_005596ff	401	game/g_550000.c	5503	pending		
@@ -1365,11 +1365,11 @@ addr	name	size	file	line	status	ts	note
 0x559d70	FUN_00559d70	381	game/g_550000.c	5792	pending		
 0x559eed	FUN_00559eed	542	game/g_550000.c	5830	pending		
 0x55a10b	FUN_0055a10b	60	game/g_550000.c	5886	pending		
-0x55a147	FUN_0055a147	375	game/g_550000.c	5903	pending		
+0x55a147	FUN_0055a147	375	game/g_550000.c	5903	ported	walk_action.ts:fn_0x55a147	pares 3 episódios 100% (exe_walkaction.ts); divide o custo da célula por 4 na grade (escrita permanente)
 0x55a82c	FUN_0055a82c	95	game/g_550000.c	6231	pending		
 0x55a88b	FUN_0055a88b	109	game/g_550000.c	6257	pending		
 0x55a928	Unit_CanPlaceAt	68	game/g_550000.c	6295	pending		
-0x55a96c	Unit_TeleportTo	181	game/g_550000.c	6315	pending		
+0x55a96c	Unit_TeleportTo	181	game/g_550000.c	6315	pending		stub NotPorted em walk_action.ts:unitTeleportTo (exec 0; chamado por 0x555b38 no teleporte da célula)
 0x55aa21	AI_AngleTiebreak	84	game/g_550000.c	6345	pending		
 0x55aa75	FUN_0055aa75	22	game/g_550000.c	6368	pending		
 0x55aa96	FUN_0055aa96	30	game/g_550000.c	6387	pending		
@@ -1607,7 +1607,7 @@ addr	name	size	file	line	status	ts	note
 0x56dbfb	FUN_0056dbfb	41	game/g_560000.c	8648	pending		
 0x56dc24	ReleaseAccessors	37	game/g_560000.c	8659	pending		
 0x56dca2	Unit_ActionDispatcher	1719	game/g_560000.c	8696	pending		
-0x56e4ac	Unit_WalkNear	177	game/g_560000.c	8913	pending		
+0x56e4ac	Unit_WalkNear	177	game/g_560000.c	8913	ported	walk_action.ts:unitWalkNear	pares 3 episódios 100% (exe_walkaction.ts)
 0x56e55d	Unit_Turn	95	game/g_560000.c	8941	pending		
 0x56e5bc	FUN_0056e5bc	252	game/g_560000.c	8960	pending		
 0x56e6b8	FUN_0056e6b8	523	game/g_560000.c	8991	pending		
@@ -1629,7 +1629,7 @@ addr	name	size	file	line	status	ts	note
 0x56f765	AI_FleePoint	235	game/g_560000.c	9644	pending		
 0x56f850	AI_GroupMaxScanRange	531	game/g_560000.c	9690	pending		
 0x56fa63	AI_GroupCentroid	518	game/g_560000.c	9765	pending		
-0x56fc69	FUN_0056fc69	459	game/g_560000.c	9846	pending		
+0x56fc69	FUN_0056fc69	459	game/g_560000.c	9846	ported	walk_action.ts:fn_0x56fc69	pares 3 episódios 100% (exe_walkaction.ts) (14 chamadas)
 0x56fe34	FUN_0056fe34	25	game/g_560000.c	9929	pending		
 0x56fe4d	FUN_0056fe4d	570	game/g_560000.c	9939	pending		
 0x570087	AI_PlayerThink	108	game/g_570000.c	3	pending		

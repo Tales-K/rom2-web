@@ -92,6 +92,16 @@ export class CListWord {
     return n;
   }
 
+  /** 0x542300 AddTail (thiscall): insere na cauda; devolve o nó (POSITION). */
+  addTail(v: number): CListNode {
+    const n = this.newNode(this.tail, null);
+    n.data = v & 0xffff;
+    if (this.tail === null) this.head = n;
+    else this.tail.next = n;
+    this.tail = n;
+    return n;
+  }
+
   /** 0x55f110 RemoveHead (fastcall): tira o nó-cabeça e devolve o dado (u16). Lista vazia: o exe lê [8] e falha. */
   removeHead(): number {
     const n = this.head;
@@ -116,6 +126,74 @@ export class CListWord {
     const r: number[] = [];
     for (let n = this.head; n; n = n.next) r.push(n.data);
     return r;
+  }
+}
+
+/** Nó de CList<void*> (0xc bytes): +0 pNext, +4 pPrev, +8 dado u32 (endereço de unidade). */
+export class CListPtrNode {
+  next: CListPtrNode | null = null;
+  prev: CListPtrNode | null = null;
+  data = 0;
+}
+
+/**
+ * CList<void*> (cabeçalho 0x1c como CListWord). Instância: a lista de unidades de 0x54ec6a em mapa+0x54010. O iterador do
+ * jogo (8 bytes: +0 lista, +4 POSITION) é `CListPtrIter`.
+ */
+export class CListPtr {
+  head: CListPtrNode | null = null; // +0x04
+  tail: CListPtrNode | null = null; // +0x08
+  count = 0;                        // +0x0c
+
+  /** 0x53aff0 → 0x53b230 RemoveAll (fastcall): destrói cada elemento (0x53b590, vazio para ponteiros) e esvazia. */
+  removeAll(): void {
+    this.count = 0;
+    this.tail = null;
+    this.head = null;
+  }
+
+  /** 0x53d840 → 0x53c5c0 AddTail (thiscall); NewNode 0x53c830 (m_nCount++). */
+  addTail(v: number): CListPtrNode {
+    const n = new CListPtrNode();
+    n.prev = this.tail;
+    this.count = (this.count + 1) | 0;
+    n.data = v >>> 0;
+    if (this.tail === null) this.head = n;
+    else this.tail.next = n;
+    this.tail = n;
+    return n;
+  }
+
+  /** Dados do início ao fim (testes). */
+  values(): number[] {
+    const r: number[] = [];
+    for (let n = this.head; n; n = n.next) r.push(n.data);
+    return r;
+  }
+}
+
+/** Iterador de CList<void*> (8 bytes; construtor 0x53b060 vazio). */
+export class CListPtrIter {
+  list: CListPtr | null = null; // +0 lista
+  pos: CListPtrNode | null = null; // +4 POSITION
+
+  /** 0x53b070 (thiscall): começa em `l` (GetHeadPosition 0x53b0c0); devolve o 1.º dado (GetNext 0x53b2b0) ou 0. */
+  first(l: CListPtr): number {
+    this.list = l;
+    this.pos = l.head;
+    return this.pos === null ? 0 : this.getNext();
+  }
+
+  /** 0x53b0e0 (fastcall): próximo dado ou 0 quando a POSITION é nula. */
+  next(): number {
+    return this.pos === null ? 0 : this.getNext();
+  }
+
+  /** 0x53b2b0 GetNext (cdecl, POSITION&). */
+  private getNext(): number {
+    const n = this.pos!;
+    this.pos = n.next;
+    return n.data >>> 0;
   }
 }
 

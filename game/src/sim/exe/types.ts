@@ -6,8 +6,9 @@
  * Lote piloto (sim/exe/path.ts): Unit_ApproachCell 0x557f08 e o seu fecho.
  * Lote 5a (sim/exe/walk.ts): objeto de mapa completo, registro de ocupação de célula, grade de flags, campos de unidade lidos pelos acessores.
  * Lote 5b (sim/exe/wave.ts): `MapRec` (o objeto de mapa/caminho inteiro, `this` das ondas), listas de caminho e sub-registros da unidade.
+ * Lote 5c (sim/exe/walk_action.ts): o andar (`WalkRec` +0x00..+0xb1: giro, passo por tique, alvo), `WorldRec`, unidades por endereço.
  */
-import { CListWord, CMapShortOcc } from "./mfc";
+import { CListPtr, CListWord, CMapShortOcc } from "./mfc";
 
 /** Objeto de mapa da unidade (alvo do ponteiro unidade+0x10). Coordenadas em células e fração (1/256 de célula). */
 export class MapObjRec {
@@ -56,19 +57,57 @@ export class UnitTypeRec {
   stats: UnitStatsRec = new UnitStatsRec(); // +0x3c ptr
 }
 
-/** Sub-registro de andar (alvo do ponteiro unidade+0x1c0). */
+/** Sub-registro de andar (alvo do ponteiro unidade+0x1c0). Direções em 1/256 de volta (0x20 = 1/8). */
 export class WalkRec {
+  dir = 0;        // +0x00 u8  direção atual
+  dirTarget = 0;  // +0x01 u8  direção desejada (0x556454, 0x555c7e)
   passMask = 0;   // +0x05 u8  máscara de passagem (AND com as grades +0x10000/+0x20000 do mapa)
+  nextCell = 0;   // +0x06 u16 próxima célula (cabeça do caminho dinâmico; 0x555c7e)
+  f09 = 0;        // +0x09 u8  contagem de refazer caminho (0xff = refazer já; 0x555411/0x55574d/0x56e4ac)
+  turnRate = 0;   // +0x0a u8  passo de giro por tique (0x5551ef, 0x556454)
+  f6c = 0;        // +0x6c u32 posto a 1 por 0x56e4ac
+  stepFrom = 0;   // +0x70 u16 célula de onde o passo atual partiu (0x555c7e; lido por 0x56fc69 em outras unidades)
+  f72 = 0;        // +0x72 u16 velocidade na célula atual (0x55687d; 0x55020a, 0x555b38)
+  dest = 0;       // +0x74 u16 célula de destino da ordem (0x555411, 0x55574d)
   f76 = 0;        // +0x76 u16 célula-alvo do caminho dinâmico (0x555dc2)
+  f78 = 0;        // +0x78 u8  tiques desde o último refazer do caminho dinâmico
+  chaseTarget = 0; // +0x7c u32 unidade perseguida (endereço; 0x55574d)
   footCell = 0;   // +0x80 u16 célula onde a pegada da unidade está marcada (0x55be86; 0 = nenhuma)
+  f82 = 0;        // +0x82 u8  célula x ao pôr nas células (0x55020a)
+  f83 = 0;        // +0x83 u8  célula y
+  f84 = 0;        // +0x84 u8  byte baixo do x fino
+  f85 = 0;        // +0x85 u8  byte baixo do y fino
+  f86 = 0;        // +0x86 u8  célula x ao tirar das células (0x55073f)
+  f87 = 0;        // +0x87 u8  célula y
+  f88 = 0;        // +0x88 u8  byte baixo do x fino
+  f89 = 0;        // +0x89 u8  byte baixo do y fino
+  f8a = 0;        // +0x8a u16 tamanho do caminho estático da perseguição (0x55574d)
+  f8c = 0;        // +0x8c u16 célula do alvo perseguido quando o caminho foi feito (0x55574d)
+  f90 = 0;        // +0x90 u32 1 = chegou ao fim do caminho estático (0x555411)
+  f94 = 0;        // +0x94 u16 célula do alvo no último refazer dinâmico (0x55574d)
+  f96 = 0;        // +0x96 u16 célula da unidade no último refazer dinâmico (0x55574d)
   f98 = 0;        // +0x98 u32 posto a 1 por 0x555dc2 quando o caminho dinâmico fica vazio
+  f9c = 0;        // +0x9c u8  zerado ao começar um passo (0x555c7e)
+  f9d = 0;        // +0x9d u8  tiques de giro contados (0x556454)
+  turning = 0;    // +0xa0 u32 1 = girando (0x556454)
+  turnTicks = 0;  // +0xa4 u8  tiques de giro previstos (0x556454)
+  stepSpeed = 0;  // +0xa8 u16 velocidade do passo, 1..0x3f (0x559195)
+  stepTicks = 0;  // +0xaa u16 tiques para atravessar a célula (0x559195)
+  stepTick = 0;   // +0xac u16 tique corrente do passo (0x554fd2)
+  stepDir = 0;    // +0xae u16 direção do passo, 0..7 (0x559195)
+  stepDx = 0;     // +0xb0 i8  avanço x fino por tique (0x559195)
+  stepDy = 0;     // +0xb1 i8  avanço y fino por tique
 }
 
 /** Sub-registro de tarefa/IA (alvo do ponteiro unidade+0x1c4). */
 export class AiRec {
-  task = 0;       // +0x08 u8  tipo de tarefa (5 = ramo de alcance em 0x54d76e)
+  task = 0;       // +0x08 u8  tipo de tarefa (5 = ramo de alcance em 0x54d76e); ação do despachante 0x56dca2 (1 andar, 10 girar)
+  sub = 0;        // +0x09 u8  subestado do despachante (3 = continuar o passo: 0x555b38 por tique; posto por 0x56e4ac)
+  f0a = 0;        // +0x0a u16 célula (lida por 0x56fc69 em outra unidade)
+  f15 = 0;        // +0x15 u8  zerado por 0x56e4ac
   f16 = 0;        // +0x16 i16
   spellSlot = 0;  // +0x78 u8  magia do livro escolhida (0 = nenhuma; 0x56ac5b)
+  fb0 = 0;        // +0xb0 u16 destino do teleporte da célula (0x5503af, registro de ocupação de tipo 0x17)
 }
 
 /** Dono da unidade (alvo do ponteiro unidade+0x14). */
@@ -99,8 +138,10 @@ export class UnitRec {
   f43 = 0;                     // +0x043 u8  lido por 0x5160ef
   size = 0;                    // +0x049 u8  lado em células (lido pelo slot 0x1c da vtable, 0x542360)
   kind = 0;                    // +0x04a u8  lido pelo slot 0x20 das vtables (0x542380); 1 = ramo "grade" de 0x55687d
+  act = 0;                     // +0x054 u32 ação corrente (1 = andar; 0x56e4ac)
   type: UnitTypeRec = new UnitTypeRec(); // +0x070 ptr tipo da unidade
   speed = 0;                   // +0x08c i16 velocidade da unidade (0x55915a)
+  f94 = 0;                     // +0x094 i16 lido por 0x56fc69 (< 1: a unidade na célula não conta)
   mana = 0;                    // +0x09a i16 comparado ao custo da magia em 0x56ac5b
   attackRange = 0;             // +0x12c u8  alcance sem magia (0x56ac5b)
   book: SpellBookRec = new SpellBookRec(); // +0x140 ptr livro de magias
@@ -158,6 +199,20 @@ export const MAP_WAVES_DYNAMIC_OFF = 0x58588; // i32 ondas extras da busca dinâ
 export const MAP_DYN_NEAR_OFF = 0x58594;  // i32 distância (Chebyshev) até a qual o caminho dinâmico é refeito (0x555dc2)
 export const MAP_DYN_LEN_OFF = 0x58598;   // i32 tamanho da lista estática acima do qual o alvo dinâmico sai dela
 export const MAP_FOOT_OFF = 0xa452c;    // u8[8*8] rascunho da pegada (0x55be86)
+export const MAP_RINGS_OFF = 0x5400c;   // objeto de 0x54ec6a: +4 CList<void*> de unidades (MapRec.ringUnits, cabeçalho 0x1c)
+export const MAP_OCC_P04_OFF = 0x54030; // u32 = occCur+4 unidade (tipo 1/2) que ocupa a célula (0x5503af, 0x55073f, 0x551edb)
+export const MAP_OCC_P08_OFF = 0x54034; // u32 = occCur+8 unidade de tipo 3
+export const MAP_OCC_KIND_OFF = 0x54060; // u8 = occCur+0x34 tipo de objeto na célula (0x17 = teleporte)
+export const MAP_OCC_TX_OFF = 0x54064;  // u8 = occCur+0x38 destino x do teleporte
+export const MAP_OCC_TY_OFF = 0x54065;  // u8 = occCur+0x39 destino y
+export const MAP_PATH_STATIC_N_OFF = 0x5858c; // i32 refazeres do caminho estático tolerados (0x555411)
+export const MAP_DYN_TICKS_OFF = 0x58590; // i32 tiques entre refazeres do caminho dinâmico (0x555411, 0x55574d)
+export const MAP_WORLD_OFF = 0x58d80;   // ptr mundo (WorldRec; `this` de 0x56fc69)
+export const MAP_SPEED_MUL_OFF = 0x58d84; // i32 multiplicador de velocidade (0x559195)
+export const MAP_DIR_DX_OFF = 0x58e88;  // i8[8] dx da direção 0..7 (0x559195)
+export const MAP_DIR_DY_OFF = 0x58e90;  // i8[8] dy
+export const MAP_DIR_CELL_OFF = 0x58e98; // i32[8] passo do índice de célula da direção (0x559195)
+export const MAP_ALT_OFF = 0x944f4;     // i8[0x10000] altitude por célula (0x559195)
 
 /**
  * Objeto de mapa/caminho do servidor (o `this` das ondas, de 0x55be86 e da ocupação; até +0xa456c): espelhado byte a byte
@@ -181,16 +236,33 @@ export class MapRec implements PathRec, FlagGridRec, ByteGridRec {
   readonly occCur = new OccRec(this.mem.subarray(MAP_OCC_CUR_OFF, MAP_OCC_CUR_OFF + OccRec.SIZE));
   /** +0x54084 CMap<short,OccRec> ocupação por célula. */
   occ = new CMapShortOcc();
+  /** +0x54010 CList<void*> de endereços de unidade (dentro do objeto em +0x5400c; 0x54ec6a). */
+  ringUnits = new CListPtr();
+  /** +0x58d80 ponteiro para o mundo. */
+  world: WorldRec | null = null;
   readonly structs = new Map<number, CellStructRec>();
+  /** Unidades pelo endereço (ponteiros u32 guardados no mapa: occCur+4, lista de 0x54ec6a). */
+  readonly units = new Map<number, UnitRec>();
 
   u16(off: number): number { return this.dv.getUint16(off, true); }
   setU16(off: number, v: number): void { this.dv.setUint16(off, v & 0xffff, true); }
   i32(off: number): number { return this.dv.getInt32(off, true); }
   u32(off: number): number { return this.dv.getUint32(off, true); }
   setU32(off: number, v: number): void { this.dv.setUint32(off, v >>> 0, true); }
+  i8(off: number): number { return this.dv.getInt8(off); }
+  unitAt(addr: number): UnitRec {
+    const u = this.units.get(addr >>> 0);
+    if (!u) throw new Error(`unidade 0x${(addr >>> 0).toString(16)} sem registro espelhado`);
+    return u;
+  }
   structAt(addr: number): CellStructRec {
     const r = this.structs.get(addr >>> 0);
     if (!r) throw new Error(`estrutura 0x${(addr >>> 0).toString(16)} (OccRec+0xc) sem registro espelhado`);
     return r;
   }
+}
+
+/** Mundo/servidor (o `this` de 0x56dca2, 0x56e4ac e 0x56fc69). */
+export class WorldRec {
+  constructor(public map: MapRec) {} // +0xa50 ptr objeto de mapa/caminho
 }
