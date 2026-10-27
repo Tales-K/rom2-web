@@ -9,7 +9,11 @@ ficam. `objs`: endereço (this, argumentos, EAX, endereços e valores de 4 bytes
 cai numa unidade conhecida (CList do mundo, resume.unit_list) ou num subobjeto dela ({"unit", "sub": "+0x1c4", "off"}).
 
     PYTHONUTF8=1 .venv/Scripts/python.exe -X utf8 tools/re/oracle/fnprobe.py m10_start_s1 0x557f08 0x5585f4 0x557cf1 \\
-        0x54ffb0 0x54ffc0 0x50d884 0x50d8c0 0x55f970 0x54ff7c 0x54ff5b [--ticks 960] [--args 0x557f08:2,...] [--verify 20]
+        0x54ffb0 0x54ffc0 0x50d884 0x50d8c0 0x55f970 0x54ff7c 0x54ff5b [--ticks 960] [--args 0x557f08:2,...] [--verify 20] \
+        [--stride 0x54d76e:3,...]
+
+`--stride addr:k` grava só a 1.ª de cada k chamadas da função (contagem por função; funções caras como as ondas, cujo memset da
+grade são ~32 mil escritas por chamada). Chamadas puladas não têm registro próprio, mas os acessos delas entram no da mãe gravada.
 
 Saída: refs/oracle/pairs/<episodio>/<addr>.jsonl (uma linha por chamada, na ordem de término; `seq` = ordem de entrada).
 Ganchos de memória ficam ligados o tempo todo e só registram com uma chamada ativa: no Unicorn 2 um gancho de memória só vale para
@@ -27,7 +31,7 @@ import struct
 import sys
 import time
 
-from unicorn import UC_HOOK_CODE, UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE
+from unicorn import UC_HOOK_CODE, UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE, UC_PROT_ALL
 from unicorn import x86_const as X
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -70,8 +74,9 @@ class Frame:
 
 
 class Probe:
-    def __init__(self, o: "R.Oracle", fns: dict[int, tuple[str, int]]):
+    def __init__(self, o: "R.Oracle", fns: dict[int, tuple[str, int]], stride: dict[int, int] | None = None):
         self.o, self.uc, self.fns = o, o.uc, fns
+        self.stride, self.ncalls = stride or {}, {a: 0 for a in fns}
         self.frames: list[Frame] = []
         self.out: dict[int, list[dict]] = {a: [] for a in fns}
         self.t, self.seq, self.ret_hooks = 0, 0, {}
@@ -149,6 +154,10 @@ class Probe:
             f.nrand += 1
 
     def _entry(self, uc, address, size, _):
+        k = self.ncalls[address]
+        self.ncalls[address] = k + 1
+        if k % self.stride.get(address, 1):
+            return                                                # --stride: só 1 a cada k chamadas desta função
         conv, nargs = self.fns[address]
         esp = uc.reg_read(X.UC_X86_REG_ESP)
         st = struct.unpack("<%dI" % (1 + nargs), bytes(uc.mem_read(esp, 4 * (1 + nargs))))
@@ -218,9 +227,9 @@ def parse_fns(addrs: list[str], override: str | None) -> dict[int, tuple[str, in
     return fns
 
 
-def run(eid: str, fns: dict, ticks: int) -> tuple[Probe, float]:
+def run(eid: str, fns: dict, ticks: int, stride: dict[int, int] | None = None) -> tuple[Probe, float]:
     o, ep = R.load_episode(eid)
-    pr = Probe(o, fns)
+    pr = Probe(o, fns, stride)
     t0 = time.perf_counter()
     R.play(o, ep, ticks, before_tick=pr.before_tick)
     if pr.frames:
@@ -248,10 +257,15 @@ def replay(eid: str, fns: dict, recs: list[dict]) -> list[str]:
     pr = Probe(o, fns)
     tramp = o.stub + 0x200                    # retorno: nop (o gancho de retorno dispara nele) e para no byte seguinte
     o.write(tramp, b"\x90")
-    errs = []
+    errs, pages = [], set()
     for rec in recs:
         fn = int(rec["fn"], 16)
         for a, b in prestate(rec).items():
+            pg = a & ~0xFFF
+            if pg not in pages:                   # página comprometida (VirtualAlloc) depois do tique 0: não existe na imagem nova
+                if not o._mapped(pg):
+                    o.uc.mem_map(pg, 0x1000, UC_PROT_ALL)
+                pages.add(pg)
             o.write(a, bytes([b]))
         o.set_u32(pr.td, rec["rng0"])
         esp0 = rec["esp0"]
@@ -263,7 +277,12 @@ def replay(eid: str, fns: dict, recs: list[dict]) -> list[str]:
         uc.reg_write(X.UC_X86_REG_EDX, rec.get("edx_in", 0))
         uc.reg_write(X.UC_X86_REG_ESP, esp0)
         pr.t, pr.out[fn] = rec["t"], []
-        uc.emu_start(fn, tramp + 1)
+        try:
+            uc.emu_start(fn, tramp + 1)
+        except Exception as ex:                   # ex.: VirtualFree de bloco do heap que não existe na imagem nova
+            pr.frames = []
+            errs.append("%s seq %d: exceção no replay (%s)" % (rec["fn"], rec["seq"], ex))
+            continue
         new = pr.out[fn][-1] if pr.out[fn] else None
         keys = ("eax", "edx", "rng1", "nrand", "reads", "writes")
         if new is None or any(new[k] != rec[k] for k in keys):
@@ -284,10 +303,11 @@ def main():
     ticks = int(opt("--ticks", "960"))
     override = opt("--args")
     nver = int(opt("--verify", "0"))
+    stride = {int(a, 16): int(k) for a, k in (i.split(":") for i in (opt("--stride") or "").split(",") if i.strip())}
     eid, addrs = argv[0], argv[1:]
     fns = parse_fns(addrs, override)
     print("funções:", {hex(a): v for a, v in fns.items()}, flush=True)
-    pr, dt = run(eid, fns, ticks)
+    pr, dt = run(eid, fns, ticks, stride)
     out_dir = os.path.join(PAIRS, eid)
     os.makedirs(out_dir, exist_ok=True)
     tot = 0

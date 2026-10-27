@@ -44,7 +44,7 @@ export function unitGetSize(u: UnitRec): number {
 }
 
 /** Chamada virtual `(*(*u + 0x1c))(u)`: as três vtables de unidade apontam o slot para 0x542360. */
-function vtGetSize(u: UnitRec): number {
+export function vtGetSize(u: UnitRec): number {
   switch (u.vtbl) {
     case 0x5d0eb0: case 0x5d0f40: case 0x5d0fb8: return unitGetSize(u);
   }
