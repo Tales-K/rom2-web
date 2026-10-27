@@ -1,0 +1,2111 @@
+{
+ "_comment": "VA do allods2.exe (GOG) -> nome Ghidra. Nomes dados por agentes; verificar (alguns enderecos de notas sao pontos no meio de funcoes: o script renomeia a funcao que CONTEM o endereco se nao for entrada, e registra aviso).",
+ "functions": [
+  {
+   "va": "0x4014f1",
+   "name": "CAnimSprite_Load",
+   "desc": "Carrega quadros; indice -1",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4015c5",
+   "name": "CAnimSprite_StepOnce",
+   "desc": "Avanca ate o ultimo quadro",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x401612",
+   "name": "CAnimSprite_StepBack",
+   "desc": "Recua ate 0",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x401658",
+   "name": "CAnimSprite_StepLoop",
+   "desc": "indice=(i+1)%(n-1)",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4016b5",
+   "name": "CAnimSprite_DrawFrame",
+   "desc": "Desenha quadro i em x,y",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4016ee",
+   "name": "CAnimSprite_Draw",
+   "desc": "Desenha o quadro atual",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x401ca0",
+   "name": "CArray_GetAt",
+   "desc": "CArray GetAt",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4021fe",
+   "name": "Client_ShowMessage",
+   "desc": "Mostra texto com cor e duracao",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x40bd2b",
+   "name": "Client_FogRecalc",
+   "desc": "Recalculo da nevoa",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x40e21d",
+   "name": "Client_CheatReply",
+   "desc": "Resposta a pacote 0x92 no cliente",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x41a54a",
+   "name": "Client_CtrlU",
+   "desc": "CTRL+U cicla autocast",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x41a727",
+   "name": "Client_ChooseSpell",
+   "desc": "Escolher magia do livro",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x41aaa5",
+   "name": "Client_SendMsg3f",
+   "desc": "Envia mensagem 0x3f (regenerar loja)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x41d8bb",
+   "name": "Client_CreateEmptyUnit",
+   "desc": "Cria unidade vazia tipo 1",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x41d9e1",
+   "name": "Client_UnitByNpc",
+   "desc": "Acha unidade pelo npc",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x41e3d0",
+   "name": "CRect_PtInRect",
+   "desc": "CRect::PtInRect (147 chamadas)",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x41e670",
+   "name": "Bitmap_MaskBit",
+   "desc": "Teste de bit de mascara do bitmap",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x41f350",
+   "name": "Hint_Text",
+   "desc": "Texto da dica",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4268c4",
+   "name": "App_OnIdleHint",
+   "desc": "OnIdle com dica",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4296f2",
+   "name": "Chargen_SheetClick",
+   "desc": "Ficha: so +/- agem",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x434f15",
+   "name": "Chargen_MouseMove",
+   "desc": "Movimento do mouse na criacao",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x436d48",
+   "name": "Chargen_Click",
+   "desc": "Clique na criacao",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x43a0a8",
+   "name": "Server_Log",
+   "desc": "Log do servidor (dedicado)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x481d89",
+   "name": "Game_RunMission",
+   "desc": "Chama o laco de missao solo",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x487ef0",
+   "name": "Game_ReturnToTown",
+   "desc": "Volta a cidade (envia 0x3f)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x488900",
+   "name": "Game_SingleStepMode",
+   "desc": "Modo de 1 tique por quadro (+0x434)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x488aa1",
+   "name": "Game_SoloLoop",
+   "desc": "Laco de missao solo (tique a 62 ms)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x488ad8",
+   "name": "Game_TimeGate",
+   "desc": "call timeGetTime do laco de tiques",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x488b75",
+   "name": "Game_Draw",
+   "desc": "Desenha apos os tiques",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x48ba81",
+   "name": "Game_CreateInnNpcs",
+   "desc": "Chama 0x4f312a com vars[768]",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x48dc63",
+   "name": "Game_StartOrLoad",
+   "desc": "Inicio/carga (envia 0x3f)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x494832",
+   "name": "Unit_InfoPanelHandler",
+   "desc": "Tratador do painel de informacoes da unidade",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x494ec1",
+   "name": "Unit_InfoPanelClient",
+   "desc": "Ramo do cliente do painel de info",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x49510c",
+   "name": "Unit_InfoPicturePath",
+   "desc": "graphics\\infowindow\\<nome>.bmp",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x497adf",
+   "name": "InnPlagat_Draw",
+   "desc": "Desenho da taverna Plagat",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x497cc0",
+   "name": "InnPlagat_Timer",
+   "desc": "Timer 100 ms da taverna",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4980ad",
+   "name": "Inn_CardFrameStep",
+   "desc": "Passo de quadro dos cartoes (>125 ms)",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x499783",
+   "name": "Inn_Portrait",
+   "desc": "Retrato da unidade na taverna",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x49abfe",
+   "name": "InnPlagat_NpcLoad",
+   "desc": "Cliente: carrega NPCs Plagat",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x49af6c",
+   "name": "Inn_SplitNpcLists",
+   "desc": "Separa mercenarios (+0xc0) dos demais (+0xe8)",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x49c359",
+   "name": "InnKaarg_NpcLoad",
+   "desc": "Cliente: carrega NPCs Kaarg",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x49cf22",
+   "name": "InnCamp_Draw",
+   "desc": "Desenho da taverna do acampamento",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x49e451",
+   "name": "InnCamp_NpcLoad",
+   "desc": "Cliente: carrega NPCs acampamento",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x49f467",
+   "name": "InnKaarg_Draw",
+   "desc": "Desenho da taverna Kaarg",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4a0f80",
+   "name": "CAnimSprite_SetIndex",
+   "desc": "Define indice",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4a0fa0",
+   "name": "CAnimSprite_GetIndex",
+   "desc": "Le indice",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4ae232",
+   "name": "Hero_PanelHitTest",
+   "desc": "Painel do heroi",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4b1fa9",
+   "name": "Client_SackFrame",
+   "desc": "Quadro do saco por valor",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x4b6790",
+   "name": "Shop_GridSortCompare",
+   "desc": "Ordem da grade (qsort)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x4b6a3c",
+   "name": "Shop_GridQsort",
+   "desc": "qsort da grade",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x4b8443",
+   "name": "Shop_GridSortCaller",
+   "desc": "Chama a ordenacao da grade",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x4b935d",
+   "name": "Shop_SellController",
+   "desc": "Vender (controlador comum)",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4b93cf",
+   "name": "Shop_BuyController",
+   "desc": "Comprar (controlador comum)",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4bb3d7",
+   "name": "TownPlagat_AnimTick",
+   "desc": "Tick das prateleiras (Plagat)",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4bbd46",
+   "name": "Shop_ChooseShelf",
+   "desc": "Escolher prateleira",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4bbe9d",
+   "name": "Shop_ShelfStepAll",
+   "desc": "Avanca prateleiras por bits",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4bbfa6",
+   "name": "TownPlagat_ShelfHitTest",
+   "desc": "Teste de prateleiras (Plagat)",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4bdbd1",
+   "name": "Town_PlaquesHint",
+   "desc": "Plaquetas",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4bf610",
+   "name": "TownCamp_IdleStep",
+   "desc": "Passo ocioso do acampamento",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4bf908",
+   "name": "TownCamp_AnimTick",
+   "desc": "Tick das prateleiras (acampamento)",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4bfdf1",
+   "name": "TownCamp_ShelfHitTest",
+   "desc": "Teste de prateleiras (acampamento)",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4c25ce",
+   "name": "TownKaarg_IdleStep",
+   "desc": "Passo ocioso de Kaarg",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4c28c6",
+   "name": "TownKaarg_AnimTick",
+   "desc": "Tick das prateleiras (Kaarg)",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4c2a2c",
+   "name": "TownKaarg_ForgeFire",
+   "desc": "Fogo da forja de Kaarg",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4c2df2",
+   "name": "TownKaarg_ForgeFireChoose",
+   "desc": "Escolha do fogo da forja",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4c2f57",
+   "name": "TownKaarg_ShelfHitTest",
+   "desc": "Teste de prateleiras (Kaarg)",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4c3036",
+   "name": "Town_ShelfHint",
+   "desc": "Dica das prateleiras",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4c6d05",
+   "name": "Client_SpellBookDraw",
+   "desc": "Mascara por celula do livro",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x4c74b1",
+   "name": "Client_SpellBookHandler",
+   "desc": "Tratador do controle do livro",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x4cace7",
+   "name": "TownPlagat_OnClick",
+   "desc": "Clique em Plagat (escola cai em return 1)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x4cae28",
+   "name": "Town_AnimBirds",
+   "desc": "Animacao dos passaros",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cb05d",
+   "name": "TownPlagat_Tick",
+   "desc": "Tick da cidade Plagat",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cce81",
+   "name": "Town_AnimGuards",
+   "desc": "Animacao dos guardas",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4ccfbf",
+   "name": "Town_AnimTavernBird",
+   "desc": "Animacao da taverna (som)",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd05b",
+   "name": "Town_AnimSign",
+   "desc": "Animacao da placa",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd0ea",
+   "name": "Town_AnimGate",
+   "desc": "Animacao do portao",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd2ac",
+   "name": "Town_AnimStatueStars",
+   "desc": "Estrelas da estatua",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd51c",
+   "name": "Town_AnimShopkeeper",
+   "desc": "Animacao do lojista",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd577",
+   "name": "Town_AnimWeathervane",
+   "desc": "Animacao do cata-vento",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd606",
+   "name": "Town_AnimAll",
+   "desc": "Chama todas as animacoes da cidade",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd73b",
+   "name": "Town_AnimCart",
+   "desc": "Animacao da carroca",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd7d0",
+   "name": "Town_AnimWoman",
+   "desc": "Animacao da mulher",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd865",
+   "name": "Town_AnimDervish",
+   "desc": "Animacao do dervixe",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cd8b7",
+   "name": "Town_ClickTest",
+   "desc": "Teste de clique comum das 3 cidades",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x4cda92",
+   "name": "Town_AnimPause",
+   "desc": "Pausa 2000+random(5000) ms",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4cddc3",
+   "name": "Town_HoverLabel",
+   "desc": "Etiqueta da cidade (texto 234 etc.)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x4cf65a",
+   "name": "TownCamp_Tick",
+   "desc": "Tick da cidade acampamento",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4d06cc",
+   "name": "TownCamp_OnClick",
+   "desc": "Clique no acampamento",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x4d1f6d",
+   "name": "TownKaarg_Tick",
+   "desc": "Tick da cidade Kaarg",
+   "source": "notes/anim-loop.md"
+  },
+  {
+   "va": "0x4d2fa3",
+   "name": "TownKaarg_OnClick",
+   "desc": "Clique em Kaarg",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x4d3993",
+   "name": "Window_RectToScreen",
+   "desc": "Retangulo para tela (soma cantos dos ancestrais)",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4d42e8",
+   "name": "Window_FromPoint",
+   "desc": "WindowFromPoint (dica no OnIdle)",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4d460b",
+   "name": "Window_HitChildren",
+   "desc": "Procura filho sob o mouse",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4d4769",
+   "name": "Window_WindowProc",
+   "desc": "WindowProc da janela raiz (vtable[18])",
+   "source": "notes/hitareas.md"
+  },
+  {
+   "va": "0x4e4f85",
+   "name": "Reg_ParserStart",
+   "desc": "Parser .reg/.ini (legado)",
+   "source": "notes/dead-code.md"
+  },
+  {
+   "va": "0x4f04cf",
+   "name": "Server_WorldTick",
+   "desc": "Tique do mundo",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x4f08c0",
+   "name": "Server_Tick",
+   "desc": "Tique do servidor",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x4f312a",
+   "name": "Server_InnNpcCreate",
+   "desc": "Cria unidades NPC da taverna",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x4f36c0",
+   "name": "Server_InnNpcTemplate",
+   "desc": "Busca template do NPC (10000+10n+estagio)",
+   "source": "notes/inn-npcs.md"
+  },
+  {
+   "va": "0x4f3d68",
+   "name": "Cheat_CommandParser",
+   "desc": "Parser dos comandos # do chat",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x4f5083",
+   "name": "Cheat_LeadingCount",
+   "desc": "Contagem inicial 'N resto' (atoi>0 senao 1)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x4f515d",
+   "name": "Server_PacketDispatcher",
+   "desc": "Despachante de pacotes do servidor (tabela 0x4f8286)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x4f674e",
+   "name": "Server_ShopRegenMsg",
+   "desc": "Tratador servidor da msg 0x3f",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x4f67d5",
+   "name": "Server_RetreatModeMsg",
+   "desc": "Mensagem 0x46 sub1 WimpyMode (Retreat Mode)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x4f69a6",
+   "name": "Server_ChooseSpellMsg",
+   "desc": "Mensagem 0x46 sub4: escolher magia",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x4f6a3d",
+   "name": "Server_CallAltDebugger",
+   "desc": "Chama o depurador Alt-teclas",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x4f6bc1",
+   "name": "Server_ChatHandler",
+   "desc": "Tratador de chat do servidor",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x4f7854",
+   "name": "Server_SaveCharPath",
+   "desc": "Caminho %schr\\%s\\%u%u.a2c",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x4f7d2f",
+   "name": "Server_CheatingDetected",
+   "desc": "Cheating detected!",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x4f84c6",
+   "name": "Server_ClientMessages",
+   "desc": "Mensagens do cliente",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x4f8521",
+   "name": "Server_ClockTick",
+   "desc": "Relogio de 16/s, mensagens do cliente, mundo",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x4f89d1",
+   "name": "Cheat_SummonUnits",
+   "desc": "Efeito de #summon",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x4fb5cc",
+   "name": "Reg_PrintArmorTable",
+   "desc": "Tabela impressa Table of Armor Items",
+   "source": "notes/dead-code.md"
+  },
+  {
+   "va": "0x4fba5f",
+   "name": "Item_FactoryByName",
+   "desc": "Fabrica de item pelo nome",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x50164f",
+   "name": "Server_SendStats",
+   "desc": "Estatistica de envio do servidor",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x502019",
+   "name": "Server_Event",
+   "desc": "Dispara evento (0xffb = efeito de teleporte)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x5052d2",
+   "name": "Server_SendMsg92",
+   "desc": "Pacote de resposta 0x92",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x505697",
+   "name": "Server_KickClient",
+   "desc": "Desconecta cliente",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x50d884",
+   "name": "Unit_CenterX",
+   "desc": "x fino do centro: x*256+fx+(lado-1)*0x80",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x50d8c0",
+   "name": "Unit_CenterY",
+   "desc": "y fino do centro: y*256+fy+(lado-1)*0x80",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x50dd41",
+   "name": "Monster_CreateByName",
+   "desc": "Cria monstro pelo nome",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x50e1e0",
+   "name": "Unit_FlyingDefault",
+   "desc": "Padrao +0x4a de voador",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x50f12c",
+   "name": "Unit_ActionMachine",
+   "desc": "Maquina de acao da unidade (1 passo por tique de 16/s)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x50f58d",
+   "name": "Unit_RangedStrike",
+   "desc": "Golpe a distancia",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x50f6ba",
+   "name": "Unit_WeaponWait",
+   "desc": "Espera da arma (peso, Reaction)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x50fc5a",
+   "name": "Unit_Regen",
+   "desc": "Regeneracao de vida (1 ponto a cada 4 s abaixo de 0)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x50fdd5",
+   "name": "Unit_ManaRegen",
+   "desc": "Regeneracao de mana todo segundo",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x50fecb",
+   "name": "Unit_Bleed",
+   "desc": "Sangramento de vida < 0",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x510484",
+   "name": "Unit_AddHeal",
+   "desc": "Soma a cura (e levanta se vida > 0)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x510534",
+   "name": "Unit_Revive",
+   "desc": "Levanta unidade caida",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x5108fa",
+   "name": "Sack_PickupAll",
+   "desc": "Heroi recolhe todos os sacos (cheat)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x5109f5",
+   "name": "Unit_DeathLoot",
+   "desc": "Saque da morte",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x510a70",
+   "name": "Unit_Die",
+   "desc": "Morte consumada: saque, XP",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x5110b8",
+   "name": "Corpse_Decay",
+   "desc": "Decomposicao do corpo (1x/s)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x5114f3",
+   "name": "Monster_LoadTemplate",
+   "desc": "Carrega template de monstro de data.bin",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x511959",
+   "name": "Human_Create",
+   "desc": "Cria unidade humana",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x511d3d",
+   "name": "Monster_LoadSpellProb",
+   "desc": "Guarda prob x 327 das magias do template",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x513128",
+   "name": "Unit_XPOnHit",
+   "desc": "Experiencia por golpe",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5143e4",
+   "name": "Human_CreateByName",
+   "desc": "Cria humano pelo nome (summon / npc)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x514f59",
+   "name": "Hero_InitSkills",
+   "desc": "Habilidades iniciais do heroi",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x515dd9",
+   "name": "Player_Construct",
+   "desc": "Construtor do jogador (zera flag de trapaceiro)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x516104",
+   "name": "Cheat_KillAll",
+   "desc": "Efeito de #killall (vida = -50)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x516238",
+   "name": "Cheat_CreateGold",
+   "desc": "Efeito de #create Gold",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x516851",
+   "name": "Server_FindPlayerByName",
+   "desc": "Busca jogador por nome",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x516aae",
+   "name": "Spell_ProjectileDist",
+   "desc": "Distancia do projetil (raiz de dx2+dy2)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x516b2f",
+   "name": "Unit_StrikeExtra",
+   "desc": "Carga extra do golpe",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x516c1f",
+   "name": "Unit_StrikeBegin",
+   "desc": "Golpe fisico: inicio",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x516ceb",
+   "name": "Unit_StrikeHit",
+   "desc": "Golpe fisico: acerto e dano",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x516d98",
+   "name": "Unit_ApplyDamage",
+   "desc": "vida -= dano sem piso",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x516f6f",
+   "name": "Unit_PhysicalDamage",
+   "desc": "Formula de dano fisico (acerto, absorcao, resistencia)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5178d4",
+   "name": "Spell_AttachToTarget",
+   "desc": "Distribuicao 1: efeito preso ao alvo",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x517c1a",
+   "name": "SpellArea_Construct",
+   "desc": "Objeto de area (vtable 0x5d10e0)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x517cfe",
+   "name": "SpellArea_Process",
+   "desc": "Processo do objeto de area",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x517ec3",
+   "name": "SpellArea_DirTransform",
+   "desc": "Transformacao por direcao",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51806c",
+   "name": "Spell_AreaProgressive",
+   "desc": "Distribuicao 5 progressiva (Blizzard)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5182b6",
+   "name": "SpellArea_Wall",
+   "desc": "Parede (distribution 4)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5183a2",
+   "name": "SpellArea_MarkCells",
+   "desc": "Marca celulas |dx|+|dy| <= r+1",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x518500",
+   "name": "Spell_WallPlace",
+   "desc": "Parede so onde nao ha unidade",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x518594",
+   "name": "SpellArea_Unmark",
+   "desc": "Desmarca o fim da area",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x518681",
+   "name": "SpellArea_HitCell",
+   "desc": "Aplica a quem estiver na celula (sem filtro de diplomacia)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5186e3",
+   "name": "SpellArea_FireballSize",
+   "desc": "Fireball divide dano por tamanho2",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x518833",
+   "name": "SpellArea_ApplyAll",
+   "desc": "Aplica efeito a unidades/estruturas/objetos",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5189b5",
+   "name": "SpellArea_FireExtra",
+   "desc": "Efeito extra do fogo",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x519483",
+   "name": "Spell_CasterPower",
+   "desc": "Poder de quem lanca: skill da esfera + Mind - 30",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51951d",
+   "name": "Spell_ItemPower",
+   "desc": "Poder de item/pergaminho (soma em byte)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5195b1",
+   "name": "Spell_Instance",
+   "desc": "Instancia da magia (colunas de data.bin)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x519998",
+   "name": "Spell_SpendMana",
+   "desc": "Gasta a mana (antes da carga)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x519b50",
+   "name": "Spell_FlightTicks",
+   "desc": "Lightning e Prismatic: 5 tiques fixos",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x519c04",
+   "name": "Spell_PrismaticSpray",
+   "desc": "Aplicacao do Prismatic Spray",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x519d7f",
+   "name": "Spell_Release",
+   "desc": "Magia sai (fase 5)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x519db8",
+   "name": "Spell_Apply",
+   "desc": "Despachante da aplicacao das magias (switch por id, tabela 0x51becc)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x51a206",
+   "name": "Spell_PoisonCloud",
+   "desc": "Poison Cloud",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51a2b8",
+   "name": "Spell_Heal",
+   "desc": "Heal (alvo vida > -10 e regeneracao != 0)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51a3f3",
+   "name": "Spell_DrainLife",
+   "desc": "Drain Life",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51a554",
+   "name": "Spell_Teleport",
+   "desc": "Teleport",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51a595",
+   "name": "Spell_Summon",
+   "desc": "Summon (id 25)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x51a91f",
+   "name": "Spell_AnimateDead",
+   "desc": "Animate Dead (id 22): acha corpo na celula",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x51b239",
+   "name": "Spell_Light",
+   "desc": "Light",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51b2de",
+   "name": "Spell_Darkness",
+   "desc": "Darkness",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51b385",
+   "name": "Spell_Protections",
+   "desc": "Protecoes 4/8/13/19",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51b484",
+   "name": "Spell_Shield",
+   "desc": "Shield (27)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51b589",
+   "name": "Spell_HasteSlow",
+   "desc": "Haste/Slow (21/29)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51b6ae",
+   "name": "Spell_StoneCurse",
+   "desc": "Stone Curse (18)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51b82c",
+   "name": "Spell_BlessCurse",
+   "desc": "Bless/Curse (20/28)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51b927",
+   "name": "Spell_Invisibility",
+   "desc": "Invisibility (12)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51baa0",
+   "name": "Spell_Distribute",
+   "desc": "Distribuicao e areas da magia",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51c29e",
+   "name": "Unit_AddSpellToBook",
+   "desc": "Adiciona magia ao livro (+0x140)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x51c391",
+   "name": "Unit_GetBookSpell",
+   "desc": "Magia do livro por id",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x51ca4d",
+   "name": "Spell_WallObject",
+   "desc": "Objeto da Wall of Earth",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51e505",
+   "name": "Spell_DamageObject",
+   "desc": "Objeto de dano da esfera",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51e69c",
+   "name": "Spell_DamageObjectApply",
+   "desc": "Aplicacao do objeto de dano de magia/area",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x51f9f8",
+   "name": "Rand_SeedTimeGetTime",
+   "desc": "srand(timeGetTime())",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x51fa25",
+   "name": "Rand_Inclusive",
+   "desc": "rand(n) = (rand()*(n+1))>>15 (0..n)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x51fa4e",
+   "name": "Rand_One",
+   "desc": "random1(n) = 1 + rand(n-1)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x521083",
+   "name": "Shop_RegenerateMsg3f",
+   "desc": "Mensagem 0x3f regenera a loja (single-player)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x521d4c",
+   "name": "Shop_SellToShopkeeper",
+   "desc": "Venda ao lojista (categoria da prateleira)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x52272e",
+   "name": "Shop_ClearShelves",
+   "desc": "Limpa as 4 prateleiras",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x522767",
+   "name": "Shop_Generate",
+   "desc": "CShop::Generate",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x5228c2",
+   "name": "Shop_Enter",
+   "desc": "Entrar na loja: gera se vazia",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x522cca",
+   "name": "Shop_MultiplayerRegen",
+   "desc": "Regenera a cada 180 ticks (multiplayer)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x52393e",
+   "name": "Item_NameValid",
+   "desc": "Validade de item por nome",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x5247db",
+   "name": "Shop_ClassMaterial",
+   "desc": "Material permitido por shape e preco",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x524891",
+   "name": "Shop_PriceFtol",
+   "desc": "Preco = ftol(classe x shape x material)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x524bca",
+   "name": "Shop_BuildCategoryList",
+   "desc": "Lista shapes x materiais por categoria",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x524e31",
+   "name": "Shop_BookList",
+   "desc": "Livros de magia da loja",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x5254e7",
+   "name": "Shop_Init",
+   "desc": "Init(cfg): min, max, mask",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x525606",
+   "name": "Shop_GaussianWeightsDead",
+   "desc": "Pesos gaussianos exp(-x2) (morto)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x52571c",
+   "name": "Shop_ServerSortOrder",
+   "desc": "Ordem das prateleiras no servidor",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x525b41",
+   "name": "Shop_GaussianWeightsDead2",
+   "desc": "Pesos gaussianos (morto)",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x525f67",
+   "name": "Shop_Gen",
+   "desc": "Gen(count,qty,min,max,out): livros, pocoes e sorteios",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x526b5d",
+   "name": "Shop_EnchantShelves",
+   "desc": "Encantamento das prateleiras magicas",
+   "source": "notes/shop-stock.md"
+  },
+  {
+   "va": "0x527819",
+   "name": "Item_WeightFactors",
+   "desc": "Peso do item x fatores de forma/material",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x529ac2",
+   "name": "Pack_AddItem",
+   "desc": "Item vai para a mochila do heroi",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x52a895",
+   "name": "Sack_UpdateValue",
+   "desc": "sack.value = gold + soma dos itens",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x52ab07",
+   "name": "Sack_Add",
+   "desc": "Um saco por celula: junta itens e ouro",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x52acf6",
+   "name": "Sack_Create",
+   "desc": "Cria saco",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x52bbb7",
+   "name": "World_SecondTick",
+   "desc": "Laco de 1x/s do mundo (desgaste de invocacoes, decomposicao)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x52ee9b",
+   "name": "Server_GetTickCountUse",
+   "desc": "Uso de GetTickCount no servidor",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x5325ee",
+   "name": "Cheat_ShopNoCeiling",
+   "desc": "Loja gerada sem preco-teto (cheat)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x53dd90",
+   "name": "Cheat_IsCheater",
+   "desc": "Jogador trapaceiro: byte +0xa78 > 50",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x53ddb0",
+   "name": "Cheat_SetCheater",
+   "desc": "Escreve o flag de trapaceiro",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x53ddd0",
+   "name": "Cheat_IsOperator",
+   "desc": "Flag de operador/host (+0x29c)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x542360",
+   "name": "Unit_GetSize",
+   "desc": "Lado em celulas (byte +0x49); slot 0x1c das vtables de unidade",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x542580",
+   "name": "Weapon_CastsSpell",
+   "desc": "Arma que lanca magia?",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x542c90",
+   "name": "AI_InBattle",
+   "desc": "Estado inBattle (Bless)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x543040",
+   "name": "Spell_FireDamageObj",
+   "desc": "Objeto de dano de fogo",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x543070",
+   "name": "Spell_WaterDamageObj",
+   "desc": "Objeto de dano de agua",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5430a0",
+   "name": "Spell_AirDamageObj",
+   "desc": "Objeto de dano de ar",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5430d0",
+   "name": "Spell_EarthDamageObj",
+   "desc": "Objeto de dano de terra",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x54d76e",
+   "name": "Path_WaveSearch",
+   "desc": "Busca por ondas (inundacao, nao A*)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x54e58c",
+   "name": "Path_BacktraceStatic",
+   "desc": "Volta do alvo a origem pelo vizinho de menor distancia (estatico, lista +0x1c8)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x54e886",
+   "name": "Path_BacktraceDynamic",
+   "desc": "Volta dinamica (lista +0x1e4)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x54ec6a",
+   "name": "Grid_UnitsInRings",
+   "desc": "Varredura em aneis de unidades (ordem de Chebyshev)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x54fbf7",
+   "name": "Unit_SetPosition",
+   "desc": "Grava nova posicao (x,y, indice y<<8+x)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x54ff5b",
+   "name": "MapObj_FineX",
+   "desc": "x fino do objeto de mapa: celula*256+fracao",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x54ff7c",
+   "name": "MapObj_FineY",
+   "desc": "y fino do objeto de mapa: celula*256+fracao",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x54ff9e",
+   "name": "Obj_CellOf",
+   "desc": "Celula de um objeto do mapa",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x54ffb0",
+   "name": "MapObj_CellX",
+   "desc": "Celula x do objeto de mapa (byte +0)",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x54ffc0",
+   "name": "MapObj_CellY",
+   "desc": "Celula y do objeto de mapa (byte +1)",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x55020a",
+   "name": "Unit_PlaceOnCells",
+   "desc": "Coloca a unidade nas celulas novas",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x551346",
+   "name": "Unit_Construct",
+   "desc": "Construtor da unidade (+0x1c0+8 = 5)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x551383",
+   "name": "Unit_SubCellCenter",
+   "desc": "Sub-posicao de centro de celula 0x80/0x80",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x551463",
+   "name": "Grid_ChebyshevDist",
+   "desc": "Distancia de Chebyshev max(|dx|,|dy|)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x551947",
+   "name": "Path_EdgeCostDead",
+   "desc": "Custo medio da aresta x1,4 (A* morto)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55201a",
+   "name": "Map_UnitAtCell",
+   "desc": "Unidade na celula (bit 0x20 de mapa[0x10000+celula])",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x552079",
+   "name": "Map_StructureAtCell",
+   "desc": "Estrutura na celula",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x552c28",
+   "name": "Vision_Compute",
+   "desc": "Visao: janela 41x41 com orcamento",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x553329",
+   "name": "Vision_UnitMap",
+   "desc": "Mapa de visao de cada unidade",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x553891",
+   "name": "Unit_RemoveFromCells",
+   "desc": "Tira a unidade das celulas",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x554545",
+   "name": "Path_LoadParams",
+   "desc": "Parametros StaticRefreshRate/DynamicRefreshRate etc.",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x5547e6",
+   "name": "Path_PassabilityPlane",
+   "desc": "Plano de passagem (tile, agua, rocha, cenario)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55494d",
+   "name": "Path_RockClass",
+   "desc": "Classe 8 rocha (grupos de arquivo 28-31)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x554bf8",
+   "name": "Unit_WalkTick",
+   "desc": "Aplica a formula do andar por tique de 16/s",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x5551ef",
+   "name": "Unit_WalkWait",
+   "desc": "Espera durante o andar",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x555411",
+   "name": "Unit_ActionWalk",
+   "desc": "Acao de andar (estatico + dinamico)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55574d",
+   "name": "Unit_ActionChase",
+   "desc": "Perseguir unidade (estatico ate a celula do alvo)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x555b38",
+   "name": "Path_ClearDynamic",
+   "desc": "Limpa a lista dinamica ao chegar ao centro",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x555dc2",
+   "name": "Path_RefreshDynamic",
+   "desc": "Refaz o caminho dinamico",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x556454",
+   "name": "Unit_TurnStep",
+   "desc": "Passo de giro (diferenca dobrada <=128)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x556b2c",
+   "name": "Dir_FromDelta16",
+   "desc": "Direcao 16 setores por |dx| vs 2|dy|",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x556dcd",
+   "name": "AI_UnitDistance",
+   "desc": "Distancia entre unidades (+1 se alvo voa)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x557cf1",
+   "name": "Dir_Sector16",
+   "desc": "Direcao em 16 setores",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x557f08",
+   "name": "Unit_ApproachCell",
+   "desc": "Celula de aproximacao do atacante",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x5585f4",
+   "name": "Path_UnlabeledTargetRing",
+   "desc": "Alvo sem rotulo: aneis r=1..R-1 em volta do alvo",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x558b92",
+   "name": "Grid_FineCoordCentroid",
+   "desc": "Centroide em coordenadas finas (1/256 de celula)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x558fe9",
+   "name": "AI_TeleportTargetDist",
+   "desc": "Teleport so se alvo a >2",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x559195",
+   "name": "Unit_WalkFormula",
+   "desc": "Formula do andar celula a celula",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x559b7f",
+   "name": "Map_ObjectAtCell",
+   "desc": "Objeto na celula",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x559c28",
+   "name": "SpellArea_FireExtra2",
+   "desc": "Efeito extra do fogo (objetos)",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x55a928",
+   "name": "Unit_CanPlaceAt",
+   "desc": "Testa pegada da unidade no destino nos dois planos",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x55a96c",
+   "name": "Unit_TeleportTo",
+   "desc": "Teleporta unidade (usada pela magia Teleport e pelo script)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x55aa21",
+   "name": "AI_AngleTiebreak",
+   "desc": "Desempate por angulo",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x55c440",
+   "name": "Path_TargetFree",
+   "desc": "Alvo livre (humano: 1000 ondas)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55c550",
+   "name": "Unit_PassMaskAnd",
+   "desc": "AND com o byte +5 do tipo (mascara de passagem)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x55c5a0",
+   "name": "Unit_FootprintCheck",
+   "desc": "Testa a pegada (tamanho x tamanho)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x55d010",
+   "name": "Path_WaveStaticAtoB",
+   "desc": "Onda estatica A para B",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55d830",
+   "name": "Path_WaveStaticBtoA",
+   "desc": "Onda estatica B para A",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55e050",
+   "name": "Path_WaveDynamicAtoB",
+   "desc": "Onda dinamica A para B",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55e870",
+   "name": "Path_WaveDynamicBtoA",
+   "desc": "Onda dinamica B para A",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55f2d0",
+   "name": "AI_ProfileTimer",
+   "desc": "Cronometro de perfil da IA",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x55f3e0",
+   "name": "Map_OccupancyLookup",
+   "desc": "Tabela de ocupacao: busca a unidade",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x55f970",
+   "name": "Path_CostCellPtr",
+   "desc": "Endereco do custo da celula (x,y) na grade +0x30000",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x55f9a0",
+   "name": "Path_CostIdxPtr",
+   "desc": "Endereco do custo da celula de indice y*256+x na grade +0x30000",
+   "source": "game/src/sim/exe/path.ts"
+  },
+  {
+   "va": "0x5674dc",
+   "name": "Cheat_BuildPasswordTable",
+   "desc": "Monta tabela de comandos/senha ##Coward em servidor+8",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x567618",
+   "name": "Cheat_LookupCommand",
+   "desc": "Indice do comando cujo prefixo casa com o texto",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x567988",
+   "name": "AI_EnemiesAroundPost",
+   "desc": "Inimigos visiveis num raio em volta do posto",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x567a16",
+   "name": "AI_EnemyFilter",
+   "desc": "Filtro de inimigos: diplomacia de guerra e Invisibility",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x567b2d",
+   "name": "AI_AlliesScan",
+   "desc": "Varre aliados ao alcance (cura)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x567e92",
+   "name": "AI_FilterByGroupRadius",
+   "desc": "Deixa inimigos a Chebyshev <= +0x2d do centroide",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x569321",
+   "name": "AI_TaskDispatcher",
+   "desc": "Despachante de tarefas de IA da unidade (switch em +0x50)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x56969c",
+   "name": "AI_TeleportCast",
+   "desc": "Lanca Teleport da IA para um ponto",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x569b62",
+   "name": "AI_Task_Patrol",
+   "desc": "Tarefa 0xa: patrulha por lista de pontos (+0x1c4+0xb4)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x56a1fb",
+   "name": "AI_Task_StandGround",
+   "desc": "Tarefa 0xc Stand ground: ataca inimigos visiveis ao alcance",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x56a5fc",
+   "name": "AI_Task_Guard",
+   "desc": "Tarefa 0xb Guard: volta ao posto e ataca o 1o inimigo no raio em volta do posto",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56ac5b",
+   "name": "AI_AttackRange",
+   "desc": "Alcance de ataque (o da magia escolhida ou da arma)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x56acc8",
+   "name": "AI_Task_Attack",
+   "desc": "Tarefa 3 Attack: sorteia Spell1..3 e lanca no lugar do golpe",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x56afac",
+   "name": "AI_Idle",
+   "desc": "IA ociosa: arg0 Stand ground, arg1 conjurador/autocast",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x56afd9",
+   "name": "AI_IdleAlt",
+   "desc": "Segundo ponto de entrada da IA ociosa",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x56b059",
+   "name": "AI_CastChosenSpell",
+   "desc": "Lanca a magia escolhida pelo jogador humano no lugar do golpe",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x56bb0d",
+   "name": "AI_CanCastCost",
+   "desc": "Testa se mana >= custo da magia",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56bb53",
+   "name": "AI_AutocastTargetsMask",
+   "desc": "Bits 1/2/4 de alvos do autocast (proprios/aliados/neutros)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x56bc7b",
+   "name": "AI_Autocast",
+   "desc": "Autocast do heroi/aliados humanos (opcao AutoCasting)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x56c592",
+   "name": "AI_IdleCasterSupport",
+   "desc": "IA ociosa conjuradora: Heal em si/aliado mais ferido (mana>10)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56c72b",
+   "name": "AI_CastAtTarget",
+   "desc": "Lanca magia no alvo de combate",
+   "source": "notes/dead-code.md"
+  },
+  {
+   "va": "0x56c8af",
+   "name": "AI_MoveTo",
+   "desc": "Manda mover (tarefa +8 = 1, destino +0xa)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56c9bc",
+   "name": "AI_FleeAction",
+   "desc": "Acao de fuga do Wimpy (Teleport ou corre)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56cb0c",
+   "name": "AI_Wimpy",
+   "desc": "Verifica Wimpy: vida <= wimpy e inimigo no raio guarda+5",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56cd11",
+   "name": "AI_Withdraw",
+   "desc": "Verifica Withdraw: vida <= withdraw e inimigo a <= 2",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56ce0f",
+   "name": "AI_WithdrawAction",
+   "desc": "Acao de recuo do Withdraw",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56cef3",
+   "name": "AI_WithdrawActionAlt",
+   "desc": "Variante do recuo do Withdraw",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56d52b",
+   "name": "AI_StandGroundAt",
+   "desc": "Stand ground com posto na celula de pouso",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56dba1",
+   "name": "Vision_UpdateManager",
+   "desc": "Atualiza gerenciador de visao/nevoa (this+0x58d80)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x56dca2",
+   "name": "Unit_ActionDispatcher",
+   "desc": "Despachante de acoes: andar em cada centro de celula",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x56e4ac",
+   "name": "Unit_WalkNear",
+   "desc": "Andar com perto = 0",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x56e55d",
+   "name": "Unit_Turn",
+   "desc": "Acao de giro da unidade (1/256 de volta)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56f111",
+   "name": "AI_TestPatrol",
+   "desc": "Patrulha de teste com coordenadas fixas (codigo morto)",
+   "source": "notes/dead-code.md"
+  },
+  {
+   "va": "0x56f765",
+   "name": "AI_FleePoint",
+   "desc": "Ponto de fuga: anda d celulas no eixo dominante longe do centroide",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56f850",
+   "name": "AI_GroupMaxScanRange",
+   "desc": "Grupo +0x2c = max(dist + scanRange)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x56fa63",
+   "name": "AI_GroupCentroid",
+   "desc": "Recalcula centroide do grupo e distancias maximas",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x570087",
+   "name": "AI_PlayerThink",
+   "desc": "IA de cada jogador de IA (por pensamento)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x5700f3",
+   "name": "AI_GroupThink",
+   "desc": "Executa o comando do grupo (+0x3c+0x20)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x5703c0",
+   "name": "AI_GroupCmd_Move",
+   "desc": "Comando de grupo Move (le Formation)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x57063e",
+   "name": "AI_GroupCmd_Swarm2",
+   "desc": "Comando de grupo Swarm2 (le Formation)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x5709d9",
+   "name": "AI_GroupCmd_Guard",
+   "desc": "Comando de grupo Guard: raio = max(atual, parametro, MinimalGuardRange)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x570aba",
+   "name": "AI_GuardLoad",
+   "desc": "Guard criado na carga do mapa (raio-base 20)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x570f2b",
+   "name": "AI_NewGroupStandGround",
+   "desc": "Grupo novo em Stand Ground (corpo levantado)",
+   "source": "notes/magic-original.md"
+  },
+  {
+   "va": "0x5711ea",
+   "name": "AI_TargetCost",
+   "desc": "Custo de alvo (Chebyshev x256 + desempate)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x571c4d",
+   "name": "AI_GroupVisibleEnemies",
+   "desc": "Monta lista de inimigos vistos pelo grupo",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x57240b",
+   "name": "AI_GroupAssignTargets",
+   "desc": "Atribui alvo a cada unidade do grupo",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x5726f7",
+   "name": "AI_GuardEnterCombat",
+   "desc": "Raio do guarda = base+4+rand(-1..1) ao entrar em combate",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x57272c",
+   "name": "AI_GuardLeaveCombat",
+   "desc": "Raio do guarda volta a base+rand(-1..1)",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x57275f",
+   "name": "AI_GroupGuardState1",
+   "desc": "Estado 1 do grupo: guarda do grupo a cada pensamento",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x573713",
+   "name": "AI_WimpyOrWithdraw",
+   "desc": "Passa a unidade por Wimpy, senao Withdraw",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x57377d",
+   "name": "AI_GroupFlee",
+   "desc": "Passa cada unidade do grupo por 0x573713",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x57382c",
+   "name": "AI_SetDefaultWimpy",
+   "desc": "Padrao Wimpy/Withdraw de unidades humanas na criacao",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x574316",
+   "name": "Script_TextLoader",
+   "desc": "Carregador de scripts em texto (morto)",
+   "source": "notes/dead-code.md"
+  },
+  {
+   "va": "0x574955",
+   "name": "Script_ValueDispatcher",
+   "desc": "Despachante de valores do script (tabela 0x574b35)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x574add",
+   "name": "Script_ValueCase22",
+   "desc": "Caso 22 do despachante de valores (chama 0x5776fd)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x5776fd",
+   "name": "Script_ValueTeleportation",
+   "desc": "Handler do valor Teleportation do script (unidade na celula -> Unit_TeleportTo)",
+   "source": "notes/script-teleportation.md"
+  },
+  {
+   "va": "0x577cee",
+   "name": "AI_GroupCommandDispatch",
+   "desc": "Despachante de comandos de grupo do script (codigo = Par0)",
+   "source": "notes/ai-behaviors.md"
+  },
+  {
+   "va": "0x578910",
+   "name": "Cheat_AltKeyDebugger",
+   "desc": "Depurador do servidor por Alt-teclas (so trapaceiros)",
+   "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x579ddf",
+   "name": "Spell_PrismaticTargets",
+   "desc": "Escolhe alvos do Prismatic Spray no alcance",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x57a608",
+   "name": "AI_CasterOldFixedPriority",
+   "desc": "IA conjurador antiga com prioridade fixa (codigo morto)",
+   "source": "notes/dead-code.md"
+  },
+  {
+   "va": "0x57a769",
+   "name": "AI_CasterOffensiveSpell",
+   "desc": "IA conjurador: sorteia magia ofensiva uniforme (Mind>59: 30% arma)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x57a999",
+   "name": "AI_CasterShield",
+   "desc": "Apoio: Shield etc. quando ninguem esta ferido",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x57aee0",
+   "name": "AI_ProfileTimer2",
+   "desc": "Cronometro de perfil da IA",
+   "source": "notes/differential-fuzz.md"
+  },
+  {
+   "va": "0x57afc0",
+   "name": "Rand_UniformObject",
+   "desc": "Objeto de sorteio uniforme (divisor 0x8000)",
+   "source": "notes/ai-original.md"
+  },
+  {
+   "va": "0x57aff0",
+   "name": "Rand_Range",
+   "desc": "rand no intervalo [a,b]",
+   "source": "notes/dead-code.md"
+  },
+  {
+   "va": "0x57c9a0",
+   "name": "List_Construct",
+   "desc": "Construtor da lista de magias candidatas (ctor chamado por 0x57a769; as magias entram por 0x57ca20)",
+   "source": "notes/dead-code.md"
+  },
+  {
+   "va": "0x582c0c",
+   "name": "CRT_ftol",
+   "desc": "_ftol truncamento",
+   "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x59e063",
+   "name": "CRT_strstr",
+   "desc": "strstr (CString::Find)",
+   "source": "notes/cheats.md"
+  }
+ ]
+}
