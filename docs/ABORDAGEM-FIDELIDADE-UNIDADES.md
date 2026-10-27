@@ -213,8 +213,8 @@ Padrão estrangulador, subsistema a subsistema, atrás da interface que `mission
 | 4 ✅ | **Piloto de porta**: célula de aproximação + anel (11 funções) com registro fiel do caminho | Campo de posição exato em 100 % dos tiques dos episódios do piloto, ou causa residual nomeada por campo | 1–2 sessões. **Decide o método**: se o piloto não fechar, voltar aqui antes de escalar |
 | 5 ✅ | Andar/perseguir (`docs/briefings/ETAPA5-ANDAR.md`) e integração na `World` (`ETAPA6-INTEGRACAO-ANDAR.md`) | `pos` e caminho exatos com reancoragem por tique (feito: 100 % na m10_start, 1 tique residual nos outros dois, causa em combate); `hp` fica para a etapa 8 | 3–4 sessões |
 | 6 | Alvo (Stand ground, guarda de unidade e de grupo, sub-tarefas) | `target` exato; grupos 0x12 e 1 | 3–4 sessões |
-| 7 | Despachante inteiro (olhar em volta, golpe/magia como sub-ação, fim de caminho; `docs/briefings/ETAPA7-DESPACHANTE.md`) e depois a máquina de ação `0x50f12c` por `case` | Todos os campos da área de ação exatos; `rng` com o mesmo nº de sorteios por tique | 4–6 sessões |
-| 8 | Dano, acerto, efeitos, magias, invocações, vida 0/−10, saque | Área de efeitos e vida exatas; GAME_DIFFS seção I zerada | 6–8 sessões |
+| 7 ✅ | Despachante inteiro (`docs/briefings/ETAPA7-DESPACHANTE.md`): olhar em volta, golpe/magia como sub-ação, fim de caminho | Nenhum `NotPorted` do fecho de `0x56dca2` alcançado no corpus (feito; estado inteiro 82 % nos 3 episódios) | 1 sessão |
+| 8 | 8a: máquina de ação `0x50f12c` por `case`, golpe físico, dano e morte (`docs/briefings/ETAPA8-MAQUINA-DE-ACAO.md`); 8b: magias (`Spell_Apply`), efeitos, invocações, saque | `act`, `hp`, `alive` exatos; golden `--ci` verde; GAME_DIFFS seção I zerada | 6–8 sessões |
 | 9 | Pensamento de jogador de IA e comandos de grupo; carregador (4.4) | Tique 0 e pensamento exatos nas 46 missões a partir da carga | 5–8 sessões |
 | 10 | Varredura do fecho restante por frequência de execução; `port_status.tsv` sem pendentes | Cobertura 100 % (portado ou fora do escopo justificado) | 5–10 sessões |
 
@@ -226,7 +226,7 @@ oráculo, commit, relatório de 10 linhas; 2 em paralelo quando não compartilha
 sessões (emulador + aproximação + andar) o resíduo `pos` 508 deve cair pela metade. O original real só volta a rodar para **despejar
 imagens** (uma por missão e uma por episódio de interesse), nunca para traçar.
 
-### 7.1 Resultado das etapas 1–6 (2026-10-27)
+### 7.1 Resultado das etapas 1–7 (2026-10-27)
 
 - **Etapa 1, oráculo** (commits 61d920b, 64b8b4b; `tools/re/oracle/`, `notes/oracle-resume.md`): portão passou nos 3 episódios
   (traço de 960 tiques + `rand` a cada 16 tiques idênticos ao golden), ~430–530 tiques/s por instância, HLE de ~12 APIs. Dois
@@ -265,8 +265,17 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   `--ci` falha por uma assinatura de combate que reapareceu (`alive|t69|orig_dead`, Spirit da m20_mage) — fica para as etapas 7–8.
   Resíduo nomeado por campo (todos fora do andar): decisão de golpe `0x56eab5`, ordem de ataque repetida pelo cliente, pensamento
   da guarda `0x5728fa`, olhar em volta `0x56e5bc`. Mudança de jogo: unidades 2×2 (ogro) ocupam as 4 células, como no original.
-- **Próximo**: etapa 7 (`docs/briefings/ETAPA7-DESPACHANTE.md`): o olhar em volta `0x56e5bc` tem fecho de 3 funções e é o maior
-  resíduo de sorteios; depois golpe/magia como sub-ação e fim de caminho, até o despachante não alcançar nenhum `NotPorted` no corpus.
+- **Etapa 7, despachante inteiro** (commits 6608fb8, c0035f0, 340ef20; `exe/action.ts`, `rand.ts`, `mfc.ts`; `notes/despachante.md`):
+  30 funções a 100 % dos pares (sorteios incluídos; `0x56dca2` 31 910 pares); **nenhum `NotPorted` do fecho do despachante é alcançado
+  no corpus**. Olhar em volta `0x56e5bc` (57 358 pares) substituiu o `idleLook`; golpe e magia viram sub-ação 1/2 com o efeito do
+  motor antigo em gancho (`strikeBegin`/`castBegin`) no tique exato; fim de caminho e patrulha pela lista IA+0xb4. Comparador, estado
+  inteiro: 38,5 / 32,6 / 32,3 % → **82,0 / 82,4 / 82,0 %**; sorteios iguais por tique 84 / 82 / 87 % → 93 / 93 / 99 %. Golden
+  54,6 % → **56,9 %** (342 janelas melhores, 2 piores); `--ci` cai só em vida/morte (`alive|t69`, `alive|t75`, `target|t1`).
+  Nomes errados corrigidos: `0x56dba1`/`0x56dc24` são parar + Stand ground, não visão. Resíduo nomeado: `act` 6–10 % = máquina de
+  ação `0x50f12c` não portada e pensamento (`0x569321`/`0x56acc8`); `task`/`target` ~5 % = pensamento da IA (`0x570087`, `0x57240b`,
+  `0x5728fa`); `rng` = sorteios do pensamento e do dano; `hp`/`alive` 1–3 % = combate do motor antigo. Cobertura executada: 25,3 %.
+- **Próximo**: etapa 8a (`docs/briefings/ETAPA8-MAQUINA-DE-ACAO.md`): máquina de ação `0x50f12c` por `case`, golpe físico, dano
+  (`Unit_PhysicalDamage`) e morte (`Unit_Die`); magia em gancho até a 8b. É o que destrava o golden `--ci`. Depois: pensamento da IA (9).
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
