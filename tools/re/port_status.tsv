@@ -97,7 +97,7 @@ addr	name	size	file	line	status	ts	note
 0x44f5b0	FUN_0044f5b0	21	game/g_440000.c	9745	out		MFC/CRT biblioteca (0x401000-0x44ffff): CMap/CList/CString
 0x44f5d0	FUN_0044f5d0	21	game/g_440000.c	9754	pending		
 0x44f5f0	FUN_0044f5f0	186	game/g_440000.c	9763	pending		
-0x44fc20	FUN_0044fc20	19	game/g_440000.c	10090	pending		
+0x44fc20	FUN_0044fc20	19	game/g_440000.c	10090	out		MFC: CList::GetCount (0x450800); pares 507/507
 0x44fc60	FUN_0044fc60	19	game/g_440000.c	10110	pending		
 0x44fff0	FUN_0044fff0	20	game/g_440000.c	10330	pending		
 0x450800	FUN_00450800	17	game/g_450000.c	467	pending		
@@ -689,7 +689,7 @@ addr	name	size	file	line	status	ts	note
 0x53aee0	FUN_0053aee0	36	game/g_530000.c	6130	pending		
 0x53af10	FUN_0053af10	71	game/g_530000.c	6145	pending		
 0x53af60	FUN_0053af60	77	game/g_530000.c	6160	pending		
-0x53afb0	FUN_0053afb0	50	game/g_530000.c	6173	pending		
+0x53afb0	FUN_0053afb0	50	game/g_530000.c	6173	out		MFC: exe/mfc.ts:CListPtr.remove (Find 0x53b350 + RemoveAt 0x53b2e0); pares 824/824
 0x53aff0	FUN_0053aff0	19	game/g_530000.c	6188	out		MFC: exe/mfc.ts:CListPtr.removeAll; provada por exe_walkaction.ts (0x54ec6a)
 0x53b010	FUN_0053b010	77	game/g_530000.c	6198	pending		
 0x53b060	FUN_0053b060	14	game/g_530000.c	6211	out		MFC: exe/mfc.ts:CListPtrIter; provada por exe_walkaction.ts (0x56fc69)
@@ -1273,7 +1273,7 @@ addr	name	size	file	line	status	ts	note
 0x54fa22	FUN_0054fa22	33	game/g_540000.c	13770	ported	mapObjInitPacked16	exe_walk.ts: pares 100% (3 episódios)
 0x54fa43	FUN_0054fa43	48	game/g_540000.c	13780	ported	mapObjInitPacked	exe_walk.ts: pares 100% (3 episódios)
 0x54fa73	FUN_0054fa73	44	game/g_540000.c	13790	pending		
-0x54fb7f	FUN_0054fb7f	120	game/g_540000.c	13842	pending		
+0x54fb7f	FUN_0054fb7f	120	game/g_540000.c	13842	ported	fn_0x54fb7f	exe/action.ts; Chebyshev entre objetos de mapa; pares 396/396
 0x54fbf7	Unit_SetPosition	74	game/g_540000.c	13870	pending		
 0x54fc41	FUN_0054fc41	103	game/g_540000.c	13886	ported	mapObjSetFine	exe_walk.ts: pares 100% (3 episódios)
 0x54fca8	FUN_0054fca8	207	game/g_540000.c	13900	pending		
@@ -1370,7 +1370,7 @@ addr	name	size	file	line	status	ts	note
 0x55a88b	FUN_0055a88b	109	game/g_550000.c	6257	pending		
 0x55a928	Unit_CanPlaceAt	68	game/g_550000.c	6295	pending		
 0x55a96c	Unit_TeleportTo	181	game/g_550000.c	6315	pending		stub NotPorted em walk_action.ts:unitTeleportTo (exec 0; chamado por 0x555b38 no teleporte da célula)
-0x55aa21	AI_AngleTiebreak	84	game/g_550000.c	6345	pending		
+0x55aa21	AI_AngleTiebreak	84	game/g_550000.c	6345	ported	aiAngleTiebreak	exe/action.ts; pares 497/497
 0x55aa75	FUN_0055aa75	22	game/g_550000.c	6368	pending		
 0x55aa96	FUN_0055aa96	30	game/g_550000.c	6387	pending		
 0x55aca2	FUN_0055aca2	1892	game/g_550000.c	6486	pending		
@@ -1528,10 +1528,10 @@ addr	name	size	file	line	status	ts	note
 0x567945	FUN_00567945	67	game/g_560000.c	4696	pending		
 0x567988	AI_EnemiesAroundPost	71	game/g_560000.c	4710	pending		
 0x5679cf	FUN_005679cf	71	game/g_560000.c	4727	pending		
-0x567a16	AI_EnemyFilter	279	game/g_560000.c	4742	pending		
+0x567a16	AI_EnemyFilter	279	game/g_560000.c	4742	ported	aiEnemyFilter	exe/action.ts; pares 1770/1770 (chamadas do pensamento inclusive)
 0x567b2d	AI_AlliesScan	297	game/g_560000.c	4795	pending		
 0x567c56	FUN_00567c56	393	game/g_560000.c	4847	pending		
-0x567ddf	FUN_00567ddf	179	game/g_560000.c	4911	pending		
+0x567ddf	FUN_00567ddf	179	game/g_560000.c	4911	ported	fn_0x567ddf	exe/action.ts; caídos para a lista +0xa88; pares 1516/1516
 0x567e92	AI_FilterByGroupRadius	183	game/g_560000.c	4945	pending		
 0x567f49	FUN_00567f49	162	game/g_560000.c	4985	pending		
 0x5680ba	FUN_005680ba	78	game/g_560000.c	5072	pending		
@@ -1605,7 +1605,7 @@ addr	name	size	file	line	status	ts	note
 0x56dba1	Vision_UpdateManager	37	game/g_560000.c	8620	ported	fn_0x56dba1	exe/action.ts; nome Vision_UpdateManager da nota é errado: parar + Stand ground; provada aninhada em 0x56dbc6
 0x56dbc6	FUN_0056dbc6	53	game/g_560000.c	8636	ported	fn_0x56dbc6	exe/action.ts; pares 100% (cobre 0x56dba1/0x56dbfb/0x56d52b aninhadas)
 0x56dbfb	FUN_0056dbfb	41	game/g_560000.c	8648	ported	fn_0x56dbfb	exe/action.ts; provada aninhada nos pares de 0x56dbc6
-0x56dc24	ReleaseAccessors	37	game/g_560000.c	8659	pending		
+0x56dc24	ReleaseAccessors	37	game/g_560000.c	8659	ported	fn_0x56dc24	exe/action.ts; exec 0 no corpus: 0x56d969 + 0x56dba1 (ambas provadas); nome ReleaseAccessors é da biblioteca
 0x56dca2	Unit_ActionDispatcher	1719	game/g_560000.c	8696	ported	action.ts:unitActionDispatcher	pares 3 episódios 100% nos ramos portados (14078; exe_walkaction.ts); tarefas 2/5..9/0xb/0xc/0xf, IA+9=2 e fim de caminho (0x56dc24/0x57b020/0x56ed4e) = NotPorted ou adaptador da World (etapa 6, notes/integracao-andar.md)
 0x56e4ac	Unit_WalkNear	177	game/g_560000.c	8913	ported	walk_action.ts:unitWalkNear	pares 3 episódios 100% (exe_walkaction.ts)
 0x56e55d	Unit_Turn	95	game/g_560000.c	8941	ported	action.ts:unitTurn	exec 0 no corpus: sem pares; tradução direta (Unit_TurnStep + ação), chamada pelo caso 10 de 0x56dca2
@@ -1621,7 +1621,7 @@ addr	name	size	file	line	status	ts	note
 0x56ebc0	FUN_0056ebc0	127	game/g_560000.c	9191	ported	fn_0x56ebc0	exe/action.ts; tarefa 8 magia na unidade; pares 100%
 0x56ec3f	FUN_0056ec3f	125	game/g_560000.c	9215	pending		
 0x56ecbc	FUN_0056ecbc	146	game/g_560000.c	9236	pending		
-0x56ed4e	FUN_0056ed4e	677	game/g_560000.c	9260	pending		
+0x56ed4e	FUN_0056ed4e	677	game/g_560000.c	9260	ported	fn_0x56ed4e	exe/action.ts; fim de caminho: alvo ao alcance; pares 12/12 (3 ep.)
 0x56eff3	FUN_0056eff3	200	game/g_560000.c	9369	ported	fn_0x56eff3	exe/action.ts; tarefa 6; pares 100% (m10_mage)
 0x56f0bb	FUN_0056f0bb	86	game/g_560000.c	9403	ported	fn_0x56f0bb	exe/action.ts; pares 100%
 0x56f492	FUN_0056f492	648	game/g_560000.c	9552	pending		
@@ -1771,7 +1771,7 @@ addr	name	size	file	line	status	ts	note
 0x579596	FUN_00579596	456	game/g_570000.c	5824	pending		
 0x57975e	FUN_0057975e	28	game/g_570000.c	5872	pending		
 0x57977a	FUN_0057977a	467	game/g_570000.c	5882	pending		
-0x57994d	FUN_0057994d	63	game/g_570000.c	5919	pending		
+0x57994d	FUN_0057994d	63	game/g_570000.c	5919	ported	fn_0x57994d	exe/action.ts; bit de guerra da tabela mundo+0xa8bc; pares 429/429 (stride 20)
 0x57998c	FUN_0057998c	63	game/g_570000.c	5930	pending		
 0x579d62	FUN_00579d62	125	game/g_570000.c	6155	pending		
 0x579ddf	Spell_PrismaticTargets	1113	game/g_570000.c	6172	pending		
@@ -1787,7 +1787,7 @@ addr	name	size	file	line	status	ts	note
 0x57afc0	Rand_UniformObject	16	game/g_570000.c	6865	ported	randUniformObject	exe/rand.ts; rand() cru pelo Rng do motor (site do chamador)
 0x57afd0	FUN_0057afd0	31	game/g_570000.c	6877	ported	fn_0x57afd0	exe/rand.ts; rand()*n/[mundo+0]
 0x57aff0	Rand_Range	42	game/g_570000.c	6889	pending		
-0x57b020	FUN_0057b020	91	game/g_570000.c	6903	pending		
+0x57b020	FUN_0057b020	91	game/g_570000.c	6903	out		MFC: exe/mfc.ts:CListWord.find (lista de patrulha [IA+0xb4]); pares 6/6
 0x57b080	FUN_0057b080	91	game/g_570000.c	6930	pending		
 0x57b0e0	FUN_0057b0e0	25	game/g_570000.c	6952	pending		
 0x57b120	FUN_0057b120	19	game/g_570000.c	6972	pending		

@@ -105,6 +105,17 @@ export class CListWord {
     return n;
   }
 
+  /** 0x57b020 Find (thiscall; valor, POSITION de partida ou nula): 1.º nó com dado == valor (0x422230: short == short) a partir
+   *  da cabeça, ou do nó SEGUINTE a `after`; null se não há. (Instância para a lista de patrulha IA+0xb4.) */
+  find(v: number, after: CListNode | null): CListNode | null {
+    let p = after === null ? this.head : after.next;
+    while (p !== null) {
+      if ((p.data & 0xffff) === (v & 0xffff)) return p;
+      p = p.next;
+    }
+    return null;
+  }
+
   /** 0x55f110 RemoveHead (fastcall): tira o nó-cabeça e devolve o dado (u16). Lista vazia: o exe lê [8] e falha. */
   removeHead(): number {
     const n = this.head;
@@ -165,6 +176,19 @@ export class CListPtr {
     else this.tail.next = n;
     this.tail = n;
     return n;
+  }
+
+  /** 0x53afb0 (thiscall): Find 0x53b350 (1.º nó com dado == v a partir da cabeça; 0x53b5c0 compara os ponteiros) e, se há,
+   *  RemoveAt 0x53b2e0 (desencadeia; FreeNode 0x53b540: m_nCount--). Sem o valor: nada. */
+  remove(v: number): void {
+    let p = this.head;
+    while (p !== null && (p.data >>> 0) !== (v >>> 0)) p = p.next;
+    if (p === null) return;
+    if (p === this.head) this.head = p.next;
+    else p.prev!.next = p.next;
+    if (p === this.tail) this.tail = p.prev;
+    else p.next!.prev = p.prev;
+    this.count = (this.count - 1) | 0;
   }
 
   /** Dados do início ao fim (testes). */

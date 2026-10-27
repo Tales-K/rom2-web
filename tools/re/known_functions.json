@@ -1868,9 +1868,15 @@
    "source": "notes/ai-original.md"
   },
   {
+   "va": "0x56d969",
+   "name": "Unit_StopHere",
+   "desc": "Parar: rumo desejado=rumo, pegada, IA+0x14=AI_AttackRange, IA+0x60=0, andar+0x7c=0, acao 0",
+   "source": "sim/exe/action.ts"
+  },
+  {
    "va": "0x56dba1",
    "name": "Vision_UpdateManager",
-   "desc": "Atualiza gerenciador de visao/nevoa (this+0x58d80)",
+   "desc": "NOME ERRADO (nota antiga): e parar (0x56dbfb -> 0x56d969) + Stand ground (0x56d52b); sem visao/nevoa",
    "source": "notes/script-teleportation.md"
   },
   {
@@ -1895,6 +1901,36 @@
    "va": "0x56e5bc",
    "name": "Unit_LookAround",
    "desc": "Olhar em volta da unidade ociosa (tarefa 0xb): rand()>204 nada, senao rumo+33+rand*190/32768 e giro",
+   "source": "sim/exe/action.ts"
+  },
+  {
+   "va": "0x56e8c3",
+   "name": "Unit_StrikeStart",
+   "desc": "Comeca o golpe: IA+9=1, IA+0x15=0, acao 3, +0x5c=alvo IA+0xc",
+   "source": "sim/exe/action.ts"
+  },
+  {
+   "va": "0x56e906",
+   "name": "Unit_CastStart",
+   "desc": "Comeca a magia na unidade: IA+9=2, acao 0xd, +0x5c alvo, +0x64 magia; com IA+0x60=0 para (0x56dbc6)",
+   "source": "sim/exe/action.ts"
+  },
+  {
+   "va": "0x56eab5",
+   "name": "AI_Task_AttackUnit",
+   "desc": "Tarefa 5: ao alcance (0x55532d) golpe (0x56e8c3), senao perseguir (0x56ea52)",
+   "source": "sim/exe/action.ts"
+  },
+  {
+   "va": "0x56ebc0",
+   "name": "AI_Task_CastUnit",
+   "desc": "Tarefa 8: fora do alcance IA+0x14 perseguir, senao comecar a magia (0x56e906)",
+   "source": "sim/exe/action.ts"
+  },
+  {
+   "va": "0x56ed4e",
+   "name": "AI_PathEndTarget",
+   "desc": "Fim de caminho das tarefas de ataque/IA: alvo ao alcance (lista de vivos, AI_EnemyFilter, menor desvio angular) -> tarefa 6, senao 0xb/0",
    "source": "sim/exe/action.ts"
   },
   {

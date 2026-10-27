@@ -19,7 +19,7 @@ const WALK_FIELDS: Field[] = [
 const AI_FIELDS: Field[] = [
   [0x00, 2, "f00"], [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x14, 1, "range"],
   [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x30, 4, "f30"], [0x3c, 2, "f3c"], [0x50, 4, "f50"], [0x54, 4, "f54"],
-  [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
+  [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x71, 1, "f71"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
 ];
 
 function read(b: Uint8Array, [off, size, , signed]: Field): number {
@@ -62,6 +62,8 @@ export interface UnitRecJson {
   m: [number, number, number, number]; act: number; task: number;
   u?: Record<string, number>; t?: [number, number, number]; o?: number;
   w: Record<string, number>; a: Record<string, number>; ps: number[]; pd: number[];
+  /** pontos da patrulha ([IA+0xb4]) — ausente em saves antigos */
+  pt?: number[];
 }
 
 export function unitRecToJson(r: UnitRec): UnitRecJson {
@@ -70,7 +72,7 @@ export function unitRecToJson(r: UnitRec): UnitRecJson {
     m: [r.mapObj.x, r.mapObj.y, r.mapObj.fx, r.mapObj.fy], act: r.act, task: r.task,
     u: Object.fromEntries(UNIT_KEYS.map(k => [k, r[k]])), t: [r.type.stats.f20, r.type.stats.speedByte, r.type.stats.f45], o: r.owner.f2c,
     w: Object.fromEntries(WALK_FIELDS.map(f => [f[2], w[f[2]]!])), a: Object.fromEntries(AI_FIELDS.map(f => [f[2], a[f[2]]!])),
-    ps: listVals(r.pathStatic), pd: listVals(r.pathDynamic),
+    ps: listVals(r.pathStatic), pd: listVals(r.pathDynamic), pt: listVals(r.ai.patrol),
   };
 }
 
@@ -83,7 +85,7 @@ export function unitRecFromJson(r: UnitRec, j: UnitRecJson): void {
   if (j.t) [r.type.stats.f20, r.type.stats.speedByte, r.type.stats.f45] = j.t;
   if (j.o !== undefined) r.owner.f2c = j.o;
   Object.assign(r.walk, j.w); Object.assign(r.ai, j.a);
-  listSet(r.pathStatic, j.ps); listSet(r.pathDynamic, j.pd);
+  listSet(r.pathStatic, j.ps); listSet(r.pathDynamic, j.pd); listSet(r.ai.patrol, j.pt ?? []);
 }
 
 /** Estado do MapRec: trechos [deslocamento, hex] que diferem de `base` e a ocupação (baldes na ordem das cadeias). */

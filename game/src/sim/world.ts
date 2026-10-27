@@ -10,15 +10,23 @@
  * cópia); o andar só muda o registro, pelas funções portadas. `act(u)` escreve a tarefa do exe (IA+8 = 1 andar / 4 perseguir, IA+0xa
  * célula, IA+0x18/+0x14 alvo e alcance) a partir da ordem e chama o despachante portado (0x56dca2, sim/exe/action.ts); com IA+9 == 3
  * (passo em curso) o despachante só continua o passo, antes de qualquer ordem. `grid.occ` (ocupação do motor, uma unidade por
- * célula = a célula do chão) é sincronizada num único ponto, depois de cada chamada do despachante (`dispatch`). Adaptadores do
- * motor antigo (chamados do exe ainda não portados): fim do caminho de andar (0x56dc24: nada), da patrulha (próximo ponto da nossa
- * ordem de patrulha) e das demais tarefas (0x56ed4e: inimigo ao alcance → ataca, senão ordem nenhuma); ordens com `near` > 0 (seguir,
- * defender, magia no chão) chamam Unit_WalkNear 0x56e4ac direto (no exe, tarefas não portadas).
+ * célula = a célula do chão) é sincronizada num único ponto, depois de cada chamada do despachante (`dispatch`).
+ *
+ * DESPACHANTE INTEIRO (etapa 7, notes/despachante.md): toda tarefa IA+8 que o corpus alcança está portada. Ociosa de jogador de IA →
+ * 0xb no pensamento (olhar em volta, 0x56e5bc, sorteios pelo `Rng` via `WorldRec.rng`); atacar/lançar em unidade → 5/8 (0x56eab5/
+ * 0x56ebc0: ao alcance o exe começa a sub-ação 1/2 — golpe/magia — e a World entra com o EFEITO do motor antigo em `strikeBegin`/
+ * `castBegin`, no tique em que a sub-ação nasce, e marca +0x136 (pronto) quando a máquina acaba); fim de caminho na cauda de
+ * 0x56dca2 (0x56dc24 parar, patrulha pela lista [IA+0xb4], 0x56ed4e alvo ao alcance → tarefa 6). As listas do exe que isso lê
+ * (unidades vivas mundo+4, tipo+0 por (dono, modelo), diplomacia +0xa8bc, eventos +0xbbec) são mantidas pela World (spawn, setState,
+ * step, command). Único adaptador restante: tarefa 9 (0x56ec3f, exec 0: ordens com `near` > 0 — seguir, defender, magia no chão —
+ * só o ramo de andar); a magia no chão lança pelo motor antigo.
  */
 import { BLOCK_BORDER, BLOCK_SPELL, BLOCK_STRUCTURE, Grid, MAP_BORDER } from "./grid";
 import { skillExp, skillFromExp } from "./stats";
 import { lineOfSight } from "./los";
 import { CellStructRec, MapRec, OccRec, UnitRec, WorldRec } from "./exe/types";
+import { listSet } from "./exe/recio";
+import { CListPtr, CListWord, type ListPos } from "./exe/mfc";
 import { mapRecFromGrid, exeMaskOf } from "./exe/mapbuild";
 import { unitActionDispatcher, type DispatchHooks } from "./exe/action";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
@@ -504,8 +512,21 @@ export class World {
     this.byId.set(u.id, u);
     this.exe.units.set(u.rec.addr, u.rec);
     u.rec.owner.f2c = this.isAiPlayerUnit(u) ? 1 : 0;
+    u.rec.owner.f04 = u.player;
+    // listas do exe: unidades vivas do mundo (+4, ordem de criação) e as do mesmo tipo (tipo+0: a lista é partilhada por modelo
+    // [est]; o resto do registro do tipo — +0x45 grupo dormindo, +0x44, +0x20 — fica por unidade, como o despejo o traz)
+    this.exeWorld.liveUnits.addTail(u.rec.addr);
+    u.rec.type.members = this.typeList(u.typeId);
+    u.rec.type.members.addTail(u.rec.addr);
+    u.rec.ai.f71 = (u.stats.seeInvisible ?? 0) & 0xff;
     this.occupy(u);
     return u;
+  }
+  private readonly typeLists = new Map<number, CListPtr>();
+  private typeList(typeId: number): CListPtr {
+    let l = this.typeLists.get(typeId);
+    if (!l) { l = new CListPtr(); this.typeLists.set(typeId, l); }
+    return l;
   }
 
   get(id: number): Unit | undefined { return this.byId.get(id); }
@@ -566,6 +587,33 @@ export class World {
     u.x = c.x + 0.5; u.y = c.y + 0.5;
     this.walkAbort(u);
     this.occupy(u);
+  }
+
+  /** Por tique (e ao restaurar): a tabela de diplomacia do exe (mundo+0xa8bc, bit 0 = guerra, lida por 0x57994d no fim de caminho),
+   *  o id do dono (+0x14+4: o script pode passar a unidade a outro jogador) e a lista das unidades vivas (mundo+4: a morte tira —
+   *  cadáveres vão para +0x44 —, a ressurreição põe de volta), refeita na ordem de criação, salvo no tique importado do oráculo
+   *  (a lista veio do despejo). */
+  private exeSyncWorld(): void {
+    const w = this.exeWorld;
+    for (let a = 0; a < this.dip.length && a < 0x46; a++) for (let b = 0; b < this.dip.length && b < 0x46; b++) w.dipTable[8 + a * 0x46 + b] = this.hostile(a, b) ? 1 : 0;
+    for (const u of this.units) u.rec.owner.f04 = u.player;
+    if (this.exeExact) return;
+    w.liveUnits.removeAll();
+    for (const u of this.units) if (u.state !== "dead" && u.state !== "dying") w.liveUnits.addTail(u.rec.addr);
+  }
+
+  /** Refaz as listas do mundo do exe a partir das unidades: vivas (mundo+4, na ordem dada ou na das unidades, só as de pé), as de
+   *  cada tipo (tipo+0, por modelo [est]), a diplomacia e os donos. Estado importado/restaurado: os endereços dos registros mudaram. */
+  exeRebuildLists(live?: number[]): void {
+    const w = this.exeWorld;
+    this.typeLists.clear();
+    for (const u of this.units) {
+      u.rec.type.members = this.typeList(u.typeId);
+      u.rec.type.members.addTail(u.rec.addr);
+      u.rec.ai.f71 = (u.stats.seeInvisible ?? 0) & 0xff;
+    }
+    this.exeSyncWorld();
+    if (live) { w.liveUnits.removeAll(); for (const a of live) w.liveUnits.addTail(a >>> 0); }
   }
 
   /** As estruturas do mapa (alvo dos ponteiros OccRec+0xc) de volta (o estado importado do oráculo usa as do original). */
@@ -673,6 +721,12 @@ export class World {
       }
     }
     if (!sameOrder(u.order, o)) u.decideTick = this.tick;
+    // patrulha: a lista de pontos do exe (IA+0xb4, na ordem do roteiro: A = posto, B = ponto do script) e o ponto corrente IA+2
+    if (o.type === "patrol") {
+      const A = ((o.ay & 0xff) << 8) | (o.ax & 0xff), B = ((o.by & 0xff) << 8) | (o.bx & 0xff);
+      listSet(u.rec.ai.patrol, A === B ? [A] : [A, B]);
+      u.rec.ai.f02 = o.toB ? B : A;
+    }
     u.order = o;
     u.resume = null;
     // o caminho (registro do exe) fica: o exe só o limpa quando o destino do estático muda (0x555411) ou o alvo da perseguição muda
@@ -891,6 +945,7 @@ export class World {
       // 8) e a esvazia (0x57485b → 0x57b2b0 RemoveAll)
       this.exeWorld.events.removeAll();
     }
+    this.exeSyncWorld();
     // ordem do servidor: jogadores em ordem e, em cada um, as unidades por id (sonda rngprobe: a posição dos sorteios do olhar em volta
     // bate 9/9 com (jogador, id)); `regenSlot` = id do original nos estados importados
     const order = this.serverOrder();
@@ -1121,8 +1176,7 @@ export class World {
     // patrulha: o pensamento (0x569b62 → 0x56c8af) passa ao ponto seguinte quando a célula já é a do ponto, idem (medido: m20_start,
     // 24620, T=575→576); até lá Unit_WalkNear parado no ponto (ação 1)
     if (u.order.type === "patrol" && this.thinkNow) {
-      const p = u.order;
-      if (u.cx === (p.toB ? p.bx : p.ax) && u.cy === (p.toB ? p.by : p.ay)) p.toB = !p.toB;
+      if (u.cx === (r.ai.f02 & 0xff) && u.cy === (r.ai.f02 >> 8)) this.patrolAdvance(r);
     }
     // sub-ação em curso do exe (IA+9: 1 golpe, 2 magia, 3 passo, 4 efeito, 0xff parado): o despachante 0x56dca2 a continua antes de
     // qualquer ordem; a máquina de ação (0x50f12c = o golpe/a magia do motor antigo, `progressAttack`) roda depois dele no mesmo
@@ -1133,11 +1187,10 @@ export class World {
     switch (o.type) {
       case "none":
         // ociosa de jogador de IA: o pensamento (0x56afd9, tique ≡ 7) põe a tarefa IA+8 = 0xb, e o despachante olha em volta em todo
-        // tique (0x56e5bc: sorteios 0x56e629/0x56e656, giro por 0x556454); a tarefa importada do oráculo vale até o pensamento
-        if (this.idleTask(u)) {
-          if (this.thinkNow && u.rec.ai.task !== 0xb) u.rec.ai.task = 0xb;
-          if (u.rec.ai.task === 0xb) { this.dispatch(u); return; }
-        }
+        // tique (0x56e5bc: sorteios 0x56e629/0x56e656, giro por 0x556454); a tarefa importada do oráculo vale até o pensamento.
+        // A tarefa 6 (fim de caminho 0x56ed4e: atacar quem está ao alcance, 0x56eff3) também segue no despachante
+        if (this.idleTask(u) && this.thinkNow && r.ai.task !== 0xb) r.ai.task = 0xb;
+        if ((r.ai.task === 0xb && this.idleTask(u)) || r.ai.task === 6) { this.dispatch(u); return; }
         this.stop(u);
         return;
       case "hold":
@@ -1195,11 +1248,11 @@ export class World {
           const e = this.nearestEnemy(u, this.sightOf(u));
           if (e) { const back = { ...o }; this.command(u, { type: "attack", target: e.id }); u.resume = back; return; }
         }
-        // fim do caminho com o ponto bloqueado (0x56dca2 → adaptador patrolNext) deixa IA+8 = 0: a patrulha só volta a andar no
-        // pensamento seguinte (medido: m20_start, 24620, T=234 → 240)
-        if (u.rec.ai.task !== 1 && !this.thinkNow) { this.stop(u); return; }
-        const tx = o.toB ? o.bx : o.ax, ty = o.toB ? o.by : o.ay;
-        if (!this.walkTo(u, tx, ty, 0)) o.toB = !o.toB;   // ponto inalcançável: segue para o outro
+        // fim do caminho com o ponto bloqueado (cauda de 0x56dca2: IA+2 ← ponto seguinte da lista) deixa IA+8 = 0: a patrulha só
+        // volta a andar no pensamento seguinte (medido: m20_start, 24620, T=234 → 240). O ponto corrente é IA+2 (lista IA+0xb4)
+        if (r.ai.task !== 1 && !this.thinkNow) { this.stop(u); return; }
+        if (!r.ai.patrol.find(r.ai.f02 & 0xffff, null)) r.ai.f02 = ((o.ay & 0xff) << 8) | (o.ax & 0xff);   // ponto importado fora da lista
+        if (!this.walkTo(u, r.ai.f02 & 0xff, r.ai.f02 >> 8, 0)) this.patrolAdvance(r);   // ponto inalcançável: segue para o outro
         return;
       }
       case "roam":
@@ -1235,6 +1288,11 @@ export class World {
           if (o.type === "attack") { if (!this.exeExact || r.ai.task !== 5) { r.ai.task = 5; r.ai.f0c = t.rec.addr; r.ai.range = this.attackRange(u) & 0xff; } }
           else if (!this.exeExact || r.ai.task !== 8) { r.ai.task = 8; r.ai.f28 = t.rec.addr; r.ai.range = spell!.range & 0xff; }
           this.dispatch(u);
+          // a perseguição acabou sem alcançar o alvo (fim de caminho, 0x56ed4e: a tarefa virou 0, 0xb ou 6). Ataque de jogador de IA:
+          // a ordem antiga acaba (o pensamento do exe decide a seguinte) e o alvo fica fora da escolha da IA por uns segundos
+          // (Unit.unreachTarget); lado humano e magias: a ordem fica e a tarefa volta a 5/8 no tique seguinte (no exe, no pensamento)
+          const sub: number = r.ai.sub;
+          if (o.type === "attack" && r.ai.task !== 5 && sub !== 1 && sub !== 2 && this.isAiPlayerUnit(u)) { u.unreachTarget = t.id; u.unreachTick = this.tick; this.resumeOrNone(u); }
           return;
         }
         // magia no chão (tarefa 9 do exe, 0x56ec3f: exec 0 no corpus, sem porta): anda até o alcance e lança pelo motor antigo
@@ -1398,26 +1456,8 @@ export class World {
     }
   }
 
-  /** Adaptadores das tarefas do exe ainda não portadas que o andar alcança (ver o cabeçalho deste arquivo). */
+  /** Adaptador da tarefa 9 do exe (0x56ec3f, exec 0 no corpus: só o ramo de andar; ver o cabeçalho deste arquivo). */
   private readonly exeHooks: DispatchHooks = {
-    f56dc24: () => { /* 0x56d969 + visão: sem efeito no andar */ },
-    patrolNext: r => {
-      const u = this.unitByAddr(r.addr);
-      if (!u || u.order.type !== "patrol") return;
-      const o = u.order;
-      o.toB = !o.toB;
-      r.ai.f02 = ((o.toB ? o.by : o.ay) << 8) | (o.toB ? o.bx : o.ax);
-    },
-    f56ed4e: r => {
-      const u = this.unitByAddr(r.addr);
-      if (!u || u.isHero || !this.isAiPlayerUnit(u) || u.order.type !== "attack") return;
-      // alvo ao alcance de ataque (fora o perseguido) → ataca esse; senão ociosa até o próximo pensamento
-      const tgt = u.order.target, rr = Math.max(1, this.attackRange(u));
-      const near = this.units.find(v => v.id !== tgt && v.targetable && this.isEnemy(u, v) && Math.max(Math.abs(v.cx - u.cx), Math.abs(v.cy - u.cy)) <= rr);
-      u.unreachTarget = tgt; u.unreachTick = this.tick;
-      this.stop(u);
-      this.command(u, near ? { type: "attack", target: near.id } : { type: "none" });
-    },
     task: r => {
       switch (r.ai.task) {
         case 9: unitWalkNear(this.exeWorld, r, r.ai.f3c & 0xffff, r.ai.range & 0xff); r.act = 1; return true;   // ramo de andar de 0x56ec3f
@@ -1425,6 +1465,15 @@ export class World {
       return false;
     },
   };
+
+  /** Ponto seguinte da patrulha (adaptador do pensamento 0x569b62: a mesma volta pela lista IA+0xb4 que a cauda de 0x56dca2 faz —
+   *  Find do ponto corrente, o seguinte, ou a cabeça no fim). */
+  private patrolAdvance(r: UnitRec): void {
+    const pos: ListPos = { p: r.ai.patrol.find(r.ai.f02 & 0xffff, null) };
+    if (pos.p === null) { if (r.ai.patrol.head) r.ai.f02 = r.ai.patrol.getHead(); return; }
+    CListWord.getNext(pos);
+    r.ai.f02 = pos.p === null ? r.ai.patrol.getHead() : CListWord.getNext(pos);
+  }
 
   /** Um tique do despachante portado (0x56dca2) para a unidade e a sincronização do motor: `grid.occ` (célula do chão), estado de
    *  animação (ação 1 = andar/girar), chegada ao centro (saque automático). Campos que o motor antigo ainda calcula (velocidade com
@@ -1438,6 +1487,7 @@ export class World {
       r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
       r.f94 = u.hp; r.mana = u.mana;
       r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (AI_AttackRange 0x56ac5b sem magia escolhida no registro)
+      r.owner.f04 = u.player;                         // o dono pode mudar (script: unidade passa a outro jogador)
       // grupo dormindo (tipo+0x45): quem dorme no motor antigo não recebe ordem de andar (a IA não pensa por ele); o teste do
       // despachante fica desligado para não parar uma ordem que o motor antigo deu
       r.type.stats.f45 = 1;

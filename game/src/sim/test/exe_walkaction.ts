@@ -1,7 +1,8 @@
 /**
  * Prova da porta sim/exe/walk_action.ts (lote 5c, o andar), do despachante sim/exe/action.ts (etapa 6: 0x56dca2, 0x56ea52; etapa 7:
  * 0x56e5bc olhar em volta, golpe/magia como sub-ação 0x56eab5/0x56e8c3/0x56eff3/0x56f0bb/0x56ebc0/0x56e906/0x56dbc6/0x56d969...,
- * a lista de eventos do mundo 0x57b210) e dos sorteios sim/exe/rand.ts (0x57afc0, 0x57afd0) contra
+ * a lista de eventos do mundo 0x57b210, fim de caminho 0x56ed4e/0x567ddf/0x567a16/0x55aa21/0x54fb7f/0x57994d e a lista de patrulha
+ * 0x57b020) e dos sorteios sim/exe/rand.ts (0x57afc0, 0x57afd0) contra
  * os pares do oráculo (tools/re/oracle/fnprobe.py) e a varredura no Unicorn (tools/re/oracle/fuzz_walk.py). Pares de 0x56dca2 que
  * caem numa tarefa ainda não portada (NotPorted) contam à parte, não como falha. Rodar em game/:
  *   npx tsx src/sim/test/exe_walkaction.ts            (EXE_WALK_ONLY=0x555411,fuzz para só algumas)
@@ -26,10 +27,11 @@ import {
   unitWalkNear, unitWalkWait,
 } from "../exe/walk_action";
 import {
-  aiStandGroundAt, fn_0x53a5a0, fn_0x558b75, fn_0x56d969, fn_0x56dba1, fn_0x56dbc6, fn_0x56dbfb, fn_0x56e8c3, fn_0x56e906, fn_0x56ea52,
-  fn_0x56eab5, fn_0x56ebc0, fn_0x56eff3, fn_0x56f0bb, unitActionDispatcher, unitLookAround,
+  aiAngleTiebreak, aiEnemyFilter, aiStandGroundAt, fn_0x53a5a0, fn_0x54fb7f, fn_0x558b75, fn_0x567ddf, fn_0x56d969, fn_0x56dba1,
+  fn_0x56dbc6, fn_0x56dbfb, fn_0x56dc24, fn_0x56e8c3, fn_0x56e906, fn_0x56ea52, fn_0x56eab5, fn_0x56ebc0, fn_0x56ed4e, fn_0x56eff3,
+  fn_0x56f0bb, fn_0x57994d, unitActionDispatcher, unitLookAround,
 } from "../exe/action";
-import { CListEvent, CListEventNode } from "../exe/mfc";
+import { CListEvent, CListEventNode, type CListPtr } from "../exe/mfc";
 import { fn_0x57afd0, randUniformObject } from "../exe/rand";
 import { Rng } from "../rng";
 import {
@@ -61,8 +63,10 @@ const WALK_FIELDS: Field[] = [
 const AI_FIELDS: Field[] = [
   [0x00, 2, "f00"], [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"],
   [0x14, 1, "range"], [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x30, 4, "f30"], [0x3c, 2, "f3c"],
-  [0x50, 4, "f50"], [0x54, 4, "f54"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
+  [0x50, 4, "f50"], [0x54, 4, "f54"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x71, 1, "f71"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
 ];
+/** Mundo: lista das unidades vivas (+4), candidatos (+0xa68), caídos (+0xa88), tabela de diplomacia (+0xa8bc). */
+const WORLD_LIVE_OFF = 0x4, WORLD_CAND_OFF = 0xa68, WORLD_DEAD_OFF = 0xa88, WORLD_DIP_OFF = 0xa8bc, WORLD_DIP_SIZE = 8 + 0x46 * 0x46;
 /** Mundo: lista de eventos (+0xbbec, cabeçalho 0x1c) e rascunho do evento (+0xbd98, 0x54 bytes). */
 const WORLD_EVENTS_OFF = 0xbbec, WORLD_EVT_OFF = 0xbd98;
 
@@ -95,6 +99,8 @@ function unitFrom(cm: CallMem, a: number, memo: Map<number, UnitRec>): UnitRec {
   fill(u as unknown as Rec, cm, a, UNIT_FIELDS);
   u.mapObj = mapObjFrom(cm, cm.u32(a + 0x10));
   u.owner.f2c = cm.u32(cm.u32(a + 0x14) + 0x2c);
+  u.owner.f04 = (cm.u16(cm.u32(a + 0x14) + 4) << 16) >> 16;
+  u.type.members = ptrListFrom(cm, cm.u32(a + 0x70));
   const stats = cm.u32(cm.u32(a + 0x70) + 0x3c);
   u.type.stats.f20 = cm.u8(stats + 0x20);
   u.type.stats.speedByte = cm.u8(stats + 0x44);
@@ -102,6 +108,7 @@ function unitFrom(cm: CallMem, a: number, memo: Map<number, UnitRec>): UnitRec {
   u.book = bookFrom(cm, cm.u32(a + 0x140));
   fill(u.walk as unknown as Rec, cm, cm.u32(a + 0x1c0), WALK_FIELDS);
   fill(u.ai as unknown as Rec, cm, cm.u32(a + 0x1c4), AI_FIELDS);
+  u.ai.patrol = listFrom(cm, cm.u32(cm.u32(a + 0x1c4) + 0xb4));   // IA+0xb4 = ponteiro para o CList<WORD>
   for (const [off, k] of UNIT_LISTS) u[k] = listFrom(cm, a + off);
   return u;
 }
@@ -160,11 +167,11 @@ function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string | null {
 
 interface Ctx {
   d: Pair; cm: CallMem; memo: Map<number, UnitRec>; map: TestMap | null; mapBefore: Uint8Array | null; rng: CountingRng | null;
-  world: WorldRec | null; worldAddr: number; events: CListEvent | null; eventsAddr: number;
+  world: WorldRec | null; worldAddr: number; events: CListEvent | null; eventsAddr: number; ptrList: CListPtr | null; ptrListAddr: number;
 }
 
 function ctx(d: Pair, cm: CallMem): Ctx {
-  return { d, cm, memo: new Map(), map: null, mapBefore: null, rng: null, world: null, worldAddr: 0, events: null, eventsAddr: 0 };
+  return { d, cm, memo: new Map(), map: null, mapBefore: null, rng: null, world: null, worldAddr: 0, events: null, eventsAddr: 0, ptrList: null, ptrListAddr: 0 };
 }
 /** Lista de eventos em `hdr` pela memória da chamada: contagem e, da cauda (o único nó que a chamada lê), o evento. */
 function eventListFrom(cm: CallMem, hdr: number): CListEvent {
@@ -201,6 +208,13 @@ function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
   if (c.cm.has(w)) wr.divisor = c.cm.u32(w) | 0;
   wr.events = eventListFrom(c.cm, w + WORLD_EVENTS_OFF);
   wr.evt.set(c.cm.bytes(w + WORLD_EVT_OFF, EVENT_SIZE));
+  // listas do fim de caminho: unidades vivas ([mapa+0xa456c] = o mundo), candidatos e caídos; tabela de diplomacia (bytes lidos)
+  const base = (m as { base?: number }).base;
+  const live = base !== undefined && c.cm.has(base + 0xa456c) ? c.cm.u32(base + 0xa456c) : w;
+  wr.liveUnits = ptrListFrom(c.cm, live + WORLD_LIVE_OFF);
+  wr.cand = ptrListFrom(c.cm, w + WORLD_CAND_OFF);
+  wr.dead = ptrListFrom(c.cm, w + WORLD_DEAD_OFF);
+  for (let i = 0; i < WORLD_DIP_SIZE; i++) if (c.cm.has(w + WORLD_DIP_OFF + i)) wr.dipTable[i] = c.cm.u8(w + WORLD_DIP_OFF + i);
   c.world = wr;
   c.worldAddr = w;
   return wr;
@@ -214,7 +228,8 @@ function checkWorld(c: Ctx): string | null {
     if (cm.written.has(a)) { if (got !== f.u8(a)) return `mundo+0x${(WORLD_EVT_OFF + i).toString(16)}: porta ${got} ≠ original ${f.u8(a)}`; }
     else if (got !== cm.u8(a)) return `mundo+0x${(WORLD_EVT_OFF + i).toString(16)}: porta mudou ${cm.u8(a)}→${got}, original não escreveu`;
   }
-  return checkEventList(cm, w + WORLD_EVENTS_OFF, c.world.events, "mundo+0xbbec");
+  return checkEventList(cm, w + WORLD_EVENTS_OFF, c.world.events, "mundo+0xbbec")
+    ?? checkPtrList(cm, w + WORLD_CAND_OFF, c.world.cand, "mundo+0xa68") ?? checkPtrList(cm, w + WORLD_DEAD_OFF, c.world.dead, "mundo+0xa88");
 }
 const U = (c: Ctx, a: number): UnitRec => unitFrom(c.cm, a, c.memo);
 function M(c: Ctx, base: number): TestMap {
@@ -246,7 +261,8 @@ function done(c: Ctx, r: number | null, ret?: (v: number) => number): string | n
   }
   const e = (c.rng ? eq("rand(): sorteios", c.rng.n, c.d.nrand) ?? eq("rand(): semente final", c.rng.state, c.d.rng1 >>> 0)
     : c.d.nrand !== 0 || c.d.rng0 !== c.d.rng1 ? "rand() chamado no original" : null) ?? checkWorld(c)
-    ?? (c.events ? checkEventList(c.cm, c.eventsAddr, c.events, "lista") : null);
+    ?? (c.events ? checkEventList(c.cm, c.eventsAddr, c.events, "lista") : null)
+    ?? (c.ptrList ? checkPtrList(c.cm, c.ptrListAddr, c.ptrList, "lista") : null);
   if (e) return e;
   return r !== null && ret ? eq("retorno", r, ret(c.d.eax)) : null;
 }
@@ -293,6 +309,31 @@ const CHECKS: Record<string, Check> = {
   "0x56dbc6": run((c, d) => { const w = W(c, d.this); fn_0x56dbc6(w, U(c, A(d, 0))); return null; }),
   "0x56e906": run((c, d) => { const w = W(c, d.this); fn_0x56e906(w, U(c, A(d, 0))); return null; }),
   "0x56ebc0": run((c, d) => { const w = W(c, d.this); fn_0x56ebc0(w, U(c, A(d, 0))); return null; }),
+  "0x54fb7f": run((c, d) => fn_0x54fb7f(mapObjFrom(c.cm, d.this), mapObjFrom(c.cm, A(d, 0))), AL),
+  "0x55aa21": run((c, d) => aiAngleTiebreak(A(d, 0), A(d, 1)), AL),
+  "0x57994d": run((c, d) => (fn_0x57994d(WR(c, d.this - WORLD_DIP_OFF), U(c, A(d, 0)), U(c, A(d, 1))) ? 1 : 0), AL),
+  "0x567ddf": run((c, d) => { const w = W(c, d.this); fn_0x567ddf(w); return null; }),
+  "0x567a16": run((c, d) => {
+    const w = W(c, d.this);
+    // a lista é o CList em param_2+4: a dos candidatos do mundo (+0xa64) ou outra (pensamento da IA)
+    let l: CListPtr;
+    if (A(d, 1) === d.this + WORLD_CAND_OFF - 4) l = w.cand;
+    else { l = ptrListFrom(c.cm, A(d, 1) + 4); c.ptrList = l; c.ptrListAddr = A(d, 1) + 4; }
+    aiEnemyFilter(w, U(c, A(d, 0)), l, A(d, 2));
+    return null;
+  }),
+  "0x53afb0": run((c, d) => { const l = ptrListFrom(c.cm, d.this); c.ptrList = l; c.ptrListAddr = d.this; l.remove(A(d, 0)); return null; }),
+  "0x44fc20": run((c, d) => ptrListFrom(c.cm, d.this).count, EAX),
+  "0x56ed4e": run((c, d) => { const w = W(c, d.this); fn_0x56ed4e(w, U(c, A(d, 0))); return null; }),
+  "0x56dc24": run((c, d) => { const w = W(c, d.this); fn_0x56dc24(w, U(c, A(d, 0))); return null; }),
+  "0x57b020": (d, cm) => {
+    // Find na lista de patrulha (this = o CList<WORD>): devolve o nó (POSITION) ou 0; conferimos nulidade e o dado do nó achado
+    const l = listFrom(cm, d.this);
+    const after = A(d, 1) === 0 ? null : (() => { throw new Error("Find com POSITION de partida: não previsto"); })();
+    const n = l.find(A(d, 0) & 0xffff, after);
+    if ((n === null) !== (d.eax === 0)) return `Find: porta ${n === null ? "nulo" : "nó"} ≠ original ${d.eax === 0 ? "nulo" : "nó"}`;
+    return n === null || !cm.has(d.eax + 8) ? null : eq("Find.dado", n.data & 0xffff, cm.u16(d.eax + 8));
+  },
   "0x57b210": run((c, d) => {
     // fastcall: ECX = a lista (mundo+0xbbec); o evento (0x54 bytes) vem por valor na pilha, logo acima do endereço de retorno
     c.events = eventListFrom(c.cm, d.this);

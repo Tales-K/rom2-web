@@ -9,7 +9,8 @@
  * Lote 5c (sim/exe/walk_action.ts): o andar (`WalkRec` +0x00..+0xb1: giro, passo por tique, alvo), `WorldRec`, unidades por endereço.
  * Etapa 6 (sim/exe/action.ts): campos do despachante 0x56dca2 (unidade +0x50/+0x144, IA +0x14/+0x18, tipo +0x45, mundo +0xbbe8).
  * Etapa 7 (sim/exe/action.ts, rand.ts): olhar em volta (IA +0x54), o sorteio do mundo (mundo +0 divisor, `rng`); golpe/magia como
- * sub-ação (unidade +0x4c/+0x5c/+0x60/+0x64, IA +0x00/+0x30/+0x50/+0x5c/+0x60, a lista de eventos do mundo +0xbbec e o evento +0xbd98).
+ * sub-ação (unidade +0x4c/+0x5c/+0x60/+0x64, IA +0x00/+0x30/+0x50/+0x5c/+0x60, a lista de eventos do mundo +0xbbec e o evento +0xbd98);
+ * fim de caminho (0x56ed4e: listas do mundo +0x04/+0xa68/+0xa88, diplomacia +0xa8bc, dono +0x04, tipo +0x00, IA +0x71, patrulha IA+0xb4).
  */
 import { CListEvent, CListPtr, CListWord, CMapShortOcc } from "./mfc";
 import { Rng } from "../rng";
@@ -57,8 +58,11 @@ export class UnitStatsRec {
   speedByte = 0; // +0x44 u8  se ≠ 0 vale como velocidade, senão usa unidade+0x8c (0x55915a)
   f45 = 0;       // +0x45 u8  0 (com mundo+0xbbe8 = 0 e IA+9 = 0) → ação 0x1b, grupo dormindo (0x56dca2)
 }
-/** Tipo da unidade (alvo do ponteiro unidade+0x70). */
+/** Tipo da unidade (alvo do ponteiro unidade+0x70): começa por um CList<void*> das unidades que o partilham. */
 export class UnitTypeRec {
+  /** +0x00 CList<void*> (cabeçalho 0x1c) das unidades deste tipo: AI_EnemyFilter 0x567a16 as percorre para ver invisíveis
+   *  [est: no motor, um registro por (dono, modelo)] */
+  members = new CListPtr();
   stats: UnitStatsRec = new UnitStatsRec(); // +0x3c ptr
 }
 
@@ -124,12 +128,17 @@ export class AiRec {
   f54 = 0;        // +0x54 u32 1 = sofreu golpe/magia (0x56e6b8): a próxima olhada em volta gira sem o sorteio (0x56e5bc zera)
   f5c = 0;        // +0x5c u32 1 = a magia em curso mira uma unidade (0x56e906); 0 = célula (ação 0xe e evento 3 no despachante)
   f60 = 0;        // +0x60 u32 0 → 0x56e906 chama 0x56dbc6 (parar); zerado por 0x56d969
+  f71 = 0;        // +0x71 u8  alcance de ver invisível (AI_EnemyFilter 0x567a16)
   spellSlot = 0;  // +0x78 u8  magia do livro escolhida (0 = nenhuma; 0x56ac5b)
   fb0 = 0;        // +0xb0 u16 destino do teleporte da célula (0x5503af, registro de ocupação de tipo 0x17)
+  /** +0xb4 ptr CList<WORD> dos pontos da patrulha (y<<8 | x), na ordem do roteiro: 0x57b020 Find, 0x55f1f0 GetNext e 0x55f0d0
+   *  GetHead no fim do caminho da patrulha (0x56dca2) */
+  patrol = new CListWord();
 }
 
 /** Dono da unidade (alvo do ponteiro unidade+0x14). */
 export class PlayerRec {
+  f04 = 0;        // +0x04 i16 id do jogador (índice na tabela de diplomacia do mundo, 0x57994d)
   f2c = 0;        // +0x2c u32 0 → 0x54d76e testa Path_TargetFree (onda estática de 1000)
 }
 
@@ -295,6 +304,14 @@ export const EVENT_SIZE = 0x54;
 /** Mundo/servidor (o `this` de 0x56dca2, 0x56e4ac, 0x56fc69 e dos sorteios 0x57afc0/0x57afd0). */
 export class WorldRec {
   divisor = 0x8000;                  // +0x0000 u32 divisor do objeto de sorteio uniforme (0x57afd0: rand() × n / divisor)
+  /** +0x0004 CList<void*> das unidades vivas, na ordem de criação (0x56ed4e a percorre via mapa+0xa456c → mundo). */
+  liveUnits = new CListPtr();
+  /** +0xa68 (objeto +0xa64, lista em +4) CList<void*> dos candidatos a alvo no fim do caminho (0x56ed4e, 0x567ddf, 0x567a16). */
+  cand = new CListPtr();
+  /** +0xa88 (objeto +0xa84) CList<void*> dos candidatos caídos (vida +0x94 < 1; 0x567ddf). */
+  dead = new CListPtr();
+  /** +0xa8bc tabela de diplomacia: byte [8 + id(a) × 0x46 + id(b)], bit 0 = guerra (0x57994d). */
+  dipTable = new Uint8Array(8 + 0x46 * 0x46);
   fbbe8 = 0;                         // +0xbbe8 u32 0 → 0x56dca2 testa o grupo dormindo (tipo+0x45)
   /** +0xbbec CList<Event> dos eventos para a IA (0x57b210 AddTail no despachante; 0x57b2b0 RemoveAll no pensamento 0x57485b). */
   events = new CListEvent();

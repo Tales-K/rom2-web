@@ -11,27 +11,178 @@
  * ground; o nome "Vision_UpdateManager" de known_functions é de uma nota antiga), 0x56dbfb, 0x56d52b AI_StandGroundAt, 0x53a5a0.
  * O golpe/a magia em si (Unit_StrikeBegin 0x516c1f, Spell_Apply) vivem em Unit_ActionMachine 0x50f12c, fora deste arquivo: a World
  * os começa quando a sub-ação 1/2 nasce (IA+0x15 = 0) e marca +0x136 (pronto) quando a máquina acaba.
- * Chamados não portados (IA, fim de caminho; etapa 7 lote 3): lançam NotPorted, salvo quando o chamador passa um adaptador em
+ * Fim de caminho (cauda de 0x56dca2): 0x56dc24 (andar: parar + Stand ground), a patrulha (lista IA+0xb4: 0x57b020 Find, GetNext,
+ * GetHead) e 0x56ed4e (demais tarefas: candidatos ao alcance na lista de unidades vivas → AI_EnemyFilter 0x567a16 (diplomacia
+ * 0x57994d, invisíveis) → caídos à parte (0x567ddf) → o de menor desvio angular (0x55aa21 AI_AngleTiebreak) vira alvo da tarefa 6,
+ * senão 0xb (jogador de IA) ou 0). Também 0x54fb7f (distância de Chebyshev entre objetos de mapa).
+ * Chamados não portados (tarefas 7, 9, 0xc, 0xf: exec 0 no corpus): lançam NotPorted, salvo quando o chamador passa um adaptador em
  * `DispatchHooks` (World: comportamento do motor antigo para esses pedaços, ver o cabeçalho de sim/world.ts).
  */
 import { gridChebyshevDist, mapObjCellOf, mapObjSubCellCenter } from "./walk";
 import { mapObjCellX, mapObjCellY } from "./path";
-import { NotPorted, fn_0x55532d, fn_0x5568e4, pathClearDynamic, unitActionChase, unitTeleportTo, unitTurnStep, unitWalkNear } from "./walk_action";
+import {
+  NotPorted, aiUnitDistance, fn_0x52b22a, fn_0x55532d, fn_0x5568e4, pathClearDynamic, unitActionChase, unitTeleportTo, unitTurnStep,
+  unitWalkNear,
+} from "./walk_action";
 import { aiAttackRange, fn_0x55be86 } from "./wave";
 import { fn_0x57afd0, randUniformObject } from "./rand";
-import type { MapRec, UnitRec, WorldRec } from "./types";
+import { CListPtrIter, CListWord, type CListPtr, type ListPos } from "./mfc";
+import type { MapObjRec, MapRec, UnitRec, WorldRec } from "./types";
+
+/** `abs` do CRT (0x582c40): |v| em 32 bits (INT_MIN fica INT_MIN). */
+function crtAbs(v: number): number {
+  v |= 0;
+  return v < 0 ? (-v) | 0 : v;
+}
 
 /** Adaptadores para chamados de 0x56dca2 ainda não portados (sem adaptador: NotPorted). */
 export interface DispatchHooks {
-  /** 0x56dc24 (fim do caminho com a tarefa +0x50 == 1): 0x56d969 + Vision_UpdateManager. */
-  f56dc24?(u: UnitRec): void;
-  /** Tarefa +0x50 == 0xa (patrulha) a menos de 3 células do ponto IA+2: IA+2 ← ponto seguinte da lista IA+0xb4 (0x57b020 Find,
-   *  0x55f1f0 GetNext; no fim, 0x55f0d0 GetHead). */
-  patrolNext?(u: UnitRec): void;
-  /** 0x56ed4e (fim do caminho nas demais tarefas): alvo ao alcance → tarefa 6 (0x56eff3), senão 0xb (0x56e5bc) ou 0. */
-  f56ed4e?(u: UnitRec): void;
-  /** Tarefa IA+8 sem porta (7, 9, 0xc, 0xf): o adaptador a executa e devolve true; false → NotPorted. */
+  /** Tarefa IA+8 sem porta (7, 9, 0xc, 0xf; exec 0 no corpus): o adaptador a executa e devolve true; false → NotPorted. */
   task?(u: UnitRec): boolean;
+}
+
+/** 0x54fb7f (thiscall; `this` = objeto de mapa): distância de Chebyshev em células entre dois objetos de mapa (bytes). AL. */
+export function fn_0x54fb7f(a: MapObjRec, b: MapObjRec): number {
+  const bVar1 = a.x & 0xff;
+  const bVar2 = mapObjCellX(b);
+  const uVar4 = crtAbs(bVar1 - bVar2);
+  let uVar3 = uVar4 & 0xff;
+  const b1 = a.y & 0xff;
+  const b2 = mapObjCellY(b);
+  const uVar5 = crtAbs(b1 - b2);
+  const local_c = uVar5 & 0xff;
+  if ((uVar4 & 0xff) <= local_c) uVar3 = local_c;
+  return uVar3 & 0xff;
+}
+
+/** 0x55aa21 AI_AngleTiebreak (cdecl): |a − b| em 1/256 de volta pelo lado curto (byte); AL. */
+export function aiAngleTiebreak(a: number, b: number): number {
+  const uVar2 = crtAbs((a & 0xff) - (b & 0xff));
+  let local_8 = uVar2 & 0xff;
+  if (0x80 < local_8) local_8 = (-local_8) & 0xff;
+  return local_8;
+}
+
+/** 0x57994d (thiscall; `this` = mundo+0xa8bc): bit 0 da tabela de diplomacia em [8 + id(dono de a) × 0x46 + id(dono de b)] (guerra). */
+export function fn_0x57994d(wd: WorldRec, a: UnitRec, b: UnitRec): boolean {
+  const ib = (b.owner.f04 << 16) >> 16, ia = (a.owner.f04 << 16) >> 16;
+  return (wd.dipTable[ib + ia * 0x46 + 8]! & 1) !== 0;
+}
+
+/** 0x567ddf (fastcall; `this` = mundo): esvazia a lista dos caídos (+0xa88) e passa para ela os candidatos (+0xa68) com vida
+ *  +0x94 < 1 (0x53afb0 tira, 0x52b22a põe). */
+export function fn_0x567ddf(wd: WorldRec): void {
+  const it = new CListPtrIter();
+  wd.dead.removeAll();
+  let local_10 = it.first(wd.cand);
+  while (local_10 !== 0) {
+    let local_14 = 0;
+    if (((wd.map.unitAt(local_10).f94 << 16) >> 16) < 1) local_14 = local_10;
+    local_10 = it.next();
+    if (local_14 !== 0) {
+      wd.cand.remove(local_14);
+      fn_0x52b22a(wd.dead, local_14);
+    }
+  }
+}
+
+/** 0x567a16 AI_EnemyFilter (thiscall; `this` = mundo): tira da lista `lst` (objeto `param_2`, CList em +4) quem tem o bit de guerra
+ *  com `u` igual a `want` e, dos invisíveis (efeito 0x1000) restantes, os que alguma unidade do tipo de `u` ([+0x70], lista) tem a
+ *  AI_UnitDistance ≤ IA+0x71 (ver invisível). */
+export function aiEnemyFilter(wd: WorldRec, u: UnitRec, lst: CListPtr, want: number): void {
+  let local_14 = 0;
+  const it = new CListPtrIter();
+  let local_10 = it.first(lst);
+  while (local_10 !== 0) {
+    local_14 = 0;
+    const cand = wd.map.unitAt(local_10);
+    const bVar1 = fn_0x57994d(wd, u, cand) ? 1 : 0;
+    if (bVar1 === (want | 0)) local_14 = local_10;
+    else if ((cand.effects & 0x1000) !== 0) {
+      const it2 = new CListPtrIter();
+      let local_20 = it2.first(u.type.members);
+      local_14 = local_10;
+      while (local_20 !== 0) {
+        const v = wd.map.unitAt(local_20);
+        const uVar2 = aiUnitDistance(wd.map, cand, v);
+        if ((uVar2 & 0xff) <= (v.ai.f71 & 0xff)) local_14 = 0;
+        local_20 = it2.next();
+      }
+    }
+    local_10 = it.next();
+    if (local_14 !== 0) lst.remove(local_14);
+  }
+}
+
+/**
+ * 0x56ed4e (thiscall; `this` = mundo): fim do caminho das tarefas que não são andar/patrulha/0x18. Candidatos = unidades vivas
+ * (mapa+0xa456c → mundo+4) a distância de Chebyshev ≤ AI_AttackRange e ≤ a menor até aqui (a lista +0xa68 fica em ordem não
+ * crescente de distância), menos a própria; AI_EnemyFilter (só inimigos vistos); caídos à parte (0x567ddf) e, sem candidato de pé,
+ * os caídos voltam a ser os candidatos. Alvo = o de menor desvio angular (AI_AngleTiebreak ≤ 300, o último em empate). Sem alvo:
+ * dono com +0x2c == 0 → tarefa 0, senão 0xb e olhar em volta; com alvo: IA+0xc = alvo, tarefa 6 e 0x56eff3.
+ */
+export function fn_0x56ed4e(wd: WorldRec, u: UnitRec): void {
+  wd.cand.removeAll();
+  const it = new CListPtrIter();
+  let local_24 = 0xff;
+  let local_20 = it.first(wd.liveUnits);
+  while (local_20 !== 0) {
+    const c = wd.map.unitAt(local_20);
+    const bVar1 = fn_0x54fb7f(u.mapObj, c.mapObj);
+    const local_14 = bVar1 & 0xff;
+    const r = aiAttackRange(u) & 0xff;
+    if (local_14 <= r && local_14 <= local_24 && local_20 !== (u.addr >>> 0)) {
+      fn_0x52b22a(wd.cand, local_20);
+      local_24 = local_14;
+    }
+    local_20 = it.next();
+  }
+  aiEnemyFilter(wd, u, wd.cand, 0);
+  fn_0x567ddf(wd);
+  if ((wd.cand.count | 0) === 0) {
+    if ((wd.dead.count | 0) !== 0) {
+      const it2 = new CListPtrIter();
+      let p = it2.first(wd.dead);
+      while (p !== 0) {
+        fn_0x52b22a(wd.cand, p);
+        p = it2.next();
+      }
+      wd.dead.removeAll();
+    }
+  }
+  let local_30 = 0;
+  let local_8 = 300;
+  if ((wd.cand.count | 0) !== 0) {
+    let local_c = it.first(wd.cand);
+    while (local_c !== 0) {
+      const c = wd.map.unitAt(local_c);
+      const uVar3 = fn_0x5568e4(u, c);
+      const local_28 = aiAngleTiebreak(u.walk.dir & 0xff, uVar3) & 0xff;
+      if (local_28 <= local_8) {
+        local_30 = local_c;
+        local_8 = local_28;
+      }
+      local_c = it.next();
+    }
+  }
+  if (local_30 === 0) {
+    if ((u.owner.f2c | 0) === 0) u.ai.task = 0;
+    else {
+      u.ai.task = 0xb;
+      unitLookAround(wd, u);
+    }
+  } else {
+    u.ai.f0c = local_30 >>> 0;
+    u.ai.task = 6;
+    fn_0x56eff3(wd, u);
+  }
+}
+
+/** 0x56dc24 (thiscall; nome "ReleaseAccessors" é da biblioteca, errado): fim do caminho da tarefa de andar: parar (0x56d969) e
+ *  Stand ground (0x56dba1). */
+export function fn_0x56dc24(wd: WorldRec, u: UnitRec): void {
+  fn_0x56d969(wd, u);
+  fn_0x56dba1(wd, u);
 }
 
 /** 0x53a5a0 (fastcall): bit 4 de unidade+0x4c. */
@@ -311,8 +462,7 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
   if ((u.walk.f98 | 0) !== 0) {
     u.walk.f98 = 0;
     if ((u.task | 0) === 1) {
-      if (!hooks.f56dc24) throw new NotPorted("0x56dc24");
-      hooks.f56dc24(u);
+      fn_0x56dc24(wd, u);
     } else if ((u.task | 0) === 0xa) {
       ai.f04 = 1;
       ai.task = 0;
@@ -321,15 +471,18 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
       const y = mapObjCellY(u.mapObj);
       const x = mapObjCellX(u.mapObj);
       if (gridChebyshevDist(x, y, uVar7, uVar6) < 3) {
-        if (!hooks.patrolNext) throw new NotPorted("0x57b020");
-        hooks.patrolNext(u);
+        // ponto seguinte da lista de patrulha IA+0xb4: Find (0x57b020) do ponto corrente, GetNext (0x55f1f0) o devolve e avança;
+        // no fim da lista, GetHead (0x55f0d0); senão GetNext de novo = o ponto seguinte
+        const local_10: ListPos = { p: ai.patrol.find(ai.f02 & 0xffff, null) };
+        ai.f02 = CListWord.getNext(local_10);
+        if (local_10.p === null) ai.f02 = ai.patrol.getHead();
+        else ai.f02 = CListWord.getNext(local_10);
       }
     } else if ((u.task | 0) === 0x18) {
       ai.sub = 0xff;
     } else {
       ai.task = 0;
-      if (!hooks.f56ed4e) throw new NotPorted("0x56ed4e");
-      hooks.f56ed4e(u);
+      fn_0x56ed4e(wd, u);
     }
   }
 }
