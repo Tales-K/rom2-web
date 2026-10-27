@@ -17,8 +17,9 @@ const WALK_FIELDS: Field[] = [
   [0xb0, 1, "stepDx", true], [0xb1, 1, "stepDy", true],
 ];
 const AI_FIELDS: Field[] = [
-  [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x14, 1, "range"], [0x15, 1, "f15"],
-  [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x3c, 2, "f3c"], [0x54, 4, "f54"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
+  [0x00, 2, "f00"], [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x14, 1, "range"],
+  [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x30, 4, "f30"], [0x3c, 2, "f3c"], [0x50, 4, "f50"], [0x54, 4, "f54"],
+  [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
 ];
 
 function read(b: Uint8Array, [off, size, , signed]: Field): number {
@@ -55,7 +56,7 @@ export function listVals(l: CListWord): number[] {
 
 /** Campos escalares da unidade, do tipo e do dono (o motor antigo os sincroniza em `World.dispatch`; vão no save para o estado
  *  carregado ser idêntico). */
-const UNIT_KEYS = ["addr", "vtbl", "f43", "size", "kind", "speed", "f94", "mana", "attackRange", "effects", "ready"] as const;
+const UNIT_KEYS = ["addr", "vtbl", "f43", "size", "kind", "f4c", "speed", "f94", "mana", "attackRange", "effects", "ready", "f5c", "f60", "f64"] as const;
 
 export interface UnitRecJson {
   m: [number, number, number, number]; act: number; task: number;

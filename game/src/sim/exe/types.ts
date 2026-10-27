@@ -8,9 +8,10 @@
  * Lote 5b (sim/exe/wave.ts): `MapRec` (o objeto de mapa/caminho inteiro, `this` das ondas), listas de caminho e sub-registros da unidade.
  * Lote 5c (sim/exe/walk_action.ts): o andar (`WalkRec` +0x00..+0xb1: giro, passo por tique, alvo), `WorldRec`, unidades por endereço.
  * Etapa 6 (sim/exe/action.ts): campos do despachante 0x56dca2 (unidade +0x50/+0x144, IA +0x14/+0x18, tipo +0x45, mundo +0xbbe8).
- * Etapa 7 (sim/exe/action.ts, rand.ts): olhar em volta (IA +0x54), o sorteio do mundo (mundo +0 divisor, `rng`).
+ * Etapa 7 (sim/exe/action.ts, rand.ts): olhar em volta (IA +0x54), o sorteio do mundo (mundo +0 divisor, `rng`); golpe/magia como
+ * sub-ação (unidade +0x4c/+0x5c/+0x60/+0x64, IA +0x00/+0x30/+0x50/+0x5c/+0x60, a lista de eventos do mundo +0xbbec e o evento +0xbd98).
  */
-import { CListPtr, CListWord, CMapShortOcc } from "./mfc";
+import { CListEvent, CListPtr, CListWord, CMapShortOcc } from "./mfc";
 import { Rng } from "../rng";
 
 /** Objeto de mapa da unidade (alvo do ponteiro unidade+0x10). Coordenadas em células e fração (1/256 de célula). */
@@ -105,6 +106,7 @@ export class WalkRec {
 
 /** Sub-registro de tarefa/IA (alvo do ponteiro unidade+0x1c4). */
 export class AiRec {
+  f00 = 0;        // +0x00 u16 célula do posto do Stand ground (0x56d52b AI_StandGroundAt)
   f02 = 0;        // +0x02 u16 ponto corrente da patrulha (0x56dca2, tarefa +0x50 == 0xa)
   f04 = 0;        // +0x04 u32 posto a 1 no fim do caminho da patrulha (0x56dca2)
   task = 0;       // +0x08 u8  tipo de tarefa (5 = ramo de alcance em 0x54d76e); ação do despachante 0x56dca2 (1 andar, 10 girar)
@@ -116,8 +118,12 @@ export class AiRec {
   f16 = 0;        // +0x16 i16
   target = 0;     // +0x18 u32 unidade perseguida pela tarefa 4 (endereço; 0x56ea52)
   f28 = 0;        // +0x28 u32 alvo da magia (endereço; tarefa 8 0x56ebc0 → 0x56ea52)
+  f30 = 0;        // +0x30 u32 magia do livro escolhida (endereço do BookSpellRec; 0x569a80; copiada para unidade+0x64 por 0x56e906)
   f3c = 0;        // +0x3c u16 célula da magia no chão (tarefa 9 0x56ec3f → 0x56e4ac)
+  f50 = 0;        // +0x50 u32 1 depois de 0x56dbc6 (parar + Stand ground); 0 por 0x56dbfb
   f54 = 0;        // +0x54 u32 1 = sofreu golpe/magia (0x56e6b8): a próxima olhada em volta gira sem o sorteio (0x56e5bc zera)
+  f5c = 0;        // +0x5c u32 1 = a magia em curso mira uma unidade (0x56e906); 0 = célula (ação 0xe e evento 3 no despachante)
+  f60 = 0;        // +0x60 u32 0 → 0x56e906 chama 0x56dbc6 (parar); zerado por 0x56d969
   spellSlot = 0;  // +0x78 u8  magia do livro escolhida (0 = nenhuma; 0x56ac5b)
   fb0 = 0;        // +0xb0 u16 destino do teleporte da célula (0x5503af, registro de ocupação de tipo 0x17)
 }
@@ -150,8 +156,12 @@ export class UnitRec {
   f43 = 0;                     // +0x043 u8  lido por 0x5160ef
   size = 0;                    // +0x049 u8  lado em células (lido pelo slot 0x1c da vtable, 0x542360)
   kind = 0;                    // +0x04a u8  lido pelo slot 0x20 das vtables (0x542380); 1 = ramo "grade" de 0x55687d
+  f4c = 0;                     // +0x04c u8  bits da unidade; bit 4 lido por 0x53a5a0 (tarefa 6, 0x56eff3)
   task = 0;                    // +0x050 u32 classe da tarefa (1 andar, 0xa patrulha, 0x18...: ramo do fim do caminho em 0x56dca2)
-  act = 0;                     // +0x054 u32 ação corrente (1 = andar; 0x56e4ac)
+  act = 0;                     // +0x054 u32 ação corrente (1 = andar, 3 golpe, 0xd/0xe magia; 0x56e4ac, 0x56e8c3, 0x56e906)
+  f5c = 0;                     // +0x05c u32 alvo do golpe/da magia em curso (endereço; 0x56e8c3 ← IA+0xc, 0x56e906 ← IA+0x28)
+  f60 = 0;                     // +0x060 u32 célula da magia no chão (byte x, byte y; evento 3 do despachante)
+  f64 = 0;                     // +0x064 u32 magia em curso (endereço do BookSpellRec; 0x56e906 ← IA+0x30)
   type: UnitTypeRec = new UnitTypeRec(); // +0x070 ptr tipo da unidade
   speed = 0;                   // +0x08c i16 velocidade da unidade (0x55915a)
   f94 = 0;                     // +0x094 i16 lido por 0x56fc69 (< 1: a unidade na célula não conta)
@@ -277,10 +287,22 @@ export class MapRec implements PathRec, FlagGridRec, ByteGridRec {
   }
 }
 
+/** Evento do servidor para a IA (0x54 bytes; o rascunho em mundo+0xbd98 é copiado por valor para a lista mundo+0xbbec). Campos
+ *  escritos pelo despachante 0x56dca2: +0 tipo (2 magia na unidade, 3 magia na célula), +4 x, +8 y, +0x2c unidade, +0x30 magia,
+ *  +0x34 alvo. Os bytes não escritos ficam como estavam (o exe copia o rascunho inteiro). */
+export const EVENT_SIZE = 0x54;
+
 /** Mundo/servidor (o `this` de 0x56dca2, 0x56e4ac, 0x56fc69 e dos sorteios 0x57afc0/0x57afd0). */
 export class WorldRec {
   divisor = 0x8000;                  // +0x0000 u32 divisor do objeto de sorteio uniforme (0x57afd0: rand() × n / divisor)
   fbbe8 = 0;                         // +0xbbe8 u32 0 → 0x56dca2 testa o grupo dormindo (tipo+0x45)
+  /** +0xbbec CList<Event> dos eventos para a IA (0x57b210 AddTail no despachante; 0x57b2b0 RemoveAll no pensamento 0x57485b). */
+  events = new CListEvent();
+  /** +0xbd98 rascunho do evento (0x54 bytes). */
+  readonly evt = new Uint8Array(EVENT_SIZE);
+  private readonly evtDv = new DataView(this.evt.buffer);
+  evtSetU32(off: number, v: number): void { this.evtDv.setUint32(off, v >>> 0, true); }
+  evtU32(off: number): number { return this.evtDv.getUint32(off, true); }
   /** o rand() do CRT (_tiddata+0x14) que 0x583290 usa: o `Rng` do motor (a World põe o seu aqui) */
   rng: Rng = new Rng();
   constructor(public map: MapRec) {} // +0xa50 ptr objeto de mapa/caminho

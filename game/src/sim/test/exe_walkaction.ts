@@ -1,6 +1,7 @@
 /**
  * Prova da porta sim/exe/walk_action.ts (lote 5c, o andar), do despachante sim/exe/action.ts (etapa 6: 0x56dca2, 0x56ea52; etapa 7:
- * 0x56e5bc olhar em volta) e dos sorteios sim/exe/rand.ts (0x57afc0, 0x57afd0) contra
+ * 0x56e5bc olhar em volta, golpe/magia como sub-ação 0x56eab5/0x56e8c3/0x56eff3/0x56f0bb/0x56ebc0/0x56e906/0x56dbc6/0x56d969...,
+ * a lista de eventos do mundo 0x57b210) e dos sorteios sim/exe/rand.ts (0x57afc0, 0x57afd0) contra
  * os pares do oráculo (tools/re/oracle/fnprobe.py) e a varredura no Unicorn (tools/re/oracle/fuzz_walk.py). Pares de 0x56dca2 que
  * caem numa tarefa ainda não portada (NotPorted) contam à parte, não como falha. Rodar em game/:
  *   npx tsx src/sim/test/exe_walkaction.ts            (EXE_WALK_ONLY=0x555411,fuzz para só algumas)
@@ -24,12 +25,16 @@ import {
   pathClearDynamic, unitActionChase, unitActionWalk, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkFormula,
   unitWalkNear, unitWalkWait,
 } from "../exe/walk_action";
-import { fn_0x56ea52, unitActionDispatcher, unitLookAround } from "../exe/action";
+import {
+  aiStandGroundAt, fn_0x53a5a0, fn_0x558b75, fn_0x56d969, fn_0x56dba1, fn_0x56dbc6, fn_0x56dbfb, fn_0x56e8c3, fn_0x56e906, fn_0x56ea52,
+  fn_0x56eab5, fn_0x56ebc0, fn_0x56eff3, fn_0x56f0bb, unitActionDispatcher, unitLookAround,
+} from "../exe/action";
+import { CListEvent, CListEventNode } from "../exe/mfc";
 import { fn_0x57afd0, randUniformObject } from "../exe/rand";
 import { Rng } from "../rng";
 import {
-  MAP_ALT_OFF, MAP_DIR_CELL_OFF, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_RINGS_OFF, MAP_SPEED_MUL_OFF, MAP_WORLD_OFF, MapObjRec, MapRec,
-  UnitRec, WorldRec,
+  EVENT_SIZE, MAP_ALT_OFF, MAP_DIR_CELL_OFF, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_RINGS_OFF, MAP_SPEED_MUL_OFF, MAP_WORLD_OFF, MapObjRec,
+  MapRec, UnitRec, WorldRec,
 } from "../exe/types";
 import {
   CallMem, PAIRS, bookFrom, checkList, checkMap, checkPtrList, eq, existsSync, finView, join, listFrom, mapFrom, mapObjFrom, proc,
@@ -40,8 +45,9 @@ import {
 
 type Field = [off: number, size: 1 | 2 | 4, key: string, signed?: boolean];
 const UNIT_FIELDS: Field[] = [
-  [0x00, 4, "vtbl"], [0x43, 1, "f43"], [0x49, 1, "size"], [0x4a, 1, "kind"], [0x50, 4, "task"], [0x54, 4, "act"], [0x8c, 2, "speed", true],
-  [0x94, 2, "f94", true], [0x9a, 2, "mana"], [0x12c, 1, "attackRange"], [0x136, 1, "ready"], [0x144, 4, "effects"],
+  [0x00, 4, "vtbl"], [0x43, 1, "f43"], [0x49, 1, "size"], [0x4a, 1, "kind"], [0x4c, 1, "f4c"], [0x50, 4, "task"], [0x54, 4, "act"],
+  [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x64, 4, "f64"], [0x8c, 2, "speed", true], [0x94, 2, "f94", true], [0x9a, 2, "mana"],
+  [0x12c, 1, "attackRange"], [0x136, 1, "ready"], [0x144, 4, "effects"],
 ];
 const WALK_FIELDS: Field[] = [
   [0x00, 1, "dir"], [0x01, 1, "dirTarget"], [0x05, 1, "passMask"], [0x06, 2, "nextCell"], [0x09, 1, "f09"], [0x0a, 1, "turnRate"],
@@ -53,10 +59,12 @@ const WALK_FIELDS: Field[] = [
   [0xb0, 1, "stepDx", true], [0xb1, 1, "stepDy", true],
 ];
 const AI_FIELDS: Field[] = [
-  [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x14, 1, "range"],
-  [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x3c, 2, "f3c"], [0x54, 4, "f54"], [0x78, 1, "spellSlot"],
-  [0xb0, 2, "fb0"],
+  [0x00, 2, "f00"], [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"],
+  [0x14, 1, "range"], [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x30, 4, "f30"], [0x3c, 2, "f3c"],
+  [0x50, 4, "f50"], [0x54, 4, "f54"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
 ];
+/** Mundo: lista de eventos (+0xbbec, cabeçalho 0x1c) e rascunho do evento (+0xbd98, 0x54 bytes). */
+const WORLD_EVENTS_OFF = 0xbbec, WORLD_EVT_OFF = 0xbd98;
 
 /** O rand() do CRT a partir da semente da chamada, contando os sorteios (prova da ordem: contagem e semente final iguais). */
 class CountingRng extends Rng {
@@ -150,18 +158,63 @@ function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string | null {
 
 // --------------------------------------------------------------------------------------------------------- chamadas
 
-interface Ctx { d: Pair; cm: CallMem; memo: Map<number, UnitRec>; map: TestMap | null; mapBefore: Uint8Array | null; rng: CountingRng | null; }
+interface Ctx {
+  d: Pair; cm: CallMem; memo: Map<number, UnitRec>; map: TestMap | null; mapBefore: Uint8Array | null; rng: CountingRng | null;
+  world: WorldRec | null; worldAddr: number; events: CListEvent | null; eventsAddr: number;
+}
 
 function ctx(d: Pair, cm: CallMem): Ctx {
-  return { d, cm, memo: new Map(), map: null, mapBefore: null, rng: null };
+  return { d, cm, memo: new Map(), map: null, mapBefore: null, rng: null, world: null, worldAddr: 0, events: null, eventsAddr: 0 };
 }
-/** Mundo em `w` com o gerador na semente da chamada e o divisor do sorteio (mundo+0) lido pela chamada. */
+/** Lista de eventos em `hdr` pela memória da chamada: contagem e, da cauda (o único nó que a chamada lê), o evento. */
+function eventListFrom(cm: CallMem, hdr: number): CListEvent {
+  const l = new CListEvent();
+  if (!cm.has(hdr + 0xc)) return l;
+  l.count = cm.u32(hdr + 0xc) | 0;
+  const tail = cm.u32(hdr + 8);
+  if (tail !== 0) {
+    const n = new CListEventNode();
+    if (cm.has(tail + 8)) n.data.set(cm.bytes(tail + 8, EVENT_SIZE));
+    l.head = l.tail = n;
+  }
+  return l;
+}
+/** Lista: contagem e o evento da cauda iguais à memória final (os ponteiros dos nós não são espelhados). */
+function checkEventList(cm: CallMem, hdr: number, l: CListEvent, what: string): string | null {
+  const f = finView(cm);
+  if (f.has(hdr + 0xc)) { const e = eq(`${what}.count`, l.count, f.u32(hdr + 0xc) | 0); if (e) return e; }
+  if (!f.has(hdr + 8)) return null;
+  const tail = f.u32(hdr + 8);
+  if ((tail === 0) !== (l.tail === null)) return `${what}: cauda nula ${l.tail === null} ≠ original`;
+  if (tail === 0 || !f.has(tail + 8)) return null;
+  for (let i = 0; i < EVENT_SIZE; i++) {
+    if (!f.has(tail + 8 + i)) continue;
+    if (l.tail!.data[i] !== f.u8(tail + 8 + i)) return `${what}.cauda+0x${i.toString(16)}: porta ${l.tail!.data[i]} ≠ original ${f.u8(tail + 8 + i)}`;
+  }
+  return null;
+}
+/** Mundo em `w` com o gerador na semente da chamada, o divisor do sorteio (mundo+0), a lista de eventos e o rascunho lidos pela chamada. */
 function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
   const wr = new WorldRec(m);
   c.rng = new CountingRng(c.d.rng0);
   wr.rng = c.rng;
   if (c.cm.has(w)) wr.divisor = c.cm.u32(w) | 0;
+  wr.events = eventListFrom(c.cm, w + WORLD_EVENTS_OFF);
+  wr.evt.set(c.cm.bytes(w + WORLD_EVT_OFF, EVENT_SIZE));
+  c.world = wr;
+  c.worldAddr = w;
   return wr;
+}
+/** Rascunho do evento e lista de eventos do mundo iguais ao original (e nada mudado no rascunho que o original não escreveu). */
+function checkWorld(c: Ctx): string | null {
+  if (!c.world) return null;
+  const cm = c.cm, w = c.worldAddr, f = finView(cm);
+  for (let i = 0; i < EVENT_SIZE; i++) {
+    const a = w + WORLD_EVT_OFF + i, got = c.world.evt[i]!;
+    if (cm.written.has(a)) { if (got !== f.u8(a)) return `mundo+0x${(WORLD_EVT_OFF + i).toString(16)}: porta ${got} ≠ original ${f.u8(a)}`; }
+    else if (got !== cm.u8(a)) return `mundo+0x${(WORLD_EVT_OFF + i).toString(16)}: porta mudou ${cm.u8(a)}→${got}, original não escreveu`;
+  }
+  return checkEventList(cm, w + WORLD_EVENTS_OFF, c.world.events, "mundo+0xbbec");
 }
 const U = (c: Ctx, a: number): UnitRec => unitFrom(c.cm, a, c.memo);
 function M(c: Ctx, base: number): TestMap {
@@ -191,8 +244,9 @@ function done(c: Ctx, r: number | null, ret?: (v: number) => number): string | n
     const e = checkUnit(c.cm, c.d, a, u);
     if (e) return `unidade 0x${a.toString(16)}: ${e}`;
   }
-  const e = c.rng ? eq("rand(): sorteios", c.rng.n, c.d.nrand) ?? eq("rand(): semente final", c.rng.state, c.d.rng1 >>> 0)
-    : c.d.nrand !== 0 || c.d.rng0 !== c.d.rng1 ? "rand() chamado no original" : null;
+  const e = (c.rng ? eq("rand(): sorteios", c.rng.n, c.d.nrand) ?? eq("rand(): semente final", c.rng.state, c.d.rng1 >>> 0)
+    : c.d.nrand !== 0 || c.d.rng0 !== c.d.rng1 ? "rand() chamado no original" : null) ?? checkWorld(c)
+    ?? (c.events ? checkEventList(c.cm, c.eventsAddr, c.events, "lista") : null);
   if (e) return e;
   return r !== null && ret ? eq("retorno", r, ret(c.d.eax)) : null;
 }
@@ -226,6 +280,26 @@ const CHECKS: Record<string, Check> = {
   "0x56dca2": run((c, d) => { const w = W(c, d.this); w.fbbe8 = c.cm.u32(d.this + 0xbbe8); unitActionDispatcher(w, U(c, A(d, 0))); return null; }),
   "0x56ea52": run((c, d) => { const w = W(c, d.this); fn_0x56ea52(w, U(c, A(d, 0)), A(d, 1)); return null; }),
   "0x56e5bc": run((c, d) => { const w = W(c, d.this); unitLookAround(w, U(c, A(d, 0))); return null; }),
+  "0x53a5a0": run((c, d) => fn_0x53a5a0(U(c, d.this)), AL),
+  "0x56e8c3": run((c, d) => { fn_0x56e8c3(U(c, A(d, 0))); return null; }),
+  "0x56eab5": run((c, d) => { const w = W(c, d.this); fn_0x56eab5(w, U(c, A(d, 0))); return null; }),
+  "0x56f0bb": run((c, d) => { fn_0x56f0bb(U(c, A(d, 0)), A(d, 1)); return null; }),
+  "0x56eff3": run((c, d) => { const w = W(c, d.this); fn_0x56eff3(w, U(c, A(d, 0))); return null; }),
+  "0x558b75": run((c, d) => { const m = M(c, d.this); fn_0x558b75(m, U(c, A(d, 0))); return null; }),
+  "0x56d969": run((c, d) => { const w = W(c, d.this); fn_0x56d969(w, U(c, A(d, 0))); return null; }),
+  "0x56dbfb": run((c, d) => { const w = W(c, d.this); fn_0x56dbfb(w, U(c, A(d, 0))); return null; }),
+  "0x56d52b": run((c, d) => { const w = W(c, d.this); aiStandGroundAt(w, U(c, A(d, 0))); return null; }),
+  "0x56dba1": run((c, d) => { const w = W(c, d.this); fn_0x56dba1(w, U(c, A(d, 0))); return null; }),
+  "0x56dbc6": run((c, d) => { const w = W(c, d.this); fn_0x56dbc6(w, U(c, A(d, 0))); return null; }),
+  "0x56e906": run((c, d) => { const w = W(c, d.this); fn_0x56e906(w, U(c, A(d, 0))); return null; }),
+  "0x56ebc0": run((c, d) => { const w = W(c, d.this); fn_0x56ebc0(w, U(c, A(d, 0))); return null; }),
+  "0x57b210": run((c, d) => {
+    // fastcall: ECX = a lista (mundo+0xbbec); o evento (0x54 bytes) vem por valor na pilha, logo acima do endereço de retorno
+    c.events = eventListFrom(c.cm, d.this);
+    c.eventsAddr = d.this;
+    c.events.addTail(c.cm.bytes(d.esp0 + 4, EVENT_SIZE));
+    return null;
+  }),
   "0x57afc0": run((c, d) => randUniformObject(WR(c, d.this), 0x57afc0), EAX),
   "0x57afd0": run((c, d) => fn_0x57afd0(WR(c, d.this), A(d, 0), 0x57afd0), EAX),
   "0x54ec6a": run((c, d) => {

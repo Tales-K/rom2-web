@@ -672,7 +672,7 @@ addr	name	size	file	line	status	ts	note
 0x53a520	FUN_0053a520	17	game/g_530000.c	5604	pending		
 0x53a540	FUN_0053a540	41	game/g_530000.c	5613	pending		
 0x53a570	FUN_0053a570	39	game/g_530000.c	5630	pending		
-0x53a5a0	FUN_0053a5a0	24	game/g_530000.c	5643	pending		
+0x53a5a0	FUN_0053a5a0	24	game/g_530000.c	5643	ported	fn_0x53a5a0	exe/action.ts; unidade+0x4c & 4; pares 100%
 0x53a5c0	FUN_0053a5c0	60	game/g_530000.c	5652	pending		
 0x53a600	FUN_0053a600	87	game/g_530000.c	5669	pending		
 0x53a660	FID_conflict:CArray<int,int_const&>	71	game/g_530000.c	5692	pending		
@@ -1351,7 +1351,7 @@ addr	name	size	file	line	status	ts	note
 0x557f08	Unit_ApproachCell	1644	game/g_550000.c	4554	ported	path.ts:unitApproachCell	pares 93/93 + Unicorn 3000/3000 (sem celula, aneis multiplos, inclinacao NaN/inf, j>100); x87 reconstruido do asm: float32 + ftol; mesma sequencia de celulas lidas
 0x5585f4	Path_UnlabeledTargetRing	951	game/g_550000.c	4782	ported	path.ts:pathUnlabeledTargetRing	pares 37/37 + Unicorn 1000/1000; os dois ramos (lado==2 ou nao) sao identicos no asm, uma copia; mesma sequencia de celulas
 0x558b3d	FUN_00558b3d	56	game/g_550000.c	4951	pending		
-0x558b75	FUN_00558b75	29	game/g_550000.c	4967	pending		
+0x558b75	FUN_00558b75	29	game/g_550000.c	4967	ported	fn_0x558b75	exe/action.ts; exec 0: só a leitura do C (0x55be86(u,0,1) portado)
 0x558b92	Grid_FineCoordCentroid	458	game/g_550000.c	4977	pending		
 0x558f4b	FUN_00558f4b	25	game/g_550000.c	5152	pending		
 0x558f64	FUN_00558f64	133	game/g_550000.c	5162	ported	walk_action.ts:fn_0x558f64	pares 3 episódios 100% (exe_walkaction.ts) (AX)
@@ -1593,37 +1593,37 @@ addr	name	size	file	line	status	ts	note
 0x56d3e6	FUN_0056d3e6	96	game/g_560000.c	8296	pending		
 0x56d446	FUN_0056d446	116	game/g_560000.c	8311	pending		
 0x56d4ba	FUN_0056d4ba	113	game/g_560000.c	8326	pending		
-0x56d52b	AI_StandGroundAt	71	game/g_560000.c	8349	pending		
+0x56d52b	AI_StandGroundAt	71	game/g_560000.c	8349	ported	aiStandGroundAt	exe/action.ts; provada aninhada nos pares de 0x56dbc6
 0x56d572	FUN_0056d572	71	game/g_560000.c	8367	pending		
 0x56d5b9	FUN_0056d5b9	127	game/g_560000.c	8383	pending		
 0x56d638	FUN_0056d638	127	game/g_560000.c	8407	pending		
 0x56d6b7	FUN_0056d6b7	254	game/g_560000.c	8431	pending		
-0x56d969	FUN_0056d969	230	game/g_560000.c	8515	pending		
+0x56d969	FUN_0056d969	230	game/g_560000.c	8515	ported	fn_0x56d969	exe/action.ts; parar; pares 100%
 0x56da4f	FUN_0056da4f	48	game/g_560000.c	8547	pending		
 0x56da98	FUN_0056da98	102	game/g_560000.c	8569	pending		
 0x56dafe	FUN_0056dafe	67	game/g_560000.c	8583	pending		
-0x56dba1	Vision_UpdateManager	37	game/g_560000.c	8620	pending		
-0x56dbc6	FUN_0056dbc6	53	game/g_560000.c	8636	pending		
-0x56dbfb	FUN_0056dbfb	41	game/g_560000.c	8648	pending		
+0x56dba1	Vision_UpdateManager	37	game/g_560000.c	8620	ported	fn_0x56dba1	exe/action.ts; nome Vision_UpdateManager da nota é errado: parar + Stand ground; provada aninhada em 0x56dbc6
+0x56dbc6	FUN_0056dbc6	53	game/g_560000.c	8636	ported	fn_0x56dbc6	exe/action.ts; pares 100% (cobre 0x56dba1/0x56dbfb/0x56d52b aninhadas)
+0x56dbfb	FUN_0056dbfb	41	game/g_560000.c	8648	ported	fn_0x56dbfb	exe/action.ts; provada aninhada nos pares de 0x56dbc6
 0x56dc24	ReleaseAccessors	37	game/g_560000.c	8659	pending		
 0x56dca2	Unit_ActionDispatcher	1719	game/g_560000.c	8696	ported	action.ts:unitActionDispatcher	pares 3 episódios 100% nos ramos portados (14078; exe_walkaction.ts); tarefas 2/5..9/0xb/0xc/0xf, IA+9=2 e fim de caminho (0x56dc24/0x57b020/0x56ed4e) = NotPorted ou adaptador da World (etapa 6, notes/integracao-andar.md)
 0x56e4ac	Unit_WalkNear	177	game/g_560000.c	8913	ported	walk_action.ts:unitWalkNear	pares 3 episódios 100% (exe_walkaction.ts)
 0x56e55d	Unit_Turn	95	game/g_560000.c	8941	ported	action.ts:unitTurn	exec 0 no corpus: sem pares; tradução direta (Unit_TurnStep + ação), chamada pelo caso 10 de 0x56dca2
 0x56e5bc	FUN_0056e5bc	252	game/g_560000.c	8960	ported	unitLookAround	exe/action.ts; pares 3 ep. 100% com sorteios (0x56e629, 0x56e656)
 0x56e6b8	FUN_0056e6b8	523	game/g_560000.c	8991	pending		
-0x56e8c3	FUN_0056e8c3	67	game/g_560000.c	9054	pending		
-0x56e906	FUN_0056e906	128	game/g_560000.c	9067	pending		
+0x56e8c3	FUN_0056e8c3	67	game/g_560000.c	9054	ported	fn_0x56e8c3	exe/action.ts; começo do golpe (sub-ação 1); pares 3 ep. 100%
+0x56e906	FUN_0056e906	128	game/g_560000.c	9067	ported	fn_0x56e906	exe/action.ts; começo da magia (sub-ação 2); pares 100%
 0x56e986	FUN_0056e986	158	game/g_560000.c	9085	pending		
 0x56ea24	FUN_0056ea24	46	game/g_560000.c	9105	pending		
 0x56ea52	FUN_0056ea52	99	game/g_560000.c	9120	ported	action.ts:fn_0x56ea52	pares 3 episódios 100% (628; exe_walkaction.ts): tarefa 4 / ramo de perseguir de 0x56eab5/0x56ebc0
-0x56eab5	FUN_0056eab5	120	game/g_560000.c	9140	pending		
+0x56eab5	FUN_0056eab5	120	game/g_560000.c	9140	ported	fn_0x56eab5	exe/action.ts; tarefa 5 atacar; pares 100%
 0x56eb2d	FUN_0056eb2d	147	game/g_560000.c	9164	pending		
-0x56ebc0	FUN_0056ebc0	127	game/g_560000.c	9191	pending		
+0x56ebc0	FUN_0056ebc0	127	game/g_560000.c	9191	ported	fn_0x56ebc0	exe/action.ts; tarefa 8 magia na unidade; pares 100%
 0x56ec3f	FUN_0056ec3f	125	game/g_560000.c	9215	pending		
 0x56ecbc	FUN_0056ecbc	146	game/g_560000.c	9236	pending		
 0x56ed4e	FUN_0056ed4e	677	game/g_560000.c	9260	pending		
-0x56eff3	FUN_0056eff3	200	game/g_560000.c	9369	pending		
-0x56f0bb	FUN_0056f0bb	86	game/g_560000.c	9403	pending		
+0x56eff3	FUN_0056eff3	200	game/g_560000.c	9369	ported	fn_0x56eff3	exe/action.ts; tarefa 6; pares 100% (m10_mage)
+0x56f0bb	FUN_0056f0bb	86	game/g_560000.c	9403	ported	fn_0x56f0bb	exe/action.ts; pares 100%
 0x56f492	FUN_0056f492	648	game/g_560000.c	9552	pending		
 0x56f71a	FUN_0056f71a	75	game/g_560000.c	9628	pending		
 0x56f765	AI_FleePoint	235	game/g_560000.c	9644	pending		
@@ -1781,7 +1781,7 @@ addr	name	size	file	line	status	ts	note
 0x57a951	FUN_0057a951	61	game/g_570000.c	6582	pending		
 0x57a999	AI_CasterShield	974	game/g_570000.c	6610	pending		
 0x57ad79	FUN_0057ad79	30	game/g_570000.c	6743	pending		
-0x57ad97	FUN_0057ad97	11	game/g_570000.c	6753	pending		
+0x57ad97	FUN_0057ad97	11	game/g_570000.c	6753	out		MFC: destrutor vazio do evento temporário de 0x57b210
 0x57aee0	AI_ProfileTimer2	157	game/g_570000.c	6819	pending		
 0x57af80	FUN_0057af80	42	game/g_570000.c	6842	pending		
 0x57afc0	Rand_UniformObject	16	game/g_570000.c	6865	ported	randUniformObject	exe/rand.ts; rand() cru pelo Rng do motor (site do chamador)
@@ -1794,8 +1794,8 @@ addr	name	size	file	line	status	ts	note
 0x57b140	FUN_0057b140	19	game/g_570000.c	6982	pending		
 0x57b160	FUN_0057b160	78	game/g_570000.c	6992	pending		
 0x57b1b0	FUN_0057b1b0	92	game/g_570000.c	7019	pending		
-0x57b210	FUN_0057b210	157	game/g_570000.c	7036	pending		
-0x57b2b0	FUN_0057b2b0	115	game/g_570000.c	7074	pending		
+0x57b210	FUN_0057b210	157	game/g_570000.c	7036	out		MFC: exe/mfc.ts:CListEvent.addTail (lista de eventos do mundo +0xbbec); pares 100%
+0x57b2b0	FUN_0057b2b0	115	game/g_570000.c	7074	out		MFC: exe/mfc.ts:CListEvent.removeAll (0x57485b, pensamento)
 0x57b480	FUN_0057b480	92	game/g_570000.c	7177	pending		
 0x57b760	FUN_0057b760	92	game/g_570000.c	7324	pending		
 0x57ba40	FUN_0057ba40	92	game/g_570000.c	7471	pending		

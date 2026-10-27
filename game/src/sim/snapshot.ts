@@ -84,6 +84,9 @@ export interface UnitSnapshot {
   rec?: UnitRecJson;
 }
 
+const hex = (b: Uint8Array): string => Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
+const unhex = (h: string): Uint8Array => { const b = new Uint8Array(h.length >> 1); for (let i = 0; i < b.length; i++) b[i] = parseInt(h.substr(i * 2, 2), 16); return b; };
+
 export interface ProjectileSnapshot extends Omit<Projectile, "spell"> { spell: string | null; spellDef?: SpellDef | null; }
 
 export interface WorldSnapshot {
@@ -100,6 +103,8 @@ export interface WorldSnapshot {
   occ: [number, number][];
   /** estado do MapRec do exe (memória que difere do mapa sem unidades, ocupação) — ausente em saves antigos: refeito das unidades */
   exe?: MapRecJson;
+  /** mundo do exe: rascunho do evento (+0xbd98, hex) e a lista de eventos para a IA (+0xbbec, hex por evento) — opcional */
+  exeWorld?: { evt: string; events: string[] };
   /** áreas de magia no chão (MOTOR-C) — opcional para saves antigos */
   areas?: SpellArea[];
   /** armadilhas do script (Set trap) — opcional */
@@ -148,6 +153,7 @@ export function snapshotWorld(world: World): WorldSnapshot {
     killsByType: [...world.killsByType],
     occ,
     exe: mapRecToJson(world.exe, world.exeBase),
+    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex) },
     areas: world.areas.map(a => JSON.parse(JSON.stringify(a)) as SpellArea),
     traps: world.traps.map(t => JSON.parse(JSON.stringify(t)) as Trap),
     playerAi: world.playerAi.map(p => ({ ...p })),
@@ -214,6 +220,12 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
     for (const u of world.units) world.exe.units.set(u.rec.addr, u.rec);
   }
   else world.exeResync();
+  world.exeWorld.evt.fill(0);
+  world.exeWorld.events.removeAll();
+  if (s.exeWorld) {
+    world.exeWorld.evt.set(unhex(s.exeWorld.evt));
+    for (const e of s.exeWorld.events) world.exeWorld.events.addTail(unhex(e));
+  }
   if (s.playerAi) s.playerAi.forEach((p, i) => { if (world.playerAi[i]) Object.assign(world.playerAi[i]!, p); });
   world.groupState.clear();
   for (const [g, v] of s.groupState ?? []) world.groupState.set(g, { ...v });

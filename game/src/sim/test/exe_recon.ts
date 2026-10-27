@@ -20,6 +20,8 @@ export const PAIRS = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "
 export interface Obj { unit: number; sub?: string; off: number; }
 export interface Pair {
   t: number; seq: number; fn: string; this: number; args: number[]; eax: number; rng0: number; rng1: number; nrand: number;
+  /** ESP na entrada (os argumentos passados por valor na pilha, como o evento de 0x57b210, começam em esp0 + 4) */
+  esp0: number;
   reads: [number, number, number][]; writes: [number, number, number, number][]; objs: Record<string, Obj>;
 }
 

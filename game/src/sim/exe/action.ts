@@ -1,19 +1,25 @@
 /**
- * Porta literal do servidor do allods2.exe: o despachante de ações da unidade (etapa 6). Chamado uma vez por tique por unidade
- * (Unit_ActionMachine 0x50f12c → 0x56dca2): com IA+9 ≠ 0 continua a sub-ação em curso (3 = o passo do andar, 0x555b38); com
- * IA+9 == 0 executa a tarefa IA+8 (1 andar 0x56e4ac, 4 perseguir 0x56ea52, 10 girar 0x56e55d...). No fim, se o caminho
- * dinâmico ficou vazio indo ao fim do estático (andar+0x98, 0x555dc2), trata a tarefa da unidade (+0x50).
+ * Porta literal do servidor do allods2.exe: o despachante de ações da unidade (etapas 6 e 7). Chamado uma vez por tique por unidade
+ * (Unit_ActionMachine 0x50f12c → 0x56dca2): com IA+9 ≠ 0 continua a sub-ação em curso (1 golpe, 2 magia, 3 = o passo do andar
+ * 0x555b38, 4 efeito, 0xff parado); com IA+9 == 0 executa a tarefa IA+8 (1 andar 0x56e4ac, 2 golpe 0x56e8c3, 4 perseguir 0x56ea52,
+ * 5 atacar 0x56eab5, 6 0x56eff3, 8 magia na unidade 0x56ebc0, 10 girar 0x56e55d, 0xb olhar em volta 0x56e5bc). No fim, se o
+ * caminho dinâmico ficou vazio indo ao fim do estático (andar+0x98, 0x555dc2), trata a tarefa da unidade (+0x50).
  *
  * Portadas: 0x56dca2 Unit_ActionDispatcher, 0x56ea52 (tarefa 4: perseguir), 0x56e55d Unit_Turn, 0x56e5bc Unit_LookAround (tarefa 0xb:
- * olhar em volta, sorteios 0x56e629/0x56e656 pelo `WorldRec.rng`).
- * Chamados não portados (IA, magia, visão; outra etapa): lançam NotPorted, salvo quando o chamador passa um adaptador em
+ * olhar em volta, sorteios 0x56e629/0x56e656 pelo `WorldRec.rng`), 0x56e8c3 (começo do golpe), 0x56eab5 (tarefa 5), 0x56eff3
+ * (tarefa 6), 0x56f0bb, 0x56ebc0 (tarefa 8), 0x56e906 (começo da magia), 0x56dbc6, 0x56d969, 0x558b75, 0x56dba1 (parar e Stand
+ * ground; o nome "Vision_UpdateManager" de known_functions é de uma nota antiga), 0x56dbfb, 0x56d52b AI_StandGroundAt, 0x53a5a0.
+ * O golpe/a magia em si (Unit_StrikeBegin 0x516c1f, Spell_Apply) vivem em Unit_ActionMachine 0x50f12c, fora deste arquivo: a World
+ * os começa quando a sub-ação 1/2 nasce (IA+0x15 = 0) e marca +0x136 (pronto) quando a máquina acaba.
+ * Chamados não portados (IA, fim de caminho; etapa 7 lote 3): lançam NotPorted, salvo quando o chamador passa um adaptador em
  * `DispatchHooks` (World: comportamento do motor antigo para esses pedaços, ver o cabeçalho de sim/world.ts).
  */
-import { gridChebyshevDist, mapObjSubCellCenter } from "./walk";
+import { gridChebyshevDist, mapObjCellOf, mapObjSubCellCenter } from "./walk";
 import { mapObjCellX, mapObjCellY } from "./path";
-import { NotPorted, pathClearDynamic, unitActionChase, unitTeleportTo, unitTurnStep, unitWalkNear } from "./walk_action";
+import { NotPorted, fn_0x55532d, fn_0x5568e4, pathClearDynamic, unitActionChase, unitTeleportTo, unitTurnStep, unitWalkNear } from "./walk_action";
+import { aiAttackRange, fn_0x55be86 } from "./wave";
 import { fn_0x57afd0, randUniformObject } from "./rand";
-import type { UnitRec, WorldRec } from "./types";
+import type { MapRec, UnitRec, WorldRec } from "./types";
 
 /** Adaptadores para chamados de 0x56dca2 ainda não portados (sem adaptador: NotPorted). */
 export interface DispatchHooks {
@@ -24,8 +30,140 @@ export interface DispatchHooks {
   patrolNext?(u: UnitRec): void;
   /** 0x56ed4e (fim do caminho nas demais tarefas): alvo ao alcance → tarefa 6 (0x56eff3), senão 0xb (0x56e5bc) ou 0. */
   f56ed4e?(u: UnitRec): void;
-  /** Tarefa IA+8 sem porta (2, 5..9, 0xc, 0xf): o adaptador a executa e devolve true; false → NotPorted. */
+  /** Tarefa IA+8 sem porta (7, 9, 0xc, 0xf): o adaptador a executa e devolve true; false → NotPorted. */
   task?(u: UnitRec): boolean;
+}
+
+/** 0x53a5a0 (fastcall): bit 4 de unidade+0x4c. */
+export function fn_0x53a5a0(u: UnitRec): number {
+  return u.f4c & 4;
+}
+
+/** 0x56e8c3 (cdecl): começa o golpe: IA+9 = 1, IA+0x15 = 0, ação 3, +0x5c = alvo IA+0xc. (O golpe em si é a máquina 0x50f12c.) */
+export function fn_0x56e8c3(u: UnitRec): void {
+  u.ai.sub = 1;
+  u.ai.f15 = 0;
+  u.act = 3;
+  u.f5c = u.ai.f0c >>> 0;
+}
+
+/** 0x56eab5 (thiscall; `this` = mundo): tarefa 5, atacar IA+0xc: de frente e ao alcance de AI_AttackRange (0x55532d) → golpe
+ *  (0x56e8c3, ação 3); senão perseguir (0x56ea52, ação 1). */
+export function fn_0x56eab5(wd: WorldRec, u: UnitRec): void {
+  const uVar1 = aiAttackRange(u);
+  const iVar2 = fn_0x55532d(wd.map, u, wd.map.unitAt(u.ai.f0c >>> 0), uVar1 & 0xff);
+  if (iVar2 === 0) {
+    fn_0x56ea52(wd, u, u.ai.f0c >>> 0);
+    u.act = 1;
+  } else {
+    fn_0x56e8c3(u);
+    u.act = 3;
+  }
+}
+
+/** 0x56f0bb (cdecl): um passo de giro para `d` (0x556454); se o rumo mudou, ação 1. */
+export function fn_0x56f0bb(u: UnitRec, d: number): void {
+  const cVar1 = u.walk.dir & 0xff;
+  unitTurnStep(u, d & 0xff);
+  if ((u.walk.dir & 0xff) !== cVar1) u.act = 1;
+}
+
+/** 0x56eff3 (thiscall; `this` = mundo): tarefa 6, atacar IA+0xc sem perseguir: unidade com o bit 4 de +0x4c, alcance < 2 e dono
+ *  com +0x2c == 0 → tarefa 0; ao alcance → golpe (0x56e8c3, ação 3); senão gira para o alvo (0x5568e4 → 0x56f0bb) e ação 1. */
+export function fn_0x56eff3(wd: WorldRec, u: UnitRec): void {
+  const bVar1 = fn_0x53a5a0(u);
+  if (bVar1 !== 0 && (aiAttackRange(u) & 0xff) < 2 && (u.owner.f2c | 0) === 0) {
+    u.ai.task = 0;
+    return;
+  }
+  const uVar2 = aiAttackRange(u);
+  const t = wd.map.unitAt(u.ai.f0c >>> 0);
+  const iVar3 = fn_0x55532d(wd.map, u, t, uVar2 & 0xff);
+  if (iVar3 === 0) {
+    const uVar4 = fn_0x5568e4(u, t);
+    fn_0x56f0bb(u, uVar4 & 0xff);
+    u.act = 1;
+  } else {
+    fn_0x56e8c3(u);
+    u.act = 3;
+  }
+}
+
+/** 0x558b75 (thiscall; `this` = mapa): 0x55be86(unidade, 0, 1) — tira a pegada marcada (andar+0x80). */
+export function fn_0x558b75(m: MapRec, u: UnitRec): void {
+  fn_0x55be86(m, u, 0, 1);
+}
+
+/** 0x56d969 (thiscall; `this` = mundo): parar: rumo desejado = rumo; pegada (andar+0x80) noutra célula com a unidade no centro →
+ *  0x558b75; IA+0x14 = AI_AttackRange; IA+0x60 = 0; andar+0x7c (perseguido) = 0; ação 0. */
+export function fn_0x56d969(wd: WorldRec, u: UnitRec): void {
+  const w = u.walk;
+  if ((w.dir & 0xff) !== (w.dirTarget & 0xff)) w.dirTarget = w.dir & 0xff;
+  if (((w.footCell << 16) >> 16) !== 0) {
+    const iVar4 = mapObjSubCellCenter(u.mapObj);
+    if (iVar4 !== 0) {
+      const sVar1 = (w.footCell << 16) >> 16;
+      const sVar3 = (mapObjCellOf(u.mapObj) << 16) >> 16;
+      if (sVar1 !== sVar3) fn_0x558b75(wd.map, u);
+    }
+  }
+  u.ai.range = aiAttackRange(u) & 0xff;
+  u.ai.f60 = 0;
+  w.chaseTarget = 0;
+  u.act = 0;
+}
+
+/** 0x56dbfb (thiscall): 0x56d969 e IA+0x50 = 0. */
+export function fn_0x56dbfb(wd: WorldRec, u: UnitRec): void {
+  fn_0x56d969(wd, u);
+  u.ai.f50 = 0;
+}
+
+/** 0x56d52b AI_StandGroundAt (thiscall): 0x56dbfb; classe da tarefa +0x50 = 0xc (Stand ground), posto IA+0 = célula atual, IA+8 = 0. */
+export function aiStandGroundAt(wd: WorldRec, u: UnitRec): void {
+  fn_0x56dbfb(wd, u);
+  u.task = 0xc;
+  u.ai.f00 = mapObjCellOf(u.mapObj) & 0xffff;
+  u.ai.task = 0;
+}
+
+/** 0x56dba1 (thiscall; "Vision_UpdateManager" em known_functions é nome de nota antiga: é parar + Stand ground): 0x56dbfb e
+ *  0x56d52b. Devolve o EAX que sobrou (sem uso). */
+export function fn_0x56dba1(wd: WorldRec, u: UnitRec): void {
+  fn_0x56dbfb(wd, u);
+  aiStandGroundAt(wd, u);
+}
+
+/** 0x56dbc6 (thiscall): parar (0x56d969), Stand ground (0x56dba1) e IA+0x50 = 1. */
+export function fn_0x56dbc6(wd: WorldRec, u: UnitRec): void {
+  fn_0x56d969(wd, u);
+  fn_0x56dba1(wd, u);
+  u.ai.f50 = 1;
+}
+
+/** 0x56e906 (thiscall; `this` = mundo): começa a magia na unidade: IA+9 = 2, IA+0x15 = 0, ação 0xd, +0x5c = alvo IA+0x28, +0x64 =
+ *  magia IA+0x30, IA+0x5c = 1 (alvo é unidade); com IA+0x60 == 0, para e fica em Stand ground (0x56dbc6: a tarefa IA+8 vira 0 — a
+ *  magia seguinte é decisão do pensamento). */
+export function fn_0x56e906(wd: WorldRec, u: UnitRec): void {
+  u.ai.sub = 2;
+  u.ai.f15 = 0;
+  u.act = 0xd;
+  u.f5c = u.ai.f28 >>> 0;
+  u.f64 = u.ai.f30 >>> 0;
+  u.ai.f5c = 1;
+  if ((u.ai.f60 | 0) === 0) fn_0x56dbc6(wd, u);
+}
+
+/** 0x56ebc0 (thiscall; `this` = mundo): tarefa 8, magia na unidade IA+0x28: alvo ≠ a própria unidade e fora do alcance IA+0x14
+ *  (0x55532d) → perseguir (0x56ea52, ação 1); senão começa a magia (0x56e906). */
+export function fn_0x56ebc0(wd: WorldRec, u: UnitRec): void {
+  const t = u.ai.f28 >>> 0;
+  if ((u.addr >>> 0) !== t && fn_0x55532d(wd.map, u, wd.map.unitAt(t), u.ai.range & 0xff) === 0) {
+    fn_0x56ea52(wd, u, t);
+    u.act = 1;
+    return;
+  }
+  fn_0x56e906(wd, u);
 }
 
 /**
@@ -99,12 +237,12 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
     }
     switch (ai.task & 0xff) {
       case 1: unitWalkNear(wd, u, ai.f0a & 0xffff, 0); break;
-      case 2: if (!hooks.task?.(u)) throw new NotPorted("0x56e8c3"); break;
+      case 2: fn_0x56e8c3(u); break;
       case 4: fn_0x56ea52(wd, u, ai.target >>> 0); break;
-      case 5: if (!hooks.task?.(u)) throw new NotPorted("0x56eab5"); break;
-      case 6: if (!hooks.task?.(u)) throw new NotPorted("0x56eff3"); break;
+      case 5: fn_0x56eab5(wd, u); break;
+      case 6: fn_0x56eff3(wd, u); break;
       case 7: if (!hooks.task?.(u)) throw new NotPorted("0x56ea24"); break;
-      case 8: if (!hooks.task?.(u)) throw new NotPorted("0x56ebc0"); break;
+      case 8: fn_0x56ebc0(wd, u); break;
       case 9: if (!hooks.task?.(u)) throw new NotPorted("0x56ec3f"); break;
       case 10: unitTurn(u, u.walk.dirTarget & 0xff); break;
       case 0xb: unitLookAround(wd, u); break;
@@ -122,8 +260,33 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
         }
         break;
       case 2:
-        // magia: ação 0xd/0xe, contador IA+0x15 e, no 3.º tique, o evento do servidor (0x57b210, campos do mundo +0xbd98..)
-        throw new NotPorted("0x56dca2/IA+9=2 (0x57b210)");
+        // magia: ação 0xd (alvo unidade) / 0xe (célula); no 3.º tique o evento para a IA (rascunho mundo+0xbd98 copiado para a lista
+        // +0xbbec por 0x57b210); com o pedido pronto (+0x136) a sub-ação acaba
+        u.act = (ai.f5c | 0) === 0 ? 0xe : 0xd;
+        ai.f15 = (ai.f15 + 1) & 0xff;
+        if (2 < (ai.f15 & 0xff)) {
+          if ((ai.f15 & 0xff) === 3) {
+            if ((ai.f5c | 0) === 0) {
+              wd.evtSetU32(0x00, 3);
+              wd.evtSetU32(0x2c, u.addr);
+              wd.evtSetU32(0x30, u.f64);
+              wd.evtSetU32(0x04, u.f60 & 0xff);
+              wd.evtSetU32(0x08, (u.f60 >>> 8) & 0xff);
+              wd.events.addTail(wd.evt);
+            } else {
+              wd.evtSetU32(0x00, 2);
+              wd.evtSetU32(0x2c, u.addr);
+              wd.evtSetU32(0x30, u.f64);
+              wd.evtSetU32(0x34, u.f5c);
+              wd.events.addTail(wd.evt);
+            }
+          }
+          if ((u.ready & 0xff) !== 0) {
+            ai.sub = 0;
+            u.act = 0;
+          }
+        }
+        break;
       case 3: {
         pathClearDynamic(wd.map, u);
         u.act = 1;

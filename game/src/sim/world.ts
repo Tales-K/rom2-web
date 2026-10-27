@@ -21,10 +21,9 @@ import { lineOfSight } from "./los";
 import { CellStructRec, MapRec, OccRec, UnitRec, WorldRec } from "./exe/types";
 import { mapRecFromGrid, exeMaskOf } from "./exe/mapbuild";
 import { unitActionDispatcher, type DispatchHooks } from "./exe/action";
-import { NotPorted, aiUnitDistance, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
+import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
 import { fn_0x55be86 } from "./exe/wave";
-import { fn_0x56ea52 } from "./exe/action";
 import { EXE_GLOBALS } from "./exe/types";
 import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
@@ -246,6 +245,11 @@ export class Unit {
   set unreachSec(v: number) { this.rec.ai.f16 = ((v & 0xffff) << 16) >> 16; }
   hitClock16 = -100000;
   fleeCell = 0;
+  /** alvo da última perseguição que acabou sem o alcançar (fim de caminho, 0x56ed4e) e o tique: a IA não o escolhe de novo por 5 s
+   *  [est: evita a unidade presa a um alvo inalcançável (cerca, casa) sendo re-escolhido a cada pensamento; o exe guarda o segundo
+   *  em IA+0x16 (0x54d76e) e o pensamento do grupo pesa isso de outro modo] */
+  unreachTarget = 0;
+  unreachTick = -1e9;
   castSpell: SpellDef | null = null;
   /** ponto-alvo da magia em lançamento (magias de área/teleporte) */
   castX = 0;
@@ -258,9 +262,6 @@ export class Unit {
   castEnd = 0;
   /** fase 7 do ciclo do exe sem o rand(0..3): relax + nível da magia + espera da arma (tiques de 16/s; World.beginCycle) */
   cycleRest = 0;
-  /** o ciclo de golpe/magia acabou no tique anterior: o despachante do exe (0x56dca2) gasta este tique soltando o pedido (pedido 1/2 com
-   *  contador > 2 e `+0x136` pronto → pedido 0, ação 0) e só decide a ação seguinte no próximo (World.act) */
-  actRelease = false;
   /** tique em que a ordem mudou ou foi armada (a sub-tarefa recomeça) e em que a unidade chegou ao centro de uma célula: a magia só
    *  começa no tique SEGUINTE a qualquer um dos dois (World.act; medido no golden: Heal/magias da IA 1 tique depois) */
   decideTick = -99;
@@ -886,6 +887,9 @@ export class World {
       // armadilhas do script [exe 0x57a47d → 0x57a307]: no fim do pensamento da IA cada uma sorteia 1 dos candidatos na zona
       // (Rand_Range(1, n): 1 rand() mesmo com n = 0) — a escolha em si continua em stepTraps
       for (let i = 0; i < this.traps.length; i++) this.rng.draw(0x57a409);
+      // o pensamento consome a lista de eventos do mundo (+0xbbec: golpes e magias para a IA de grupo, 0x574899/0x574ba1 — etapa
+      // 8) e a esvazia (0x57485b → 0x57b2b0 RemoveAll)
+      this.exeWorld.events.removeAll();
     }
     // ordem do servidor: jogadores em ordem e, em cada um, as unidades por id (sonda rngprobe: a posição dos sorteios do olhar em volta
     // bate 9/9 com (jogador, id)); `regenSlot` = id do original nos estados importados
@@ -1053,6 +1057,7 @@ export class World {
     const ox = from ? from.x + 0.5 : u.x, oy = from ? from.y + 0.5 : u.y;
     for (const v of this.units) {
       if (v === u || !v.targetable || !this.isEnemy(u, v) || !this.canSee(u, v)) continue;   // caídos também (a IA os escolhe)
+      if (v.id === u.unreachTarget && this.tick - u.unreachTick < 5 * TICKS_PER_SEC) continue;   // inalcançável há pouco (ver Unit.unreachTarget)
       if (filter && !filter(v)) continue;
       const fd = (v.x - ox) ** 2 + (v.y - oy) ** 2;
       if (fd > radius * radius) continue;
@@ -1100,10 +1105,12 @@ export class World {
   // ------------------------------------------------------------------------------------------- execução das ordens
 
   private act(u: Unit): void {
-    if (u.state === "attack" || u.state === "cast") { this.progressAttack(u); return; }
-    // fase 7 → 0 no tique E (pronto = 1); em E + 1 o despachante só solta o pedido (ação 0: nada anda nem golpeia); a sub-tarefa volta
-    // em E + 2 (Skrakan: Lightning a cada charge + relax + nível + rand(0..3) + 2 = 24–27 tiques, sonda c1/c2)
-    if (u.actRelease) { u.actRelease = false; return; }
+    const r = u.rec;
+    // golpe/magia fora da sub-ação do exe (magia no chão: tarefa 9, sem porta): só a máquina de ação do motor antigo
+    if (r.ai.sub === 0 && (u.state === "attack" || u.state === "cast")) { this.progressAttack(u); return; }
+    // máquina parada com a sub-ação 1/2 ainda contando (estado importado a meio golpe/magia sem a máquina, ou golpe abortado): o
+    // pedido fica pronto para o despachante soltar a sub-ação (+0x136)
+    if ((r.ai.sub === 1 || r.ai.sub === 2) && r.ai.f15 > 0 && u.state !== "attack" && u.state !== "cast") r.ready = 1;
     // ordem de andar: o pensamento (0x569321, tique ≡ 7) larga a tarefa 1 (IA+8 = 0) quando a CÉLULA já é a do destino, mesmo a meio
     // passo; a classe da tarefa (+0x50) só vira "parado" no pensamento em que a unidade já está no centro (medido: herói da m10_start
     // no centro em T=49 → as duas em T=50; da m10_mage a meio passo em T=97 → IA+8 = 0 em T=98, classe 1 até o pensamento seguinte)
@@ -1117,8 +1124,11 @@ export class World {
       const p = u.order;
       if (u.cx === (p.toB ? p.bx : p.ax) && u.cy === (p.toB ? p.by : p.ay)) p.toB = !p.toB;
     }
-    // passo em curso do exe (IA+9 == 3): o despachante 0x56dca2 só continua o passo (0x555b38), antes de qualquer ordem
-    if (u.rec.ai.sub === 3) { this.dispatch(u); return; }
+    // sub-ação em curso do exe (IA+9: 1 golpe, 2 magia, 3 passo, 4 efeito, 0xff parado): o despachante 0x56dca2 a continua antes de
+    // qualquer ordem; a máquina de ação (0x50f12c = o golpe/a magia do motor antigo, `progressAttack`) roda depois dele no mesmo
+    // tique. No fim (pronto = 1 no tique E) o despachante solta o pedido em E + 1 (ação 0) e a tarefa volta em E + 2 (sonda c1/c2:
+    // Skrakan, Lightning a cada charge + relax + nível + rand(0..3) + 2 = 24–27 tiques)
+    if (r.ai.sub !== 0) { this.dispatch(u); if (u.state === "attack" || u.state === "cast") this.progressAttack(u); return; }
     const o = u.order;
     switch (o.type) {
       case "none":
@@ -1216,53 +1226,80 @@ export class World {
         if (o.type === "cast" && !spell) { this.command(u, { type: "none" }); return; }
         // Heal pode mirar quem ainda está morrendo (sangrando): levanta se a vida passar de 0 [exe 0x51a2b8] (sim/necro.ts)
         if (o.type === "cast" && t && !t.active && !(spell!.kind === "heal" && canRevive(this, u, t))) { this.command(u, { type: "none" }); this.stop(u); return; }
-        const tx = t ? t.cx : (o.type === "cast" ? o.x ?? u.cx : u.cx), ty = t ? t.cy : (o.type === "cast" ? o.y ?? u.cy : u.cy);
-        const range = spell ? spell.range : this.attackRange(u);
-        // nem magia nem golpe à distância pedem linha de visão: a máquina de ação (0x50f12c → 0x519998) só confere mana, o golpe
-        // (0x516c1f) se resolve na hora, e o Skrakan do original lança no herói de trás da torre (sonda c2: Lightning a 8 células,
-        // estrutura no meio, acerta 19 tiques depois)
-        // alcance da perseguição do exe (IA+0x14, 0x55574d para em AI_UnitDistance 0x556dcd ≤ alcance: bordas das unidades, lado e
-        // fração incluídos): ao alcance dela também é ao alcance do golpe, senão a unidade gira parada sem bater (lado 2, meio passo)
-        const near = range <= 1 ? 1 : Math.max(1, Math.floor(range * 0.7));
-        if (this.inRange(u, tx, ty, range) || (t && t !== u && aiUnitDistance(this.exe, u.rec, t.rec) <= near)) {
+        if (t) {
+          // alvo unidade: a tarefa do exe decide golpe/magia ou perseguição — 5 atacar (0x56eab5: de frente e ao alcance de
+          // AI_AttackRange → golpe 0x56e8c3; senão 0x56ea52) ou 8 magia na unidade (0x56ebc0 → 0x56e906); o efeito do golpe/da magia
+          // (máquina de ação do motor antigo) começa em `strikeBegin`/`castBegin`, depois do despachante. IA+0x14 = alcance (no exe o
+          // pensamento 0x56acc8 e 0x56d969 o põem); nem magia nem golpe à distância pedem linha de visão (0x50f12c → 0x519998 só
+          // confere mana; o Skrakan do original lança no herói de trás da torre, sonda c2)
+          if (o.type === "attack") { if (!this.exeExact || r.ai.task !== 5) { r.ai.task = 5; r.ai.f0c = t.rec.addr; r.ai.range = this.attackRange(u) & 0xff; } }
+          else if (!this.exeExact || r.ai.task !== 8) { r.ai.task = 8; r.ai.f28 = t.rec.addr; r.ai.range = spell!.range & 0xff; }
+          this.dispatch(u);
+          return;
+        }
+        // magia no chão (tarefa 9 do exe, 0x56ec3f: exec 0 no corpus, sem porta): anda até o alcance e lança pelo motor antigo
+        const tx = o.type === "cast" ? o.x ?? u.cx : u.cx, ty = o.type === "cast" ? o.y ?? u.cy : u.cy;
+        const range = spell!.range;
+        if (this.inRange(u, tx, ty, range)) {
           if (u.cooldown > 0) { this.stop(u); return; }
-          // magia (pedido 2 do despachante, 0x56e906): começa no tique seguinte ao da ordem nova/armada ou da chegada ao centro
-          // [medido no golden, DIFF-FUZZ fase 7: 1º Heal/magia da janela 1 tique depois em 81/92 casos; o golpe não tem esse atraso]
-          if (spell && (u.decideTick === this.tick || u.arriveTick === this.tick - 1)) { this.stop(u); return; }
-          // gira no lugar até ficar de frente para o alvo antes de golpear/lançar [exe 0x56e55d → 0x556454, ação 1]
+          // começa no tique seguinte ao da ordem nova/armada ou da chegada ao centro [medido no golden, DIFF-FUZZ fase 7]
+          if (u.decideTick === this.tick || u.arriveTick === this.tick - 1) { this.stop(u); return; }
           if (this.turning(u, tx, ty)) { this.stop(u); return; }
-          if (spell) {
-            if (u.mana < spell.mana) { if (u.isHero) this.events.push({ type: "message", text: "Not enough mana" }); this.command(u, { type: "none" }); this.stop(u); return; }
-            this.beginCast(u, spell, t, tx, ty, false);
-          } else {
-            // unidade do jogador com magia escolhida no livro: lança a magia no lugar do golpe [exe 0x56b059] (sim/spellattack.ts)
-            const sa = t && t.active && u.selectedSpell ? spellAttack(this, u, t) : null;   // em quem caiu só o golpe da arma
-            if (sa === "stop") { this.command(u, { type: "none" }); this.stop(u); return; }
-            if (sa && (sa.target === u || !sa.target || Math.hypot(sa.target.cx - u.cx, sa.target.cy - u.cy) <= sa.spell.range + 0.5)) {
-              this.beginCast(u, sa.spell, sa.target, sa.x, sa.y, true);
-              return;
-            }
-            // magia de chance no lugar do golpe [exe 0x56acc8] (sorteada a cada golpe; ver notes/ai-behaviors.md)
-            const proc = t && t.active ? this.rollProc(u, t) : null;
-            if (proc && t) { this.beginCast(u, proc, t, t.cx, t.cy, true); return; }
-            u.castSpell = null;
-            u.target = t!.id;
-            this.setState(u, "attack");
-            this.beginCycle(u, 0);     // golpe pela máquina de ação do exe (charge, relax + rand(0..3) + arma) [GAME_DIFFS #54]
-            u.lastActionTick = this.tick;
-            this.breakInvisibility(u);
-            this.events.push({ type: "attack", unit: u.id, target: t!.id });
-          }
+          if (u.mana < spell!.mana) { if (u.isHero) this.events.push({ type: "message", text: "Not enough mana" }); this.command(u, { type: "none" }); this.stop(u); return; }
+          this.beginCast(u, spell!, undefined, tx, ty, false);
           u.hitDone = false;
           return;
         }
-        // ainda longe: anda até ficar ao alcance
-        // alvo unidade: perseguição do exe (0x55574d, célula de aproximação 0x557f08); ponto no chão: andar (0x555411)
-        const ok = t ? this.chaseUnit(u, t, near, o.type === "attack" ? 5 : 8) : this.walkTo(u, tx, ty, near);
-        if (!ok) { if (!u.isHero) this.command(u, { type: "none" }); this.stop(u); }
+        const near = range <= 1 ? 1 : Math.max(1, Math.floor(range * 0.7));
+        if (!this.walkTo(u, tx, ty, near)) { if (!u.isHero) this.command(u, { type: "none" }); this.stop(u); }
         return;
       }
     }
+  }
+
+  /** Começo do golpe (sub-ação 1 recém-nascida: 0x56e8c3 pôs ação 3 e +0x5c = alvo; no exe Unit_ActionMachine 0x50f12c →
+   *  Unit_StrikeBegin 0x516c1f, no mesmo tique, depois do despachante): a máquina de golpe do motor antigo. Magia escolhida no livro
+   *  (0x56b059) ou magia de chance (0x56acc8) no lugar do golpe → a sub-ação vira 2 (magia), como 0x56e906 faria no pensamento. */
+  private strikeBegin(u: Unit): void {
+    const r = u.rec, t = this.unitByAddr(r.f5c);
+    const abort = () => { r.ai.sub = 0; r.act = 0; };
+    if (!t || !t.targetable || t === u || u.cooldown > 0) { abort(); return; }
+    const asCast = (spell: SpellDef, tgt: Unit | undefined, x: number, y: number) => {
+      this.beginCast(u, spell, tgt, x, y, true);
+      r.ai.sub = 2; r.ai.f15 = 0; r.act = 0xd; r.ai.f5c = 1; r.f5c = tgt ? tgt.rec.addr : 0; r.ready = 0;
+    };
+    // unidade do jogador com magia escolhida no livro: lança a magia no lugar do golpe [exe 0x56b059] (sim/spellattack.ts)
+    const sa = t.active && u.selectedSpell ? spellAttack(this, u, t) : null;   // em quem caiu só o golpe da arma
+    if (sa === "stop") { this.command(u, { type: "none" }); abort(); return; }
+    if (sa && (sa.target === u || !sa.target || Math.hypot(sa.target.cx - u.cx, sa.target.cy - u.cy) <= sa.spell.range + 0.5)) { asCast(sa.spell, sa.target, sa.x, sa.y); return; }
+    // magia de chance no lugar do golpe [exe 0x56acc8] (sorteada a cada golpe; ver notes/ai-behaviors.md)
+    const proc = t.active ? this.rollProc(u, t) : null;
+    if (proc) { asCast(proc, t, t.cx, t.cy); return; }
+    u.castSpell = null;
+    u.target = t.id;
+    this.setState(u, "attack");
+    this.beginCycle(u, 0);     // golpe pela máquina de ação do exe (charge, relax + rand(0..3) + arma) [GAME_DIFFS #54]
+    u.lastActionTick = this.tick;
+    this.breakInvisibility(u);
+    this.events.push({ type: "attack", unit: u.id, target: t.id });
+    u.hitDone = false;
+    r.ready = 0;
+  }
+
+  /** Começo da magia na unidade (sub-ação 2 recém-nascida: 0x56e906 pôs ação 0xd, +0x5c = alvo, +0x64 = magia IA+0x30; no exe a
+   *  máquina 0x50f12c gasta a mana na fase 0, 0x519998): a magia vem da ordem de lançar do motor antigo (o registro só tem o endereço
+   *  do livro do exe). Começa no tique seguinte ao da ordem nova/armada ou da chegada ao centro [medido no golden, DIFF-FUZZ fase 7:
+   *  1º Heal/magia da janela 1 tique depois em 81/92 casos]: a sub-ação é desfeita e a tarefa 8 a refaz no tique seguinte. */
+  private castBegin(u: Unit): void {
+    const r = u.rec, t = this.unitByAddr(r.f5c), o = u.order;
+    const abort = () => { r.ai.sub = 0; r.act = 0; };
+    const spell = o.type === "cast" ? u.spells.find(s => s.id === o.spell) : undefined;
+    if (!spell || !t) { abort(); return; }
+    if (u.decideTick === this.tick || u.arriveTick === this.tick - 1 || u.cooldown > 0) { abort(); return; }
+    if (u.mana < spell.mana) { if (u.isHero) this.events.push({ type: "message", text: "Not enough mana" }); this.command(u, { type: "none" }); abort(); return; }
+    this.beginCast(u, spell, t, t.cx, t.cy, false);
+    u.hitDone = false;
+    r.ready = 0;
   }
 
   /** Ciclo da máquina de ação do exe (0x50f12c, 16 tiques/s) para golpe e magia: fase 5 = `charge` tiques até o golpe/a magia sair;
@@ -1377,13 +1414,12 @@ export class World {
       // alvo ao alcance de ataque (fora o perseguido) → ataca esse; senão ociosa até o próximo pensamento
       const tgt = u.order.target, rr = Math.max(1, this.attackRange(u));
       const near = this.units.find(v => v.id !== tgt && v.targetable && this.isEnemy(u, v) && Math.max(Math.abs(v.cx - u.cx), Math.abs(v.cy - u.cy)) <= rr);
+      u.unreachTarget = tgt; u.unreachTick = this.tick;
       this.stop(u);
       this.command(u, near ? { type: "attack", target: near.id } : { type: "none" });
     },
     task: r => {
       switch (r.ai.task) {
-        case 5: fn_0x56ea52(this.exeWorld, r, r.ai.f0c >>> 0); return true;     // ramo de perseguir de 0x56eab5 (o do golpe é o motor antigo)
-        case 8: fn_0x56ea52(this.exeWorld, r, r.ai.f28 >>> 0); return true;     // ramo de perseguir de 0x56ebc0
         case 9: unitWalkNear(this.exeWorld, r, r.ai.f3c & 0xffff, r.ai.range & 0xff); r.act = 1; return true;   // ramo de andar de 0x56ec3f
       }
       return false;
@@ -1397,13 +1433,11 @@ export class World {
   private dispatch(u: Unit): void {
     const r = u.rec, cx0 = u.cx, cy0 = u.cy;
     const f0 = (r.mapObj.x << 24) | (r.mapObj.y << 16) | (r.mapObj.fx << 8) | r.mapObj.fy;
-    // golpe/magia em curso no exe (IA+9 = 1, 2, 4...): é a máquina de ação do motor antigo (etapa 7) que cuida; no tique importado o
-    // despachante não roda, no jogo a sub-ação do exe não é mantida e volta a 0
-    if (r.ai.sub !== 0 && r.ai.sub !== 3) { if (this.exeExact) return; r.ai.sub = 0; }
     if (!this.exeExact) {
       r.speed = Math.round(this.speedOf(u) * 16);
       r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
       r.f94 = u.hp; r.mana = u.mana;
+      r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (AI_AttackRange 0x56ac5b sem magia escolhida no registro)
       // grupo dormindo (tipo+0x45): quem dorme no motor antigo não recebe ordem de andar (a IA não pensa por ele); o teste do
       // despachante fica desligado para não parar uma ordem que o motor antigo deu
       r.type.stats.f45 = 1;
@@ -1433,6 +1467,10 @@ export class World {
     if (r.act === 1 && r.ai.task !== 0xb) { this.setState(u, "move"); u.lastActionTick = this.tick; if (moved) u.walkTime++; }
     else if (u.state === "move") this.setState(u, "idle");
     if (moved && mapObjSubCellCenter(r.mapObj) !== 0) { this.autoPickup(u); u.arriveTick = this.tick; }
+    // a máquina de ação do exe (0x50f12c) corre depois do despachante no mesmo tique: a sub-ação de golpe (1) ou magia (2) que
+    // acabou de nascer (IA+0x15 = 0: 0x56e8c3 / 0x56e906 correram agora) entra na máquina do motor antigo
+    if (r.ai.sub === 1 && r.ai.f15 === 0) this.strikeBegin(u);
+    else if (r.ai.sub === 2 && r.ai.f15 === 0) this.castBegin(u);
   }
   private readonly notPortedSeen = new Set<string>();
 
@@ -1450,20 +1488,6 @@ export class World {
     this.dispatch(u);
     if (r.walk.f90 !== 0 && r.ai.sub !== 3 && Math.max(Math.abs(tx - u.cx), Math.abs(ty - u.cy)) > near) { u.waitTicks++; return u.waitTicks < 20; }
     u.waitTicks = 0;
-    return true;
-  }
-
-  /** Perseguir a unidade `t` até `near` (adaptador fino): o ramo de perseguir da tarefa de ataque (5, 0x56eab5, alvo IA+0xc) ou de
-   *  magia (8, 0x56ebc0, alvo IA+0x28) → 0x56ea52 → Unit_ActionChase 0x55574d com o alcance IA+0x14. O ramo do golpe/lançamento
-   *  dessas tarefas continua no motor antigo (`inRange`, etapa 7). Não desiste (o exe também não). */
-  chaseUnit(u: Unit, t: Unit, near: number, task = 5): boolean {
-    const r = u.rec;
-    if (!this.exeExact || r.ai.task !== task) {
-      r.ai.task = task;
-      r.ai.range = near & 0xff;
-      if (task === 8) r.ai.f28 = t.rec.addr; else r.ai.f0c = t.rec.addr;
-    }
-    this.dispatch(u);
     return true;
   }
 
@@ -1560,7 +1584,6 @@ export class World {
 
   private progressAttack(u: Unit): void {
     const t = u.target ? this.get(u.target) : undefined;
-    if (t && t.targetable && t !== u) u.dir = dirFromDelta(t.cx - u.cx, t.cy - u.cy);
     const exeCast = (u.state === "cast" || u.state === "attack") && u.castEnd > 0;
     if (!u.hitDone && u.stateTime >= (exeCast ? u.castHit : u.timing.hitTick)) {
       u.hitDone = true;
@@ -1583,7 +1606,7 @@ export class World {
       const auto = u.castAuto, finished = u.castSpell, finishedTarget = u.target;
       this.setState(u, "idle");
       u.cooldown = exeCast ? 0 : u.timing.attackDelay;
-      u.actRelease = exeCast;
+      u.rec.ready = 1;   // pedido pronto (+0x136): o despachante 0x56dca2 solta a sub-ação 1/2 no tique seguinte (IA+0x15 > 2)
       u.castHit = u.castEnd = 0;
       u.castAuto = false;
       // a sub-tarefa de ataque da IA relança a magia escolhida no mesmo alvo assim que a espera acaba (sonda c1/c2: Lightning a cada

@@ -10,6 +10,9 @@
  *   +0x18 m_nBlockSize; associação de 0x48 bytes: +0 pNext, +4 nHashValue, +8 key i16, +0xc value OccRec). Ocupação por célula
  *   em mapa+0x54084.
  *
+ * - CList<Event,Event&> (mundo+0xbbec; nó de 0x5c bytes: +0 pNext, +4 pPrev, +8 o evento de 0x54 bytes copiado por valor):
+ *   eventos do servidor para a IA de grupo (golpe/magia: 0x56dca2, 0x56e6b8, 0x57240b), consumidos no pensamento (0x57485b).
+ *
  * A lista livre e os blocos (CPlex) só decidem ENDEREÇOS dos nós, que nenhuma função do jogo compara nem ordena: não são
  * espelhados. A ordem dos nós (pNext/pPrev) e a das cadeias da tabela de hash (inserção na cabeça do balde) são.
  */
@@ -194,6 +197,48 @@ export class CListPtrIter {
     const n = this.pos!;
     this.pos = n.next;
     return n.data >>> 0;
+  }
+}
+
+/** Nó de CList<Event> (0x5c bytes): +0 pNext, +4 pPrev, +8 o evento (0x54 bytes). */
+export class CListEventNode {
+  next: CListEventNode | null = null;
+  prev: CListEventNode | null = null;
+  data = new Uint8Array(0x54);
+}
+
+/** CList<Event,Event&> (cabeçalho 0x1c como CListWord). Instância: a lista de eventos do mundo em +0xbbec. */
+export class CListEvent {
+  head: CListEventNode | null = null; // +0x04
+  tail: CListEventNode | null = null; // +0x08
+  count = 0;                          // +0x0c
+
+  /** 0x57b210 AddTail (fastcall; o evento vem por valor na pilha): NewNode 0x57d090 (m_nCount++, construtor 0x57def0),
+   *  cópia dos 0x15 dwords, encadeia na cauda; 0x57ad97 (destrutor do temporário) é vazio. Devolve o nó (POSITION). */
+  addTail(ev: Uint8Array): CListEventNode {
+    const n = new CListEventNode();
+    n.prev = this.tail;
+    n.next = null;
+    this.count = (this.count + 1) | 0;
+    n.data.set(ev.subarray(0, 0x54));
+    if (this.tail === null) this.head = n;
+    else this.tail.next = n;
+    this.tail = n;
+    return n;
+  }
+
+  /** 0x57b2b0 RemoveAll (fastcall): destrói os elementos (0x57d170), zera contagem, cabeça, cauda e blocos. */
+  removeAll(): void {
+    this.count = 0;
+    this.tail = null;
+    this.head = null;
+  }
+
+  /** Eventos do início ao fim (testes). */
+  values(): Uint8Array[] {
+    const r: Uint8Array[] = [];
+    for (let n = this.head; n; n = n.next) r.push(n.data);
+    return r;
   }
 }
 
