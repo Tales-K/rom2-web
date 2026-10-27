@@ -68,6 +68,11 @@ class Oracle:
         self._traps()
         self._own_areas()
         self._setup_fs()
+        # FPU/SSE da thread real (o Unicorn começa com FPCW = 0, precisão de 24 bits); imagens antigas sem "fpu": 0x27f = padrão
+        # do CRT do MSVC (53 bits), que reproduz a exp do herói em m20_start_s203
+        fpu = self.meta.get("fpu") or {"fpcw": 0x27F, "mxcsr": 0x1F80}
+        self.uc.reg_write(X.UC_X86_REG_FPCW, fpu["fpcw"])
+        self.uc.reg_write(X.UC_X86_REG_MXCSR, fpu["mxcsr"])
         self.uc.hook_add(UC_HOOK_MEM_UNMAPPED, self._on_unmapped)
         self.proc = EmuProc(self)
 
@@ -336,6 +341,75 @@ class EmuServer(Server):
 
 
 # ---------------------------------------------------------------- episódio (espelho de run_pair.run_orig)
+UNIT_LIST_PTR = 0x68D2DC                # objeto do mundo (o que Server_Tick passa a World_SecondTick)
+LIVE_LIST, CORPSE_LIST = 0x4, 0x44      # CList (MFC: +4 cabeça, +0xc contagem) das unidades vivas e dos cadáveres (tarefa 16)
+
+
+def unit_list(o: "Oracle", corpses: bool = True) -> list[int]:
+    """Endereços das unidades pelos CList do mundo (nó: +0 próximo, +8 dado): vivas e, com `corpses`, os cadáveres (a unidade morta
+    sai da lista +4 e entra na +0x44, onde a vida continua caindo). Vivas ∪ cadáveres = varredura por vtable (orig_mem.Server.rescan)
+    nos 3 episódios do portão, a cada 16 tiques (61 pontos cada)."""
+    w = o.u32(UNIT_LIST_PTR)
+    out = []
+    for lst in (LIVE_LIST, CORPSE_LIST) if corpses else (LIVE_LIST,):
+        x = o.u32(w + lst + 4)
+        while x:
+            out.append(o.u32(x + 8))
+            x = o.u32(x)
+    return out
+
+
+def apply_action(o: "Oracle", a: dict, hero: int) -> bool:
+    """Uma ação do roteiro (formato de original_episode.normalize_script) como Session.apply, pelo Oracle.command."""
+    def ref(v):
+        return hero if v == "hero" else int(v)
+    u = a.get("unit")
+    us = [ref(x) for x in u] if isinstance(u, list) else [ref(u)] if u is not None else [hero]
+    do = a["do"]
+    if do in ("move", "pickup"):
+        o.command(do, us, x=int(a["x"]), y=int(a["y"]))
+    elif do == "attack":
+        o.command("attack", us, target=ref(a["target"]))
+    elif do in ("stop", "guard"):
+        o.command(do, us)
+    elif do == "use":
+        o.command("use", us, target=int(a["target"]))
+    elif do in ("patrol", "pick"):
+        o.command(do, us, x=int(a["x"]), y=int(a["y"]), target=int(a.get("target", 0)))
+    elif do == "cast":
+        if "target" in a:
+            o.command("cast_unit", us, target=ref(a["target"]), spell=int(a["spell"]))
+        else:
+            o.command("cast_point", us, x=int(a["x"]), y=int(a["y"]), spell=int(a["spell"]))
+    else:
+        return False
+    return True
+
+
+def load_episode(eid: str) -> tuple["Oracle", dict]:
+    ep = json.load(open(os.path.join(GOLD, eid, "ep.json"), encoding="utf-8"))
+    return Oracle(os.path.join(IMAGES, f"{eid}_t0")), ep
+
+
+def play(o: "Oracle", ep: dict, ticks: int, after_tick=None, before_tick=None) -> list[dict]:
+    """Roda `ticks` tiques do roteiro do episódio, sem amostragem: ações com t <= passo antes do tique, `before_tick(passo)` antes e
+    `after_tick(passo + 1)` depois de cada um. Devolve as ações aplicadas (com "ok")."""
+    import original_episode as oe
+    hero = o.meta["hero"]
+    pend = sorted(oe.normalize_script(ep["script"]), key=lambda a: a["t"])
+    applied = []
+    for step in range(ticks):
+        while pend and pend[0]["t"] <= step:
+            a = pend.pop(0)
+            applied.append({**a, "ok": apply_action(o, a, hero)})
+        if before_tick:
+            before_tick(step)
+        o.tick()
+        if after_tick:
+            after_tick(step + 1)
+    return applied
+
+
 SAMPLE, STATE_EVERY, RESCAN = 4, 16, 32
 
 
@@ -356,37 +430,12 @@ def run_episode(eid: str, ticks: int | None = None, verbose=False) -> dict:
     rngs = [rd.rng()]
     applied = []
 
-    def apply(a):
-        def ref(v):
-            return hero if v == "hero" else int(v)
-        u = a.get("unit")
-        us = [ref(x) for x in u] if isinstance(u, list) else [ref(u)] if u is not None else [hero]
-        do = a["do"]
-        if do in ("move", "pickup"):
-            o.command(do, us, x=int(a["x"]), y=int(a["y"]))
-        elif do == "attack":
-            o.command("attack", us, target=ref(a["target"]))
-        elif do in ("stop", "guard"):
-            o.command(do, us)
-        elif do == "use":
-            o.command("use", us, target=int(a["target"]))
-        elif do in ("patrol", "pick"):
-            o.command(do, us, x=int(a["x"]), y=int(a["y"]), target=int(a.get("target", 0)))
-        elif do == "cast":
-            if "target" in a:
-                o.command("cast_unit", us, target=ref(a["target"]), spell=int(a["spell"]))
-            else:
-                o.command("cast_point", us, x=int(a["x"]), y=int(a["y"]), spell=int(a["spell"]))
-        else:
-            return False
-        return True
-
     step, t_run, t_read, err = 0, 0.0, 0.0, None
     try:
         while step < ticks:
             while pend and pend[0]["t"] <= step:
                 a = pend.pop(0)
-                applied.append({**a, "ok": apply(a)})
+                applied.append({**a, "ok": apply_action(o, a, hero)})
             nxt = min(x for x in (ticks, (step // SAMPLE + 1) * SAMPLE, pend[0]["t"] if pend else ticks) if x > step)
             t0 = time.perf_counter()
             for _ in range(nxt - step):

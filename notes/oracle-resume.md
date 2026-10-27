@@ -34,10 +34,14 @@ Controle negativo: semente + 1 na imagem → diverge já na linha 2 do traço e 
   revarredura de unidades olha só regiões graváveis, como a do harness. O laço de amostragem copia o de `run_orig` (quadro a cada 4,
   revarredura a cada 32, estado a cada 16).
 
-- **Estado completo**: `export_state.read_state(o.proc, srv, rd, missão, map_wh)` roda sobre a imagem. No tique 0 de m10_start_s1 ele
-  bate com o estado 0 do golden, exceto em campos que guardam endereços de heap ou bytes não inicializados (`ptrs`, `range`,
-  `body_state`, `book`) e na ordem dos grupos (conteúdo igual): o golden foi gravado em outra execução do processo. Um critério
-  "estado idêntico por tique" sobre esses campos tem de ignorar ponteiros ou comparar contra uma imagem do mesmo processo.
+- **Estado completo** (`dump_ticks.py --check`): `export_state.read_state` a cada tique; as 60 linhas múltiplas de 16 batem com
+  `states.jsonl.gz` do golden em **todos os campos** nos 3 episódios, exceto os que guardam endereços de heap ou bytes não
+  inicializados (`ptrs`, `range`, `body_state`, `book`; o golden é de outra execução do processo) e com os grupos ordenados.
+- **FPU**: o Unicorn começa com FPCW = 0 (precisão de 24 bits); a thread real tem 0x027f (53 bits, padrão do CRT), MXCSR 0x1fa0.
+  `dump_state.py` lê ambos (`Wow64GetThreadContext`, thread suspensa) para `meta.fpu`; o Oracle aplica no início.
+- **Unidades por ponteiro**: objeto do mundo `[0x68d2dc]` (o que `Server_Tick` passa a `World_SecondTick`) tem dois CList (MFC: +4
+  cabeça, +0xc contagem; nó +0 próximo, +8 dado): +4 unidades vivas, +0x44 cadáveres (a unidade morta sai de um e entra no outro, e
+  a vida continua caindo). Vivas ∪ cadáveres = varredura por vtable do harness em 61 pontos de cada episódio (`resume.unit_list`).
 
 ## HLE necessária (lista exata; `hle.py`)
 Chamadas de fato nos 3 episódios: `RtlEnterCriticalSection`/`RtlLeaveCriticalSection` (sem efeito), `GetLastError`/`TlsGetValue`/
@@ -50,12 +54,35 @@ Increment/Decrement`, `lstrlen` (MFC 0x5a1977, só no episódio de mago). Nada d
 ## Falhas encontradas
 1. `kernel32!lstrlen` sem tratador no tique 248 do episódio de mago (chamado de 0x5a1977, CString do MFC) → acrescentado com
    lstrcpy/lstrcat. Achado pela parada estrita (importação sem HLE para a emulação e informa nome + chamador).
-Nenhuma outra: com a imagem despejada no ponto certo (thread estacionada no GATE), o resto bateu de primeira.
+2. **Palavra de controle do x87 não reproduzida** (passou no portão de traço + rng): `exp` do herói em m20_start_s203 1 abaixo do
+   golden a partir do tique 720 (7413 × 7414). Achado ao comparar o estado completo por tique com o golden; hipótese de arredondamento
+   confirmada trocando a FPCW (0 → 7413, 0x27f → 7414, 0x7f → 7413) e depois medida na thread real (0x27f). Corrigido no despejo e no
+   Oracle; imagens refeitas.
+3. Cadáveres fora da lista de unidades (ver acima): a unidade morta sumia do estado por tique; achada a lista +0x44.
 
 ## Velocidade
 ~430–530 tiques/s por instância (Python + Unicorn 2.1.4, sem ganchos por instrução), ~90 mil instruções x86 por tique (m10). Carga da
 imagem 0,3 s. 3 instâncias em paralelo rodam sem perda (processos independentes). A leitura do traço (revarredura de 55 MB a cada 32
 tiques) custa mais que a emulação (~2,7 s por episódio); para uso intensivo, ler por ponteiros em vez de varrer.
+
+## Oráculo por função (`fnprobe.py`)
+Para cada chamada de funções escolhidas: tique, convenção (do C decompilado: `this` do thiscall e os 2 primeiros do fastcall vêm em
+registradores), ECX/EDX, argumentos da pilha, EAX/EDX no retorno, rng antes/depois, nº de `rand()` dentro, toda leitura/escrita
+(chamadas internas incluídas; fora .text, slots da IAT e pilha da própria chamada) e `objs` (endereço → unidade/subobjeto/offset).
+Ganchos de memória ficam ligados sempre: no Unicorn 2 um gancho de memória só instrumenta blocos traduzidos depois dele, e ligá-lo
+na entrada perdia as leituras do bloco da entrada (medido em 0x54ff7c). Retorno = gancho no endereço de retorno (bloco invalidado com
+`ctl_remove_cache`) com ESP acima do de entrada. **Prova de completude** (`--verify N`): N chamadas por função refeitas numa imagem
+nova do tique 0 contendo só o estado anterior reconstruído do registro (mesmo ESP/ECX/EDX/argumentos/semente) dão registro idêntico
+(eax, edx, rng, nrand, leituras, escritas): 182/183/200 chamadas nos 3 episódios, fecho de `Unit_ApproachCell` (10 funções).
+~29 tiques/s (m10) e ~21 (m20) com esses 10 endereços; 130–294 mil chamadas, 45–86 MB por episódio em `refs/oracle/pairs/`.
+
+    PYTHONUTF8=1 .venv/Scripts/python.exe -X utf8 tools/re/oracle/fnprobe.py m10_start_s1 0x557f08 0x5585f4 0x557cf1 0x54ffb0         0x54ffc0 0x50d884 0x50d8c0 0x55f970 0x54ff7c 0x54ff5b --verify 20
+
+## Estado por tique (`dump_ticks.py`)
+`read_state` normalizado a cada tique, unidades pelos CList (sem varredura): 216–274 tiques/s com despejo todo tique (leitura ≈ metade
+do tempo), 2,2–3,1 MB gzip por episódio de 960 tiques em `refs/oracle/ticks/`.
+
+    PYTHONUTF8=1 .venv/Scripts/python.exe -X utf8 tools/re/oracle/dump_ticks.py --check      # 3 episódios; compara com o golden
 
 ## Limitações
 - O alocador de avanço nunca reutiliza memória: endereços de objetos novos diferem do jogo real (nada no traço depende disso até

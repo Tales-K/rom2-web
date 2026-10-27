@@ -139,6 +139,23 @@ def suspend_all(pid: int, on: bool) -> int:
     return n
 
 
+def fpu_state(tid: int) -> dict:
+    """Palavras de controle da FPU x87 e do SSE da thread (WOW64_CONTEXT; a thread tem de estar suspensa). O Unicorn começa com
+    FPCW = 0 (precisão de 24 bits): sem copiar a da thread, contas em ponto flutuante arredondam diferente (exp do herói, m20)."""
+    h = k32.OpenThread(0x0008 | 0x0040, False, tid)          # THREAD_GET_CONTEXT | QUERY_INFORMATION
+    if not h:
+        raise OSError(ctypes.get_last_error())
+    ctx = (ctypes.c_ubyte * 0x2CC)()
+    struct.pack_into("<I", ctx, 0, 0x10008 | 0x10020)        # CONTEXT_i386 | FLOATING_POINT | EXTENDED_REGISTERS
+    ok = k32.Wow64GetThreadContext(wt.HANDLE(h), ctx)
+    k32.CloseHandle(wt.HANDLE(h))
+    if not ok:
+        raise OSError(ctypes.get_last_error())
+    cw, sw, tw = struct.unpack_from("<III", ctx, 0x1C)
+    mxcsr = struct.unpack_from("<I", ctx, 0xCC + 24)[0]
+    return {"fpcw": cw & 0xFFFF, "fpsw": sw & 0xFFFF, "fptw": tw & 0xFFFF, "mxcsr": mxcsr}
+
+
 def write_image(p, path: str, skip: list[tuple[int, int]]) -> list[dict]:
     from memory import MBI, kernel32 as mk32
     idx = []
@@ -201,6 +218,7 @@ def park_and_dump(s, out_dir: str, extra: dict) -> dict:
     clk = vc.snap()
     suspend_all(p.pid, True)
     try:
+        fpu = fpu_state(main_tid)
         os.makedirs(out_dir, exist_ok=True)
         idx = write_image(p, os.path.join(out_dir, "mem.bin"), [(m["base"], m["size"]) for m in sysmods])
     finally:
@@ -209,7 +227,7 @@ def park_and_dump(s, out_dir: str, extra: dict) -> dict:
         if time.perf_counter() - t0 > 20:
             raise TimeoutError("Sleep não voltou")
         time.sleep(0.01)
-    meta = {**extra, "clock": clk, "tls_index": tls_idx, "tiddata": td, "main_tid": main_tid, "teb32": teb,
+    meta = {**extra, "clock": clk, "fpu": fpu, "tls_index": tls_idx, "tiddata": td, "main_tid": main_tid, "teb32": teb,
             "modules": mods, "exports": {str(a): n for a, n in exp.items()}, "iat": iats, "regions": idx,
             "sleep_fn": sleep, "dumped": time.strftime("%Y-%m-%d %H:%M:%S")}
     json.dump(meta, open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8"))
