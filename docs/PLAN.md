@@ -57,3 +57,12 @@ Resolução de conflitos de interface: o que está em `game/src/core/state.ts` e
 
 ## Regra: componentizar o que se repete (pedido do usuário)
 Elementos de UI/lógica que aparecem em mais de um lugar (botão Ok/classicMenuItem, moldura com caveiras e caixa de texto, diálogo com retrato, lista de slots, hover de item de menu, animação em loop de personagem, barras, tooltip) devem viver em UM componente em `game/src/ui/**` (ou `game/src/town/common.ts` para cidade), reutilizado por todas as cenas. Antes de criar algo novo, procure o existente (Grep) e estenda-o; ao achar cópias, extraia e substitua, sem mudar o visual validado pelo comparador.
+
+## Fidelidade das unidades: porta do servidor (2026-10-27)
+Decisão de método em `docs/ABORDAGEM-FIDELIDADE-UNIDADES.md` (problema em `docs/PROBLEMA-FIDELIDADE-UNIDADES.md`): parar a comparação
+diferencial por episódio como meio de descoberta; **portar literalmente** o fecho de `Server_Tick` do C decompilado, com estado espelhado
+e oráculo por retomada da imagem do processo no Unicorn; critério = estado idêntico por tique, tolerância 0. Ferramentas: skill
+`port-exe` (`.claude/skills/port-exe/SKILL.md`, regras da porta e padrões do Ghidra), `tools/re/port_status.py` (lista de trabalho
+`port_status.tsv`: `init`/`report`/`next`/`show`/`set`), briefing da etapa 1 em `docs/briefings/ETAPA1-ORACULO-RETOMADA.md`.
+Economia: etapa 1 e piloto com modelo forte; lotes de porta com Sonnet em sessões frescas lendo a skill; escalada ao modelo forte só
+para `review`. Decisões pendentes do usuário: proveniência do código portado, aceitar a troca do núcleo do sim por partes.

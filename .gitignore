@@ -1,11 +1,11 @@
-# ambientes e dependências
+# ambientes e dependÃªncias
 .venv/
 node_modules/
 dist/
 __pycache__/
 *.pyc
 
-# derivados do jogo original (copyright da Nival/Monolith): regenerar com tools/build_all.sh a partir de uma instalação própria
+# derivados do jogo original (copyright da Nival/Monolith): regenerar com tools/build_all.sh a partir de uma instalaÃ§Ã£o prÃ³pria
 /data/
 /web/assets/
 /web/data/
@@ -17,7 +17,8 @@ __pycache__/
 /tools/data/
 /tools/disasm/
 
-# configuração local
-/.claude/
+# configuraÃ§Ã£o local
+/.claude/*
+!/.claude/skills/
 /game/docs/COMPARE/
 /tools/refcap/original/sigs/
