@@ -33,7 +33,7 @@ export function approachCell(world: World, u: Unit, x: number, y: number): { x: 
   return best ?? g.nearestFree(x, y, false, 4, u.id) ?? undefined;
 }
 
-interface Pending { unit: number; x: number; y: number; order: Order; act(): void; tag?: number; }
+interface Pending { unit: number; x: number; y: number; order: Order; act(u: Unit): void; tag?: number; }
 
 /** Pedido de "andar e usar" no save (MissionUiState.walk): a ação (closure) é refeita pela cena a partir de `tag`. */
 export interface WalkState { unit: number; x: number; y: number; tag?: number; }
@@ -45,12 +45,15 @@ export class WalkThenUse {
    * Manda `u` até a estrutura em (x, y) e roda `act` ao chegar (na hora, se já está ao alcance). `give` emite a ordem de mover
    * (a cena passa por PartyControl para o aliado também parar de seguir). Devolve false se não há por onde chegar.
    */
-  start(world: World, u: Unit, x: number, y: number, give: (o: Order) => void, act: () => void, tag?: number): boolean {
+  start(world: World, u: Unit, x: number, y: number, give: (o: Order) => void, act: (u: Unit) => void, tag?: number): boolean {
     this.pending = undefined;
-    if (reach(u, x, y) <= USE_REACH) { act(); return true; }
+    if (reach(u, x, y) <= USE_REACH) { act(u); return true; }
     const c = approachCell(world, u, x, y);
     if (!c) return false;
-    const order: Order = { type: "move", x: c.x, y: c.y };
+    // como o original (0x56d22b → 0x56ecbc: Unit_WalkNear até a célula da ESTRUTURA, para na 1ª célula a ≤ 1): anda rumo à própria
+    // estrutura (o caminho do exe contorna o que bloqueia) e a ação sai na 1ª célula ao alcance — a célula de chegada decide QUAL
+    // alavanca a ação aciona (host.useFrom); ir à vizinha mais próxima em linha reta (antes) chegava por outro lado na 103
+    const order: Order = { type: "move", x, y, near: USE_REACH };
     give(order);
     this.pending = { unit: u.id, x, y, order: u.order, act, tag };
     return true;
@@ -61,7 +64,7 @@ export class WalkThenUse {
   /** Para o save: o pedido em andamento (sem a closure). */
   snapshot(): WalkState | null { const p = this.pending; return p ? { unit: p.unit, x: p.x, y: p.y, ...(p.tag != null ? { tag: p.tag } : {}) } : null; }
   /** Aplica o save: refaz o pedido com a ação `act` (a cena a reconstrói pelo `tag`); a ordem de mover da unidade já voltou com a simulação. */
-  restore(world: World, s: WalkState | null | undefined, act: (tag?: number) => (() => void) | undefined): void {
+  restore(world: World, s: WalkState | null | undefined, act: (tag?: number) => ((u: Unit) => void) | undefined): void {
     this.pending = undefined;
     const u = s && world.get(s.unit);
     const a = s && act(s.tag);
@@ -75,7 +78,7 @@ export class WalkThenUse {
     if (!p) return;
     const u = world.get(p.unit);
     if (!u || !u.alive) { this.pending = undefined; return; }
-    if (reach(u, p.x, p.y) <= USE_REACH) { this.pending = undefined; p.act(); return; }
+    if (reach(u, p.x, p.y) <= USE_REACH) { this.pending = undefined; p.act(u); return; }
     // terminou o caminho (ordem virou "none") ou recebeu outra ordem sem chegar ao alcance: desiste
     if (u.order !== p.order) this.pending = undefined;
   }

@@ -29,6 +29,17 @@ não tem o `want` do exe), `act` (a ordem de andar leva 1 tique a mais para vira
 `walk_dynamic`/`walk_static` (o caminho dinâmico é refeito/vazio), `rng` (número de `rand()` por tique igual em 82–87 %).
 Depois: `x/y` (célula reservada à frente), `task`, `walk_c9/goal/final`, `hp`/`mana` (poucos tiques), `target`.
 
+## Números depois da etapa 6 (andar portado integrado, `notes/integracao-andar.md`)
+| Episódio | estado inteiro idêntico (antes → depois) | campos do andar `fx,fy,x,y,act,walk_*` (antes → depois) |
+|---|---|---|
+| m10_start_s1 | 10,2 % → 38,5 % | 19,4 % → 80,1 % (posição e caminho 100 %) |
+| m10_mage_s102 | 8,2 % → 32,6 % | 27,6 % → 82,4 % (posição/caminho: 2 tiques) |
+| m20_start_s203 | 2,8 % → 32,3 % | 4,8 % → 75,9 % (posição/caminho: 2 tiques) |
+
+O resíduo do andar é `act` de unidades que não andam (olhar em volta, golpe, magia). O despejo agora traz o registro do exe (`exe` por
+unidade e por tique); a importação usa o MapRec do original (`ExeReplay`). Opções novas: `--dump <arq>` (todas as divergências da corrida
+reancorada em JSONL), `--no-exe` (importação derivada, como no golden), `--free-from T` (corrida sem reimportar a partir de T).
+
 ## Campos não modelados (listados e impressos no fim do relatório; não contam)
 `mode`, `want`, `sub9`, `act_phase`, `act_cnt`, `act_ready`, `chosen_spell`, `ai_spells`, `ai_probs`, `retreat`, `guard_radius`,
 `group_post`, `cur_speed`, `walk.c78`, atributos (`body`, `reaction`, `mind`, `spirit`, `skills`, `load`, `capacity`, `wtype`, `pmask`,

@@ -1,6 +1,6 @@
 # Simulação da missão (`game/src/sim/`)
 
-Biblioteca pura (sem PixiJS, sem DOM), determinística, em passo fixo de **50 ms (20 Hz)**. A cena (`scenes/MissionScene.ts`)
+Biblioteca pura (sem PixiJS, sem DOM), determinística, em passo fixo de **62,5 ms (16 Hz, o tique do servidor do exe; até a DIFF-FUZZ fase 7 era 50 ms/20 Hz)**. A cena (`scenes/MissionScene.ts`)
 acumula o tempo real e chama `world.step()` + `runtime.update(0.05)` (script) quantas vezes couber; a apresentação lê o estado
 das unidades e consome `world.events` a cada quadro.
 
@@ -9,7 +9,7 @@ das unidades e consome `world.events` a cada quadro.
 | `types.ts` | `UnitStats`, `Order`, `SimEvent`, `TICK_MS`, direções (`dirFromDelta`: 0 = S, 4 = O, 8 = N, 12 = L — mesmo sentido dos sprites) |
 | `rng.ts` | `Rng` (mulberry32): toda aleatoriedade passa por aqui (semente por missão) |
 | `grid.ts` | `Grid`: custo por célula (map.reg `Terrain/Cost*`), bloqueio estático (terreno água/rocha, objetos, pegadas de estruturas, borda), ocupação dinâmica (`occ`: 1 unidade por célula) |
-| `path.ts` | A* 8-direções com custo de terreno, sem cortar quinas, limite de nós, "chega o mais perto possível"; `lineOfSight` (Bresenham) |
+| `los.ts` | `lineOfSight` (Bresenham, diagnóstico). O andar (caminho, passo, giro) é o do exe portado em `exe/` (etapa 6: `notes/integracao-andar.md`); o A* antigo (`path.ts`) foi apagado |
 | `stats.ts` | atributos: templates do data.bin (`map-unit-templates.json` → `unit-templates.json`), `unit-stats.json`, tabela provisória; `heroDerived` = fórmulas de herói [exe] (porte de tools/data/derive.py) |
 | `world.ts` | `World` (unidades, projéteis, áreas de magia, sacos de loot, diplomacia, combate, magias, ordens) e `Unit` |
 | `ai.ts` | IA: guarda/stand ground/ataque/fuga/recuo [exe], conjuradores, autocast, herói automático, aliados (notes/ai-behaviors.md) |

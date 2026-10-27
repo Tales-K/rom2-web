@@ -4,7 +4,7 @@
  * senão `unit-stats.json` (template de nível 1 do tipo); senão a tabela PROVISÓRIA abaixo.
  * Herói: fórmulas [UA] de docs/DATA.md (UnityAllods) a partir dos atributos e do equipamento (items.json).
  */
-import type { UnitStats } from "./types";
+import { weaponWaitTicks, type UnitStats } from "./types";
 
 const R0 = { fire: 0, water: 0, air: 0, earth: 0, astral: 0 };
 
@@ -33,8 +33,9 @@ export interface TemplateJson {
   name?: string; health?: number; mana?: number; speed?: number; speedCellsPerSec?: number; sight?: number; attack?: number;
   damage?: { min: number; max: number }; defense?: number; absorption?: number; range?: number; attackSkill?: string;
   resist?: Partial<Record<string, number>>; resistPhysical?: Record<string, number>; exp?: number; healthRegen?: number; manaRegen?: number;
-  charge?: number; relax?: number; flying?: boolean | null; movementType?: number | null;
-  treasure?: { goldChance: number; goldMin: number; goldMax: number } | null; source?: string; [k: string]: unknown;
+  charge?: number; relax?: number; flying?: boolean | null; movementType?: number | null; tokenSize?: number | null;
+  treasure?: { goldChance: number; goldMin: number; goldMax: number; itemChance?: number; itemMin?: number; itemMax?: number; itemMask?: number } | null;
+  source?: string; [k: string]: unknown;
 }
 export type StatsTable = Record<string, TemplateJson>;
 
@@ -70,7 +71,10 @@ export function fromTemplate(t: TemplateJson, fallback: UnitStats, flyingHint: b
     charge: t.charge ?? fallback.charge,
     relax: t.relax ?? fallback.relax,
     flying: t.flying ?? (t.movementType === 3 ? true : undefined) ?? fallback.flying ?? flyingHint,
+    ...(t.tokenSize ? { size: t.tokenSize } : {}), ...(t.movementType ? { movement: t.movementType } : {}),
     treasure: t.treasure ?? undefined,
+    noDrop: typeof t.template === "string" && t.template.includes("NPC") ? true : undefined,
+    named: typeof t.template === "string" && t.template.startsWith("CH_") ? true : undefined,
     source: t.source ?? "data",
     mind: (t.attributes as { mind?: number } | undefined)?.mind ?? fallback.mind,
     ...templateAi(t),
@@ -90,6 +94,7 @@ function templateAi(t: TemplateJson): Partial<UnitStats> {
   if (typeof t.wimpy === "number" && t.wimpy > 0) out.wimpy = t.wimpy;
   if (typeof t.seeInvisible === "number" && t.seeInvisible > 0) out.seeInvisible = t.seeInvisible;
   if (typeof t.level === "number") out.level = t.level;
+  if (typeof t.turnSpeed === "number" && t.turnSpeed > 0) out.turnSpeed = t.turnSpeed;
   return out;
 }
 
@@ -205,6 +210,9 @@ export function heroDerived(name: string, mage: boolean, female: boolean, base: 
     attackSkill: wtype || (mage ? "bludgeon" : "none"), attackType: wtype || undefined,
     resist: { fire: prot("fire"), water: prot("water"), air: prot("air"), earth: prot("earth"), astral: prot("astral") },
     exp: 0, healthRegen: 100, manaRegen: mage ? 50 : 0, charge: weapon?.charge ?? 8, relax: weapon?.relax ?? 4, mind, source: "hero",
+    // giro do HERÓI = 16 (+0x1c0+0xa medido nos saves m10/m20 com Speed 19 e 16; os humanos NPC têm giro = Speed, docs/DATA.md);
+    // espera extra da arma [exe 0x50f6ba]
+    turnSpeed: 16, weaponWait: weapon ? weaponWaitTicks(weapon.weight ?? 0, reaction) : 0,
     skillValue: fskill,
   };
 }

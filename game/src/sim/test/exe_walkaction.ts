@@ -1,6 +1,7 @@
 /**
- * Prova da porta sim/exe/walk_action.ts (lote 5c, o andar) contra os pares do oráculo (tools/re/oracle/fnprobe.py) e a
- * varredura no Unicorn (tools/re/oracle/fuzz_walk.py). Rodar em game/:
+ * Prova da porta sim/exe/walk_action.ts (lote 5c, o andar) e do despachante sim/exe/action.ts (etapa 6: 0x56dca2, 0x56ea52) contra
+ * os pares do oráculo (tools/re/oracle/fnprobe.py) e a varredura no Unicorn (tools/re/oracle/fuzz_walk.py). Pares de 0x56dca2 que
+ * caem numa tarefa ainda não portada (NotPorted) contam à parte, não como falha. Rodar em game/:
  *   npx tsx src/sim/test/exe_walkaction.ts            (EXE_WALK_ONLY=0x555411,fuzz para só algumas)
  *
  * Cada linha de refs/oracle/pairs/<episodio>/<addr>.jsonl é uma chamada do original em contexto real. Entradas remontadas só
@@ -21,6 +22,7 @@ import {
   pathClearDynamic, unitActionChase, unitActionWalk, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkFormula,
   unitWalkNear, unitWalkWait,
 } from "../exe/walk_action";
+import { fn_0x56ea52, unitActionDispatcher } from "../exe/action";
 import {
   MAP_ALT_OFF, MAP_DIR_CELL_OFF, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_RINGS_OFF, MAP_SPEED_MUL_OFF, MAP_WORLD_OFF, MapObjRec, MapRec,
   UnitRec, WorldRec,
@@ -34,8 +36,8 @@ import {
 
 type Field = [off: number, size: 1 | 2 | 4, key: string, signed?: boolean];
 const UNIT_FIELDS: Field[] = [
-  [0x00, 4, "vtbl"], [0x43, 1, "f43"], [0x49, 1, "size"], [0x4a, 1, "kind"], [0x54, 4, "act"], [0x8c, 2, "speed", true],
-  [0x94, 2, "f94", true], [0x9a, 2, "mana"], [0x12c, 1, "attackRange"],
+  [0x00, 4, "vtbl"], [0x43, 1, "f43"], [0x49, 1, "size"], [0x4a, 1, "kind"], [0x50, 4, "task"], [0x54, 4, "act"], [0x8c, 2, "speed", true],
+  [0x94, 2, "f94", true], [0x9a, 2, "mana"], [0x12c, 1, "attackRange"], [0x136, 1, "ready"], [0x144, 4, "effects"],
 ];
 const WALK_FIELDS: Field[] = [
   [0x00, 1, "dir"], [0x01, 1, "dirTarget"], [0x05, 1, "passMask"], [0x06, 2, "nextCell"], [0x09, 1, "f09"], [0x0a, 1, "turnRate"],
@@ -47,7 +49,8 @@ const WALK_FIELDS: Field[] = [
   [0xb0, 1, "stepDx", true], [0xb1, 1, "stepDy", true],
 ];
 const AI_FIELDS: Field[] = [
-  [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
+  [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x14, 1, "range"],
+  [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x3c, 2, "f3c"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
 ];
 const UNIT_LISTS: [number, "pathStatic" | "pathDynamic"][] = [[0x1c8, "pathStatic"], [0x1e4, "pathDynamic"]];
 
@@ -76,6 +79,7 @@ function unitFrom(cm: CallMem, a: number, memo: Map<number, UnitRec>): UnitRec {
   const stats = cm.u32(cm.u32(a + 0x70) + 0x3c);
   u.type.stats.f20 = cm.u8(stats + 0x20);
   u.type.stats.speedByte = cm.u8(stats + 0x44);
+  u.type.stats.f45 = cm.u8(stats + 0x45);
   u.book = bookFrom(cm, cm.u32(a + 0x140));
   fill(u.walk as unknown as Rec, cm, cm.u32(a + 0x1c0), WALK_FIELDS);
   fill(u.ai as unknown as Rec, cm, cm.u32(a + 0x1c4), AI_FIELDS);
@@ -195,6 +199,8 @@ const CHECKS: Record<string, Check> = {
   "0x55574d": run((c, d) => { const m = M(c, d.this); unitActionChase(m, U(c, A(d, 0)), U(c, A(d, 1)), A(d, 2)); return null; }),
   "0x56e4ac": run((c, d) => { const w = W(c, d.this); unitWalkNear(w, U(c, A(d, 0)), A(d, 1), A(d, 2)); return null; }),
   "0x56fc69": run((c, d) => { const w = W(c, d.this); return fn_0x56fc69(w, U(c, A(d, 0)), A(d, 1)); }, AL),
+  "0x56dca2": run((c, d) => { const w = W(c, d.this); w.fbbe8 = c.cm.u32(d.this + 0xbbe8); unitActionDispatcher(w, U(c, A(d, 0))); return null; }),
+  "0x56ea52": run((c, d) => { const w = W(c, d.this); fn_0x56ea52(w, U(c, A(d, 0)), A(d, 1)); return null; }),
   "0x54ec6a": run((c, d) => {
     const m = M(c, d.this);
     const l = gridUnitsInRings(m, A(d, 0), A(d, 1));
@@ -226,7 +232,7 @@ if (!existsSync(PAIRS)) {
       if (only && !only.includes(fn)) continue;
       const file = join(PAIRS, ep, `${fn}.jsonl`);
       if (!existsSync(file)) continue;
-      let n = 0, bad = 0, first = "";
+      let n = 0, bad = 0, first = "", skipped = 0;
       for (const line of readFileSync(file, "utf8").split("\n")) {
         if (!line) continue;
         const d = JSON.parse(line) as Pair;
@@ -237,6 +243,8 @@ if (!existsSync(PAIRS)) {
           if (!err && (d.nrand !== 0 || d.rng0 !== d.rng1)) err = "rand() chamado no original";
         } catch (ex) {
           if (ex instanceof NotPorted) notPorted.set(ex.addr, (notPorted.get(ex.addr) ?? 0) + 1);
+          // despachante: a chamada caiu numa tarefa/sub-ação ainda não portada (IA, golpe, magia): fora da prova
+          if (ex instanceof NotPorted && fn === "0x56dca2") { skipped++; n--; continue; }
           err = `exceção: ${(ex as Error).message}`;
         }
         if (err) { bad++; if (!first) first = `t=${d.t} seq=${d.seq}: ${err}`; }
@@ -244,7 +252,7 @@ if (!existsSync(PAIRS)) {
       if (bad) failures++;
       total.set(fn, (total.get(fn) ?? 0) + n);
       if (n === 0) continue;
-      console.log(`  ${bad ? "FALHOU" : "ok  "} ${ep} ${fn}: ${n - bad}/${n}${first ? "  " + first : ""}`);
+      console.log(`  ${bad ? "FALHOU" : "ok  "} ${ep} ${fn}: ${n - bad}/${n}${skipped ? ` (+${skipped} em ramo não portado)` : ""}${first ? "  " + first : ""}`);
     }
   }
   const missing = Object.keys(CHECKS).filter((f) => !total.get(f) && (!only || only.includes(f)));

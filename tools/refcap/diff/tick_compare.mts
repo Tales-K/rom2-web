@@ -8,17 +8,21 @@
  *   --fields hp,act,fx       só esses campos            --show 120   original × nosso nos campos divergentes do tique 120
  *   --replay                 usa os sorteios gravados do original (rand.json.gz) no lugar do rand() nosso
  *   --max N                  só os N primeiros tiques   --no-resync  pula a corrida de T=0 sem reimportar
+ *   --dump <arq>             grava todas as divergências da corrida reancorada (JSONL: episódio, T, campo|unidade, original, nosso)
+ *   --no-exe                 ignora o registro do exe do despejo (importação derivada, como nas janelas do golden)
+ *   --free-from T            a corrida sem reimportar parte do tique T (padrão 0)
  *
  * Regras de contagem:
  *  - campo que o nosso motor não modela (NAO_MODELADO) é listado à parte e não conta como divergência;
  *  - par (campo, unidade) que já difere logo depois da IMPORTAÇÃO (applyState não o reproduz) não pode ser culpa do passo: fica de fora
  *    da comparação desse tique e entra na tabela "perdido na importação".
  */
-import { existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { RngReplay, type RandRecording } from "../../../game/src/sim/rng";
-import { applyState, resetWorld, spawnUnmatched, worldFromState, EFFECT_SPELL, type Imported, type OrigState } from "../../../game/src/sim/test/import_state";
+import { applyState, resetWorld, spawnUnmatched, worldFromState, EFFECT_SPELL, ExeReplay, type Imported, type OrigState } from "../../../game/src/sim/test/import_state";
+import { listVals } from "../../../game/src/sim/exe/recio";
 import { orderOf } from "../../../game/src/sim/test/diff_window";
 import { LOOK_OFF, type Unit, type World } from "../../../game/src/sim/world";
 import { TICKS_PER_SEC, type Cell } from "../../../game/src/sim/types";
@@ -49,7 +53,7 @@ export const NAO_MODELADO: Record<string, string> = {
 };
 
 // ------------------------------------------------------------------------------------------------ leitura dos dados
-interface Episode { id: string; ep: Any; ticks: OrigState[]; base: OrigState; replay: RngReplay | null }
+interface Episode { id: string; ep: Any; ticks: OrigState[]; base: OrigState; replay: RngReplay | null; exe: ExeReplay | null }
 
 function loadEpisode(id: string): Episode {
   const dir = join(ROOT, "refs", "golden", "episodes", id);
@@ -66,7 +70,10 @@ function loadEpisode(id: string): Episode {
   inferLookWait(ticks);
   const rp = join(dir, "rand.json.gz");
   const replay = existsSync(rp) ? new RngReplay(JSON.parse(gz(rp)) as RandRecording) : null;
-  return { id, ep, ticks, base: { ...(base as Any), mission: base.mission }, replay };
+  // MapRec do original por tique (deltas do despejo da etapa 6); sem eles (despejo antigo ou --no-exe) o importador refaz a ocupação
+  const exe = ticks[0]?.exe && !process.argv.includes("--no-exe") ? new ExeReplay(ticks) : null;
+  if (!exe) for (const t of ticks) for (const u of t.units) delete (u as Any).exe;
+  return { id, ep, ticks, base: { ...(base as Any), mission: base.mission }, replay, exe };
 }
 
 /** Modo 0xb girando (ação 1): o oráculo mostra o instante exato em que a ação volta a 0 — tiques que faltam (import_state usa `look_wait`). */
@@ -127,6 +134,7 @@ function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record
   for (const [bit, sid] of EFFECT_SPELL) if (u.buffs.some(b => Number(b.spell) === sid)) effects |= bit;
   const oid = (id: number) => (id ? rev.get(id) ?? -id : 0);
   const base = w.t16base ?? 0;
+  const r = u.rec;
   return {
     type: u.typeId, player: u.player, x: u.cx, y: u.cy, fx: R256(u.x), fy: R256(u.y), hp: u.hp, hpmax: u.maxHp, mana: u.mana, manamax: u.maxMana,
     act, task: tc, target: armed ? oid(ot) : 0, dir16: (u.dir + 8) % 16,
@@ -134,10 +142,17 @@ function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record
     range: s.range, turn: s.turnSpeed ?? Math.round(s.speed * 16), withdraw: u.withdrawHp, wimpy: u.wimpyHp, charge: s.charge ?? 0, relax: s.relax ?? 0,
     eldmg: el.join(","), hpregen: s.healthRegen ?? 0, manaregen: s.manaRegen ?? 0, effects, summoner: oid(u.summoner),
     post: cellCode(u.home), unreach: u.unreachSec, flee_cell: u.fleeCell, hit_clock16: u.hitClock16 < -99999 ? 0 : u.hitClock16 + base, look_hit: u.lookFlag ? 1 : 0,
-    walk_static: u.sPath.map(cellCode).join(","), walk_dynamic: u.path.map(cellCode).join(","), walk_goal: cellCode(u.sGoal), walk_final: cellCode(u.sFinal),
-    walk_c9: u.sCount, walk_track: oid(u.sTrack), walk_slen: u.sLen, walk_tcell: cellCode(u.sTcell),
+    walk_static: listVals(r.pathStatic).join(","), walk_dynamic: listVals(r.pathDynamic).join(","), walk_goal: r.walk.dest, walk_final: r.walk.f76,
+    walk_c9: r.walk.f09, walk_track: trackOf(w, r.walk.chaseTarget >>> 0, rev, st), walk_slen: r.walk.f8a, walk_tcell: r.walk.f8c,
   };
-  void st;
+}
+
+/** Id do original da unidade perseguida (andar+0x7c, endereço do registro): pelo endereço no despejo, senão pela nossa unidade. */
+function trackOf(w: World, addr: number, rev: Map<number, number>, st: Any): number {
+  if (!addr) return 0;
+  for (const o of st.units as Any[]) if (o.exe && (o.exe.a >>> 0) === addr) return o.id;
+  const u = w.unitByAddr(addr);
+  return u ? rev.get(u.id) ?? -u.id : -1;
 }
 
 /** Lado do original: mapa `campo|chave` → valor, só das unidades vivas (e mortas: só `alive`). */
@@ -234,6 +249,7 @@ function runActions(imp: Imported, w: World, acts: Action[], sel: Unit[], heroOr
 
 function stepOnce(imp: Imported): void {
   imp.w.step();
+  imp.w.exeExact = false;   // o estado exato do exe vale só para o passo logo depois da importação
   imp.r.b.runtime?.update(1 / TICKS_PER_SEC);
   imp.w.events.length = 0;
 }
@@ -277,7 +293,7 @@ async function runResync(E: Episode, imp: Imported, opt: Opts, show: number | nu
     resetWorld(imp);
     const w = imp.w;
     spawnUnmatched(imp.r, w, st, imp.idmap);
-    applyState(w, st, imp.idmap, { spells: imp.r.data.spells as Record<string, unknown> | undefined, diplomacy: true });
+    applyState(w, st, imp.idmap, { spells: imp.r.data.spells as Record<string, unknown> | undefined, diplomacy: true, ...(E.exe ? { exe: { replay: E.exe, t: T } } : {}) });
     w.events.length = 0;
     countImportDraws(agg, w, st);
     const rev = new Map<number, number>([...imp.idmap].map(([o, n]) => [n, o]));
@@ -300,6 +316,7 @@ async function runResync(E: Episode, imp: Imported, opt: Opts, show: number | nu
     const eff = unchanged(lost, nv);
     const diffs = diffViews(viewOrig(nx, imp.idmap, w), nv, eff, opt.fields);
     tally(agg, T, diffs, eff, opt.fields);
+    if (opt.dump) for (const d of diffs) appendFileSync(opt.dump, JSON.stringify({ ep: E.id, T, k: d.key, o: d.orig, n: d.ours }) + "\n");
     if (nx.rng !== undefined && st.rng !== undefined) {
       const no = lcgSteps(st.rng, nx.rng), nn = lcgSteps(st.rng, w.rng.state);
       agg.rngDraws.total++; if (no === nn) agg.rngDraws.same++;
@@ -361,23 +378,24 @@ async function runFree(E: Episode, imp: Imported, opt: Opts): Promise<FreeResult
   const script = E.ep.script as Action[];
   const heroOrig: number = E.ep.hero;
   const N = Math.min(E.ticks.length - 1, opt.max ?? Infinity);
+  const T0 = opt.freeFrom ?? 0;
   resetWorld(imp);
   const w = imp.w;
-  const st0 = E.ticks[0] as Any;
+  const st0 = E.ticks[T0] as Any;
   spawnUnmatched(imp.r, w, st0, imp.idmap);
-  applyState(w, st0, imp.idmap, { spells: imp.r.data.spells as Record<string, unknown> | undefined, diplomacy: true });
+  applyState(w, st0, imp.idmap, { spells: imp.r.data.spells as Record<string, unknown> | undefined, diplomacy: true, ...(E.exe ? { exe: { replay: E.exe, t: T0 } } : {}) });
   w.events.length = 0;
   const rev0 = new Map<number, number>([...imp.idmap].map(([o, n]) => [n, o]));
   const lost = new Map<string, Diff>();
   for (const d of diffViews(viewOrig(st0, imp.idmap, w), viewOurs(w, st0, st0, imp.idmap, rev0), null, null)) lost.set(d.key, d);
   w.rng.replay = null;
-  if (opt.replay && E.replay) { E.replay.counting = false; w.rng.replay = E.replay; E.replay.clock = () => (w.t16base ?? 0) + w.clock16(); E.replay.begin(E.ep.t16_0 + 1, E.ep.t16_0 + N + 2); }
-  resumeCast(imp, w, st0, script, 0, heroOrig);
+  if (opt.replay && E.replay) { E.replay.counting = false; w.rng.replay = E.replay; E.replay.clock = () => (w.t16base ?? 0) + w.clock16(); E.replay.begin(E.ep.t16_0 + T0 + 1, E.ep.t16_0 + N + 2); }
+  resumeCast(imp, w, st0, script, T0, heroOrig);
   let sel = [w.get(imp.idmap.get(heroOrig) ?? -1)].filter((u): u is Unit => !!u);
   const res: FreeResult = { first: -1, firstDiff: [], perUnit: new Map(), perField: new Map(), unitsSeen: 0 };
   const ids = new Set<string>();
   for (const o of st0.units as Any[]) if (!skipUnit(o)) ids.add(String(o.id));
-  for (let T = 0; T < N; T++) {
+  for (let T = T0; T < N; T++) {
     sel = runActions(imp, w, actionsAt(script, T), sel, heroOrig);
     stepOnce(imp);
     const nx = E.ticks[T + 1] as Any;
@@ -397,7 +415,7 @@ async function runFree(E: Episode, imp: Imported, opt: Opts): Promise<FreeResult
 }
 
 // ------------------------------------------------------------------------------------------------ relatório
-interface Opts { fields: Set<string> | null; replay: boolean; max?: number; quiet?: boolean; resync: boolean }
+interface Opts { fields: Set<string> | null; replay: boolean; max?: number; quiet?: boolean; resync: boolean; dump?: string; freeFrom?: number }
 const pct = (a: number, b: number): string => (b ? (100 * a / b).toFixed(1) : "—") + "%";
 const median = (a: number[]): number => { if (!a.length) return NaN; const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 
@@ -441,7 +459,8 @@ async function main(): Promise<void> {
   const arg = (k: string): string | undefined => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : undefined; };
   const ids = a.includes("--all") ? EPISODES : (arg("--episode") ?? EPISODES[0]!).split(",");
   const opt: Opts = { fields: arg("--fields") ? new Set(arg("--fields")!.split(",")) : null, replay: a.includes("--replay"), resync: !a.includes("--no-resync"),
-    max: arg("--max") ? Number(arg("--max")) : undefined, quiet: a.includes("--quiet") };
+    max: arg("--max") ? Number(arg("--max")) : undefined, quiet: a.includes("--quiet"), dump: arg("--dump"), freeFrom: arg("--free-from") ? Number(arg("--free-from")) : undefined };
+  if (opt.dump) writeFileSync(opt.dump, "");
   const show = arg("--show") !== undefined ? Number(arg("--show")) : null;
   const summary: string[] = [];
   for (const id of ids) {

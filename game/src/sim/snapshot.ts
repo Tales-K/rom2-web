@@ -18,13 +18,17 @@
 import type { ScriptRuntimeState } from "../script";
 import type { HostState } from "../mission/host";
 import { Unit, type Loot, type PlayerAi, type Projectile, type SpellArea, type SpellDef, type Trap, type UnitInit, type World } from "./world";
+import { mapRecFromJson, mapRecToJson, unitRecFromJson, unitRecToJson, type MapRecJson, type UnitRecJson } from "./exe/recio";
 
 export const SNAPSHOT_VERSION = 2;
 /** Menor versão que ainda sabemos ler. */
 export const MIN_SNAPSHOT_VERSION = 1;
 
 /** Campos da Unit que vêm do build (não são gravados). */
-const UNIT_STATIC = new Set(["id", "kind", "typeId", "stats", "timing", "name", "scriptId", "npc", "isHero", "spells", "weaponSpell", "castSpell", "procSpells"]);
+const UNIT_STATIC = new Set(["id", "kind", "typeId", "stats", "timing", "name", "scriptId", "npc", "isHero", "spells", "weaponSpell", "castSpell", "procSpells", "rec"]);
+/** Campos de saves antigos que não existem mais na Unit: o andar virou o registro do exe (etapa 6); posição/direção voltam pelos
+ *  setters (`x`, `y`, `dir`, `angle`), a célula sai da posição (`cx`/`cy` ignorados). */
+const UNIT_GONE = new Set(["cx", "cy", "path", "pathGoal", "sPath", "sGoal", "sFinal", "sCount", "sTrack", "sLen", "sTcell", "segV", "repathIn", "turnLeft", "turnDir"]);
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 
@@ -76,6 +80,8 @@ export interface UnitSnapshot {
   tmp?: SpellDef[];
   /** demais campos mutáveis (codificados por `enc`) */
   f: Record<string, Json>;
+  /** registro do exe (posição fina, andar, IA, caminhos) — ausente em saves antigos */
+  rec?: UnitRecJson;
 }
 
 export interface ProjectileSnapshot extends Omit<Projectile, "spell"> { spell: string | null; spellDef?: SpellDef | null; }
@@ -92,12 +98,16 @@ export interface WorldSnapshot {
   killsByType: [number, number][];
   /** ocupação da grade: pares [índice da célula, id da unidade] (só células ocupadas) */
   occ: [number, number][];
+  /** estado do MapRec do exe (memória que difere do mapa sem unidades, ocupação) — ausente em saves antigos: refeito das unidades */
+  exe?: MapRecJson;
   /** áreas de magia no chão (MOTOR-C) — opcional para saves antigos */
   areas?: SpellArea[];
   /** armadilhas do script (Set trap) — opcional */
   traps?: Trap[];
   /** ajustes de IA por jogador (Formation/Retreat/AutoCasting) */
   playerAi?: PlayerAi[];
+  /** guarda dos grupos de IA (raio-base, raio atual, em combate) [World.groupState] */
+  groupState?: [number, { base: number; radius: number; combat: boolean; cmd12?: boolean }][];
 }
 
 /** `World.nextId` é privado; o snapshot precisa dele (próximo id de projétil/saco). */
@@ -126,7 +136,8 @@ export function snapshotWorld(world: World): WorldSnapshot {
       const tmp = u.spells.filter(sp => sp.id.startsWith("scroll:")).map(sp => JSON.parse(JSON.stringify(sp)) as SpellDef);
       const castDef = u.castSpell && !findSpell(u, u.castSpell.id) ? JSON.parse(JSON.stringify(u.castSpell)) as SpellDef : undefined;
       const dyn = u.dynamic ? { typeId: u.typeId, init: enc({ stats: u.stats, timing: u.timing, name: u.name }) as Record<string, Json> } : undefined;
-      return { id: u.id, kind: u.kind, cast: u.castSpell?.id ?? null, f, ...(dyn ? { dyn } : {}), ...(tmp.length ? { tmp } : {}), ...(castDef ? { castDef } : {}) };
+      for (const k of ["x", "y", "dir", "angle"] as const) f[k] = enc(u[k]);
+      return { id: u.id, kind: u.kind, cast: u.castSpell?.id ?? null, f, rec: unitRecToJson(u.rec), ...(dyn ? { dyn } : {}), ...(tmp.length ? { tmp } : {}), ...(castDef ? { castDef } : {}) };
     }),
     projectiles: world.projectiles.filter(p => !p.done).map(p => {
       const src = world.get(p.from);
@@ -136,9 +147,11 @@ export function snapshotWorld(world: World): WorldSnapshot {
     loot: world.loot.map(l => ({ ...l, items: [...l.items] })),
     killsByType: [...world.killsByType],
     occ,
+    exe: mapRecToJson(world.exe, world.exeBase),
     areas: world.areas.map(a => JSON.parse(JSON.stringify(a)) as SpellArea),
     traps: world.traps.map(t => JSON.parse(JSON.stringify(t)) as Trap),
     playerAi: world.playerAi.map(p => ({ ...p })),
+    groupState: [...world.groupState].map(([g, v]) => [g, { ...v }] as [number, { base: number; radius: number; combat: boolean; cmd12?: boolean }]),
   };
 }
 
@@ -168,8 +181,9 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   for (const su of s.units) {
     const u = world.get(su.id)! as unknown as Record<string, unknown>;
     // null salvo onde o build deixou undefined = save antigo que gravava campos vazios como null (heroInfo): mantém undefined
-    for (const [k, v] of Object.entries(su.f)) { if (v === null && u[k] === undefined) continue; u[k] = dec(v); }
+    for (const [k, v] of Object.entries(su.f)) { if (UNIT_GONE.has(k) || (v === null && u[k] === undefined)) continue; u[k] = dec(v); }
     const uu = u as unknown as Unit;
+    if (su.rec) unitRecFromJson(uu.rec, su.rec);
     // magias temporárias (pergaminho): voltam à lista antes de resolver a magia em lançamento
     uu.spells = uu.spells.filter(sp => !sp.id.startsWith("scroll:"));
     for (const t of su.tmp ?? []) uu.spells.push(JSON.parse(JSON.stringify(t)) as SpellDef);
@@ -192,7 +206,17 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   for (const a of s.areas ?? []) { const c = JSON.parse(JSON.stringify(a)) as SpellArea; world.areas.push(c); if (c.kind === "wall") world.applyWall(c, true); }
   world.traps.length = 0;
   for (const t of s.traps ?? []) world.traps.push(JSON.parse(JSON.stringify(t)) as Trap);
+  // ocupação do exe: a gravada (exata) ou, em save antigo, refeita das unidades
+  if (s.exe) {
+    mapRecFromJson(world.exe, world.exeBase, s.exe);
+    world.exeRestoreStructs();
+    world.exe.units.clear();
+    for (const u of world.units) world.exe.units.set(u.rec.addr, u.rec);
+  }
+  else world.exeResync();
   if (s.playerAi) s.playerAi.forEach((p, i) => { if (world.playerAi[i]) Object.assign(world.playerAi[i]!, p); });
+  world.groupState.clear();
+  for (const [g, v] of s.groupState ?? []) world.groupState.set(g, { ...v });
   world.events.length = 0;
 }
 

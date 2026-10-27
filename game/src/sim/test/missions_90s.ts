@@ -22,11 +22,13 @@ import {
   at, beside, BOTH, campaignContract, campaignData, castAt, castOn, check, companionsFail, count, dist, distTo, failCause, failed, failedWith, group, has, heroOf, hold, immortal,
   keep, killAll, messagesHaveText, noUnsupported, offeredBy, ofPlayer, pickupAt, settle, sub, summary, unit, unstone, VARIANTS,
 } from "./pilot";
+import { healDying } from "../necro";
 import { pickupText, sackAtCell } from "../../mission/pickup";
 import { WalkThenUse, switchAtCell } from "../../mission/interact";
 import { availableMissions, getVar, isDone, nextAfterMission, takePendingVideos } from "../../campaign/engine";
 import type { CampaignState } from "../../campaign/types";
 
+import { TICKS_PER_SEC } from "../types";
 const all3 = (r: Run): Unit[] => [r.b.hero, unit(r, 10002), unit(r, 10003)];
 /** o grupo inteiro (herói, Igles, Dina) para junto de (x, y) */
 function groupAt(r: Run, x: number, y: number): void { for (const [i, u] of all3(r).entries()) at(r, u, x + i, y); }
@@ -44,7 +46,7 @@ async function m90(): Promise<void> {
   check(Math.abs(h.cx - 83) <= 3 && Math.abs(h.cy - 133) <= 3, `herói nasce no Drop Location (83,133): ${h.cx},${h.cy}`);
   check(druid.player === 5 && pod.player === 4 && ambush(r).length === 15 && ambush(r).every(u => u.player === 4), "druida chefe (15, jogador 5), podstava (78, necromante), emboscada de 15 (grupo 7, jogador 4)");
   check(w.diplomacyValue(5, 1) === 0 && w.diplomacyValue(4, 1) === 0, "druidas e necromantes em paz com o herói no início");
-  settle(r, 20 * 3);
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 10) && sub(r, 1) === 1 && !r.outcome, "msg 10 (início) e sub 1 (achar a causa) ativo");
   check(ambush(r).every(u => u.phased) && group(r, 4).every(u => u.phased), "emboscada (grupo 7) e necromantes do teleporte (grupo 4) fora de fase");
   // druida ferido (50,118), força de cavaleiros (27,106), teleporte dos necromantes (99,24)
@@ -55,7 +57,7 @@ async function m90(): Promise<void> {
   const lancers = group(r, 5);
   check(lancers.length === 16 && lancers.every(u => u.ai?.type === "swarm"), `os ${lancers.length} lanceiros do grupo 5 marcham (swarm) rumo aos druidas`);
   const l0 = distTo(lancers[0]!, 128, 15);
-  run(r, 20 * 15, () => keep(r));
+  run(r, TICKS_PER_SEC * 15, () => keep(r));
   console.log(`  info: lanceiro 1 a ${l0.toFixed(0)} -> ${distTo(lancers[0]!, 128, 15).toFixed(0)} células de (128,15) em 15 s`);
   check(distTo(lancers[0]!, 128, 15) < l0 - 3 || !lancers[0]!.alive, "a marcha dos lanceiros avança");
   groupAt(r, 99, 24); settle(r);
@@ -83,7 +85,7 @@ async function m90(): Promise<void> {
   check(group(r, 9).every(u => u.ai?.type === "swarm") && group(r, 10).every(u => u.ai?.type === "swarm"), "dragões (grupo 9) e trolls (grupo 10) marcham em defesa dos druidas");
   check(!has(r, 12), "emboscada ainda escondida (a podstava não gritou)");
   const dr0 = group(r, 9).map(u => distTo(u, 122, 20));
-  run(r, 20 * 20, () => keep(r));
+  run(r, TICKS_PER_SEC * 20, () => keep(r));
   const drNow = group(r, 9).map(u => distTo(u, 122, 20));
   console.log(`  info: dragões a ${dr0.map(d => d.toFixed(0))} -> ${drNow.map(d => d.toFixed(0))} células de (122,20) em 20 s`);
   check(group(r, 9).some((u, i) => drNow[i]! < dr0[i]! - 3 || distTo(u, 122, 20) < 6), "os dragões marcham para os druidas");
@@ -112,7 +114,7 @@ async function m90(): Promise<void> {
   beside(r, h, 15); settle(r); beside(r, h, 78); settle(r, 30);
   for (const id of [10001, 10002, 10003]) { const u = unit(r, id); u.maxHp = u.hp = 5000; }
   const alive0 = ambush(r).filter(u => u.alive).length;
-  run(r, 20 * 25, () => keep(r));
+  run(r, TICKS_PER_SEC * 25, () => keep(r));
   console.log(`  info: emboscada ${alive0} -> ${ambush(r).filter(u => u.alive).length} vivos após 25 s de combate real`);
   check(!r.outcome?.ok && w.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)), "25 s de combate real junto à emboscada: sem NaN e sem vitória precoce");
   companionsFail(start);
@@ -134,23 +136,24 @@ async function m91(): Promise<void> {
   check(orc.player === 4 && shaman.player === 3 && shaman.items.includes(INGR), `orcólogo (95, jogador 4) e o xamã orc 41 (jogador 3) com o ingrediente ${INGR} (item 58)`);
   check(w.diplomacyValue(4, 1) === 0, "orcólogo em paz com o herói");
   const patrol = [...group(r, 4), ...group(r, 5)];
-  settle(r, 20 * 3);
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && sub(r, 1) === 1 && !r.outcome, "msg 1 e sub 1 (achar o orcólogo) ativo");
   check(patrol.length === 2 && patrol.every(u => u.ai?.type === "patrol") && group(r, 6).every(u => u.ai?.type === "hold"), "orcs dos grupos 4 e 5 patrulham; grupo 6 (orcólogo e ajudante) em stand ground");
   const p0 = patrol.map(u => ({ x: u.x, y: u.y }));
-  run(r, 20 * 20, () => keep(r));
+  run(r, TICKS_PER_SEC * 20, () => keep(r));
   check(patrol.some((u, i) => Math.hypot(u.x - p0[i]!.x, u.y - p0[i]!.y) > 4), "os patrulheiros orcs andam de verdade (patrol até (64,36)/(68,37))");
   // 1ª conversa -> sub 1 cumprido, sub 2 (ingrediente)
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
-  at(r, h, 100, 112); settle(r);
+  at(r, h, 96, 118); settle(r);   // (100,112) é margem do lago: água no plano de passagem do exe
   check(!has(r, 2), "herói a > 4 do orcólogo: nada");
   beside(r, h, 95); settle(r);
   check(has(r, 2) && sub(r, 1) === 2 && sub(r, 2) === 1 && count(r, 2) === 1, "1ª conversa: msg 2, sub 1 cumprido e sub 2 (ingrediente) ativo");
   beside(r, h, 95); settle(r);
   check(count(r, 2) === 1 && !has(r, 5), "a 1ª conversa não se repete (v70) e sem o ingrediente não há a 2ª");
   // xamã morto larga o saco; o herói caminha de verdade até ele e pega
-  const where = { x: shaman.cx, y: shaman.cy };
-  w.kill(shaman, h); settle(r, 10);
+  const shamanR = unit(r, 41);   // o xamã DESTA corrida (o `shaman` acima é o da 1ª)
+  const where = { x: shamanR.cx, y: shamanR.cy };
+  w.kill(shamanR, h); settle(r, 10);
   const sack = w.loot.find(l => l.items.includes(INGR));
   check(!!sack && sack.x === where.x && sack.y === where.y, `o xamã larga o ingrediente no chão em (${where.x},${where.y})`);
   at(r, h, sack!.x - 3, sack!.y + 1);
@@ -193,7 +196,7 @@ async function m91(): Promise<void> {
   const pat = group(r, 5)[0]!;
   at(r, h, pat.cx + 3, pat.cy); for (const id of [10001, 10002, 10003]) { const u = unit(r, id); u.maxHp = u.hp = 5000; }
   let engaged = false;
-  run(r, 20 * 15, () => { keep(r); if (pat.state === "attack") engaged = true; });
+  run(r, TICKS_PER_SEC * 15, () => { keep(r); if (pat.state === "attack") engaged = true; });
   console.log(`  info: patrulheiro orc (${pat.name}) vida ${Math.ceil(pat.hp)}/${pat.maxHp}, estado ${pat.state}`);
   check(engaged && !r.outcome && w.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)), "15 s de combate real com o patrulheiro orc (jogador 3, hostil): ele ataca o grupo, sem desfecho e sem NaN");
   companionsFail(start);
@@ -227,7 +230,8 @@ async function m92(): Promise<void> {
   check(trapper.player === 3 && talker.player === 3 && ghost.player === 4 && dragon.player === 6 && group(r, 1).length === 3 && ofPlayer(r, 2).length === 12,
     "druidas armadilheiro 55 e falante 56 (jogador 3), fantasmas (grupo 1, jogador 4), dragão 57, 12 necromantes (jogador 2)");
   check(item.items.includes("17762") && item.gold === 10000, "unidade 79 (marcador do prêmio) leva o item 17762 e 10000 de ouro");
-  settle(r, 20 * 3);
+  immortal(r);   // a guarda dos grupos (raio em volta do centroide, exe 0x57275f) alcança o grupo teletransportado pela cripta
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && item.phased && !r.outcome, "msg 1 e o marcador do prêmio (79) fora de fase");
   // sem ouvir o fantasma o armadilheiro não fala; depois sim
   beside(r, h, 55); settle(r);
@@ -254,18 +258,20 @@ async function m92(): Promise<void> {
   // escolta de verdade: o armadilheiro (jogador 3) segue o herói até os fantasmas e depois até o falante, com os fantasmas atrás dele
   for (const u of [trapper, ...all3(r)]) u.maxHp = u.hp = 100000; // grupo "imortal" só na escolta (as abelhas matam a Dina de 26 PV de um golpe)
   at(r, h, 44, 27);
-  let t = run(r, 20 * 150, () => { keep(r); return trapper.alive && dist(trapper, ghost) <= 3.5; });
-  console.log(`  info: armadilheiro andou ${(t / 20).toFixed(0)} s até os fantasmas; está a ${dist(trapper, ghost).toFixed(1)} deles`);
+  // o herói fica (Stand ground): quem atira de longe nele (a guarda dos grupos alcança mais longe, exe 0x57275f) não o tira do lugar
+  w.command(h, { type: "hold" });
+  let t = run(r, TICKS_PER_SEC * 150, () => { keep(r); return trapper.alive && dist(trapper, ghost) <= 3.5; });
+  console.log(`  info: armadilheiro andou ${(t / TICKS_PER_SEC).toFixed(0)} s até os fantasmas; está a ${dist(trapper, ghost).toFixed(1)} deles`);
   settle(r, 25);
   check(has(r, 15) && group(r, 1).every(u => u.ai?.type === "follow"), "armadilheiro chega aos fantasmas: msg 15 e os fantasmas passam a segui-lo");
   // o jogador leva o grupo até o falante e, se os fantasmas pararem longe (seguem a até 4,5 células do armadilheiro), dá a volta para trazê-los
   t = 0;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, -1], [0, 1], [2, 0], [-2, 0], [0, -2], [0, 2], [1, 1], [-1, -1]] as const) {
     at(r, h, talker.cx + dx, talker.cy + dy);
-    t += run(r, 20 * 30, () => { keep(r); return has(r, 10) || r.outcome !== null; });
+    t += run(r, TICKS_PER_SEC * 30, () => { keep(r); return has(r, 10) || r.outcome !== null; });
     if (has(r, 10) || r.outcome) break;
   }
-  console.log(`  info: escolta até o falante em ${(t / 20).toFixed(0)} s; fantasma a ${dist(ghost, talker).toFixed(1)} do falante`);
+  console.log(`  info: escolta até o falante em ${(t / TICKS_PER_SEC).toFixed(0)} s; fantasma a ${dist(ghost, talker).toFixed(1)} do falante`);
   settle(r, 10);
   check(has(r, 10) && sub(r, 3) === 2, "fantasma a <= 4 do falante: msg 10 e sub 3 cumprido");
   check(group(r, 1).every(u => u.ai?.type === "move") && trapper.ai?.type === "move", "fantasmas voltam ao posto (85,42) e o armadilheiro volta (99,16)");
@@ -306,8 +312,10 @@ async function m92(): Promise<void> {
   failedWith(q, 6, "atacar um camponês (jogador 7)");
   // abelhas e fantasmas reais: 60 s parado junto aos fantasmas; a missão segue sem desfecho
   q = start(); settle(q, 5); at(q, q.b.hero, 44, 22);
-  run(q, 20 * 60, () => keep(q));
-  check(!q.outcome && q.b.world.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)), "60 s junto aos fantasmas e às abelhas: sem desfecho e sem NaN");
+  run(q, TICKS_PER_SEC * 60, () => keep(q));
+  // com a guarda de grupo do exe (raio 20/24, visão com relevo) o dragão 57 e os vizinhos alcançam Igles/Dina, que podem cair (falha 3/4)
+  check((!q.outcome || (!q.outcome.ok && (q.outcome.cause === 3 || q.outcome.cause === 4))) && q.b.world.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)),
+    `60 s junto aos fantasmas e às abelhas: sem desfecho do herói e sem NaN (${JSON.stringify(q.outcome)})`);
   companionsFail(start);
   const by = offeredBy(92, false, false);
   check(by === 2003, `campanha: a 92 é oferecida pelo elfo (npc 2003, acampamento), foi ${by}`);
@@ -330,7 +338,7 @@ async function m100(): Promise<void> {
   check(Math.abs(h.cx - 14) <= 3 && Math.abs(h.cy - 81) <= 3, `herói nasce no Drop Location (14,81): ${h.cx},${h.cy}`);
   check(ranger.player === 9 && king.player === 8 && kingFree.player === 8 && guard.player === 7 && uncle.player === 7 && followers(r).length === 8 && kings(r).length === 1 && kings(r)[0] === kingFree,
     "guarda-florestal bom (305, jogador 9), rei com máscara (276) e sem máscara (306) do jogador 8, 8 seguidores (grupo 23), guarda (288) e tio (293) dos cavaleiros (jogador 7)");
-  settle(r, 20 * 3);
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && sub(r, 1) === 1 && kingFree.phased && !king.phased && !r.outcome, "msg 1, sub 1 (achar o rei); o rei sem máscara (306) fora de fase");
   check(w.diplomacyValue(8, 7) === 0 && w.diplomacyValue(8, 1) === 0 && w.diplomacyValue(7, 1) === 0, "cavaleiros bons, maus e o herói em paz no início");
   // conversas curtas: guarda-florestal bom (20,128), guarda (77,73) — cada uma só uma vez
@@ -364,7 +372,7 @@ async function m100(): Promise<void> {
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
   beside(r, h, 276); settle(r, 30);
   const bad0 = ofPlayer(r, 8).length, good0 = ofPlayer(r, 7).length;
-  run(r, 20 * 60, () => keep(r));
+  run(r, TICKS_PER_SEC * 60, () => keep(r));
   console.log(`  info: cavaleiros maus ${bad0} -> ${ofPlayer(r, 8).length}, bons ${good0} -> ${ofPlayer(r, 7).length} em 60 s; desfecho ${JSON.stringify(r.outcome)}`);
   check(w.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)) && (ofPlayer(r, 8).length < bad0 || ofPlayer(r, 7).length < good0 || !!r.outcome), "60 s de guerra real entre os cavaleiros: houve baixas, sem NaN");
   const quick = (hero: HeroState, who = 10001): Run => {
@@ -406,7 +414,7 @@ async function m101(): Promise<void> {
     `druida (8) e druida chefe (7) do jogador 4, 12 necromantes (grupo 3), ${ofPlayer(r, 3).length} monstros dos druidas (jogador 3)`);
   check(r.b.host.dazed.has(main) && main.helpless && r.b.host.unitParameter(7, 6) === 0, "druida chefe começa caído (vida 0 no mapa): o script o vê com vida 0");
   check(w.diplomacyValue(3, 1) === 1 && w.diplomacyValue(4, 1) === 0 && w.diplomacyValue(5, 1) === 1, "monstros e necromantes hostis; druidas em paz");
-  settle(r, 20 * 3);
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && !r.outcome, "msg 1, sem desfecho");
   // druida (88,100) -> sub 1; druida chefe caído (22,14) acorda quando o grupo chega a <= 3 células
   beside(r, h, 8); settle(r);
@@ -452,15 +460,18 @@ async function m101(): Promise<void> {
   failedWith(r, 6, "atacar um druida");
   // curar o druida chefe também o acorda (vida >= 25%): "Heal" no druida deixado com 1 de vida
   r = start(); settle(r, 5); const dz = unit(r, 7);
-  check(dz.hp < dz.maxHp * 0.25 && r.b.host.unitParameter(7, 6) === 0, `o druida chefe moribundo tem ${dz.hp}/${dz.maxHp} de vida e o script o vê com 0`);
-  dz.hp = Math.ceil(dz.maxHp * 0.5);
+  check(dz.downed && dz.corpseHp === 0 && r.b.host.unitParameter(7, 6) === 0, `o druida chefe inconsciente tem vida ${dz.corpseHp}/${dz.maxHp} e o script o vê com 0`);
+  healDying(r.b.world, r.b.hero, dz, Math.ceil(dz.maxHp * 0.5));   // Heal do herói (druidas em paz): levanta de verdade
   check(r.b.host.unitParameter(7, 6) > 0, "curado a 50% da vida (Heal), o druida chefe acorda para o script (vida > 0) mesmo sem ninguém por perto");
-  r = start(); settle(r, 5); at(r, r.b.hero, 22, 22); settle(r, 25);
+  // (o herói fica parado: com o andar do exe a perseguição automática dele ao monstro mais perto o leva a <= 4 do druida)
+  r = start(); settle(r, 5); at(r, r.b.hero, 22, 22); r.b.world.command(r.b.hero, { type: "hold" }); settle(r, 25);
   const castHeal = unit(r, 10003), dru = unit(r, 7);
   at(r, castHeal, 22, 20);
   check(dru.hp < dru.maxHp * 0.25 && r.b.host.unitParameter(7, 6) === 0, "herói e Dina a 6-8 células: o druida chefe continua moribundo");
   let casts = 0;
-  while (r.b.host.unitParameter(7, 6) === 0 && casts < 10) { castOn(r, castHeal, 24, 50, dru); casts++; settle(r, 5); }
+  while (r.b.host.unitParameter(7, 6) === 0 && casts < 10) {
+    castOn(r, castHeal, 24, 50, dru); casts++; settle(r, 5);
+  }
   settle(r, 25);
   check(casts > 1 && casts < 10 && dru.hp >= dru.maxHp * 0.25, `Dina lança Heal (24) no druida chefe ${casts} vezes até ele passar de 25% (vida ${Math.ceil(dru.hp)}/${dru.maxHp})`);
   check(r.b.host.unitParameter(7, 6) > 0 && sub(r, 3) === 2 && !has(r, 5), "o druida deixa de estar caído para o script (sub 3, curar, cumprido); a conversa só vem quando alguém chega a <= 4");
@@ -469,7 +480,7 @@ async function m101(): Promise<void> {
   // 20 s de combate real junto aos monstros do começo
   r = start(); w = r.b.world; h = r.b.hero;
   for (const id of [10001, 10002, 10003]) { const u = unit(r, id); u.maxHp = u.hp = 5000; }
-  run(r, 20 * 20, () => keep(r));
+  run(r, TICKS_PER_SEC * 20, () => keep(r));
   check(!r.outcome && w.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)), "20 s no ponto de partida (monstros em volta): sem desfecho e sem NaN");
   companionsFail(start);
   const by = offeredBy(101, false, false);
@@ -573,10 +584,15 @@ async function shrine(s: Shrine): Promise<void> {
   const necro = unit(r, s.necro), pyramid = unit(r, s.pyramid), dragon = unit(r, s.dragon);
   check(Math.abs(h.cx - 130) <= 3 && Math.abs(h.cy - 12) <= 3, `herói nasce no Drop Location (131,12): ${h.cx},${h.cy}`);
   check(necro.player === 6 && dragon.player === 7 && pyramid.items.includes(s.prize) && base > 0, `necromante ${s.necro} com os livros, dragão ${s.dragon} (jogador 7), prêmio ${s.prize} no marcador ${s.pyramid}; ${base} armadilhas Teleport do mapa (bloco 9) no início`);
-  settle(r, 20 * 3);
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && s.books.every(b => h.items.includes(b)) && necro.items.length === 0, `msg 1: o necromante entrega os livros (${s.books.join(",")}) ao herói (Give All)`);
-  run(r, 20 * 30, () => keep(r));
-  check(necro.phased === s.necroGone && Math.hypot(necro.x - s.necroExit[0], necro.y - s.necroExit[1]) <= 2, s.necroGone ? `o necromante anda até (${s.necroExit}) e some (Phase out)` : `o necromante anda até (${s.necroExit}) e fica ali (o caminho do A* não passa a <= 1 do ponto de sumiço do script)`);
+  run(r, TICKS_PER_SEC * 30, () => keep(r));
+  // o ponto de sumiço fica na BORDA de 8 células (x ≥ 136 num mapa de 144), que o plano de passagem do exe bloqueia para todos
+  // (0x553b99 = 0x1f): o necromante para na última célula útil, a 2–3 do ponto, e a condição "distância ≤ 1" do script não fecha
+  const ex = Math.min(w.grid.w - 9, Math.max(8, s.necroExit[0])), ey = Math.min(w.grid.h - 9, Math.max(8, s.necroExit[1]));
+  // some se a última célula útil fica a ≤ 1 do ponto (condição "distância ≤ 1" do script)
+  const gone = s.necroGone && Math.max(Math.abs(ex - s.necroExit[0]), Math.abs(ey - s.necroExit[1])) <= 1;
+  check(necro.phased === gone && Math.hypot(necro.x - (ex + 0.5), necro.y - (ey + 0.5)) <= 2, gone ? `o necromante anda até (${s.necroExit}) e some (Phase out)` : `o necromante anda até a borda junto de (${s.necroExit}) e fica ali (${necro.cx},${necro.cy}; ponto na borda intransponível)`);
   check(pyramid.phased && host.measurePhased, "marcador da pirâmide fora de fase; o host mede a distância até ele (measurePhased)");
   // alavancas (Switch): "Health of building" 1 = desligada, 0 = ligada
   check(host.switches.size === 2 && host.buildingHealth(2) === 1 && host.buildingHealth(3) === 1 && host.switchNear(100, 24) === 2 && host.switchNear(110, 40) === 3, "duas alavancas (estruturas 2 e 3), desligadas = 1; switchNear acha pelo clique");
@@ -589,7 +605,7 @@ async function shrine(s: Shrine): Promise<void> {
     const act = (): void => { q.b.host.toggleSwitch(2); };
     check(use.start(qw, qh, lv.x, lv.y, o => qw.command(qh, o), act) && q.b.host.buildingHealth(2) === 1, "andar até a alavanca: ainda não acionou na partida");
     let ticks = 0;
-    for (; ticks < 20 * 40 && q.b.host.buildingHealth(2) === 1; ticks++) run(q, 1, () => { keep(q); use.step(qw); });
+    for (; ticks < TICKS_PER_SEC * 40 && q.b.host.buildingHealth(2) === 1; ticks++) run(q, 1, () => { keep(q); use.step(qw); });
     check(q.b.host.buildingHealth(2) === 0 && Math.max(Math.abs(qh.cx - lv.x), Math.abs(qh.cy - lv.y)) <= 1 && !use.active, `a alavanca 2 liga ao chegar (${ticks} tiques, herói em ${qh.cx},${qh.cy})`);
     // outra ordem antes de chegar cancela (alavanca 3, mais longe)
     at(q, qh, 104, 40);
@@ -597,7 +613,7 @@ async function shrine(s: Shrine): Promise<void> {
     use.start(qw, qh, lv3.x, lv3.y, o => qw.command(qh, o), () => { q.b.host.toggleSwitch(3); });
     run(q, 3, () => use.step(qw));
     qw.command(qh, { type: "move", x: 104, y: 36 });
-    run(q, 20 * 30, () => { keep(q); use.step(qw); });
+    run(q, TICKS_PER_SEC * 30, () => { keep(q); use.step(qw); });
     check(q.b.host.buildingHealth(3) === 1 && !use.active, "uma nova ordem no caminho cancela o uso: a alavanca 3 continua desligada");
   }
   gotoCell(r, [102, 34], 20);
@@ -660,26 +676,26 @@ async function shrine(s: Shrine): Promise<void> {
   r = start(); w = r.b.world; h = r.b.hero; toPuzzle(r, true);
   gotoCell(r, s.trap, 45);
   const arrival = { x: h.cx, y: h.cy };
-  settle(r, 20 * 5);
+  settle(r, TICKS_PER_SEC * 5);
   check(Math.hypot(h.cx - arrival.x, h.cy - arrival.y) < 8 && Math.hypot(h.cx - 26, h.cy - 118) > 10, `chegando ao lado do teleporte de saída (${s.exit}) o herói não é devolvido na hora (${arrival.x},${arrival.y} -> ${h.cx},${h.cy})`);
   w.kill(unit(r, s.dragon), h); gotoCell(r, [unit(r, s.pyramid).cx + 1, unit(r, s.pyramid).cy], 25);
   killAll(r, ofPlayer(r, 7)); unstone(r);
   const pz = w.loot.find(l => l.items.includes(s.prize))!;
   pickupAt(r, h, pz.x, pz.y);
   w.command(h, { type: "move", x: s.exit[0], y: s.exit[1] });
-  let walked = run(r, 20 * 120, () => { keep(r); return Math.hypot(h.cx - 26, h.cy - 118) <= 3; });
-  console.log(`  info: do prêmio ao teleporte de saída ${s.exit}: ${(walked / 20).toFixed(0)} s; herói em ${h.cx},${h.cy}`);
+  let walked = run(r, TICKS_PER_SEC * 120, () => { keep(r); return Math.hypot(h.cx - 26, h.cy - 118) <= 3; });
+  console.log(`  info: do prêmio ao teleporte de saída ${s.exit}: ${(walked / TICKS_PER_SEC).toFixed(0)} s; herói em ${h.cx},${h.cy}`);
   check(Math.hypot(h.cx - 26, h.cy - 118) <= 3 && !r.outcome, "o teleporte de saída leva o herói a (26,118) (mesma ilha de (10,135)); ainda sem desfecho");
   w.command(h, { type: "move", x: 10, y: 135 });
-  walked = run(r, 20 * 120, () => { keep(r); return r.outcome !== null; });
-  console.log(`  info: de (26,118) até (10,135): ${(walked / 20).toFixed(0)} s, posição final ${h.cx},${h.cy}`);
+  walked = run(r, TICKS_PER_SEC * 120, () => { keep(r); return r.outcome !== null; });
+  console.log(`  info: de (26,118) até (10,135): ${(walked / TICKS_PER_SEC).toFixed(0)} s, posição final ${h.cx},${h.cy}`);
   check(r.outcome?.ok === true, `o herói caminha até (10,135) e a missão termina (${JSON.stringify(r.outcome)})`);
   // falhas
   if (s.id === 96) {
     r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 20), 1); settle(r, 30);
     check(failCause(r) === 5, `atacar uma estátua do Ar (jogador 4 hostil): falha causa 5 (${JSON.stringify(r.outcome)}); o texto failure5 não existe em mission96 (GAPS [MAPAS-RE])`);
   }
-  r = start(); settle(r, 5); at(r, r.b.hero, 100, 104); settle(r, 20 * 20);
+  r = start(); settle(r, 5); at(r, r.b.hero, 100, 104); settle(r, TICKS_PER_SEC * 20);
   check(!r.outcome, "20 s junto ao dragão do santuário: sem desfecho (o grupo é mantido vivo)");
   companionsFail(() => start());
   const who = offeredBy(s.id, s.mage, s.female);
@@ -703,7 +719,7 @@ async function m102(): Promise<void> {
   check(Math.abs(h.cx - 26) <= 3 && Math.abs(h.cy - 105) <= 3, `herói nasce no Drop Location (26,105): ${h.cx},${h.cy}`);
   check(mage.player === 4 && mage.items.includes(AMULET) && elder.player === 2 && ghost.player === 6 && d1.player === 5 && d2.player === 5 && group(r, 9).length === 2 && group(r, 26).length === 1,
     "mago 217 (jogador 4) com o amuleto (item 60 = 3668), ancião 66 (jogador 2), fantasma 91 (jogador 6), 2 dragões (grupo 9, jogador 5)");
-  settle(r, 20 * 3);
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && !r.outcome && zombies(r).length === 7 && zombies(r).every(u => u.ai?.type === "swarm") && elder.ai?.type === "hold", "msg 1; 7 zumbis (grupo 8) marcham sobre a aldeia (swarm) e o ancião fica parado (stand ground)");
   check(group(r, 2).every(u => u.ai?.type === "patrol"), "os camponeses (grupo 2) patrulham até (37,104)");
   // o mago (13,80): conversa 1 (msgs 2/3/4) uma vez; ele só entra no grupo com os dragões mortos
@@ -766,20 +782,20 @@ async function m102(): Promise<void> {
   q = start(); settle(q, 5);
   for (const id of BOTH) at(q, unit(q, id), 60, 60); // o grupo longe, sem defender
   at(q, q.b.hero, 60, 59);
-  let t = run(q, 20 * 300, () => { keep(q); return q.outcome !== null; });
-  console.log(`  info: sem defesa: desfecho ${JSON.stringify(q.outcome)} após ${(t / 20).toFixed(0)} s; zumbis vivos ${zombies(q).filter(u => u.alive).length}`);
+  let t = run(q, TICKS_PER_SEC * 300, () => { keep(q); return q.outcome !== null; });
+  console.log(`  info: sem defesa: desfecho ${JSON.stringify(q.outcome)} após ${(t / TICKS_PER_SEC).toFixed(0)} s; zumbis vivos ${zombies(q).filter(u => u.alive).length}`);
   check(zombies(q).every(u => Number.isFinite(u.x)) && (failCause(q) === 6 || !q.outcome), "300 s sem defesa: os zumbis chegam à aldeia (falha 6 se o ancião cair) ou ainda marcham, sem NaN");
   // o jogador intercepta os zumbis antes que cheguem ao ancião (aqui: abate quem chega a <= 8 células dele): o ancião sobrevive e os zumbis acabam
   q = start(); settle(q, 5);
   const el = unit(q, 66);
   at(q, q.b.hero, el.cx - 1, el.cy);
   let killed = 0;
-  t = run(q, 20 * 240, () => {
+  t = run(q, TICKS_PER_SEC * 240, () => {
     keep(q);
     for (const z of zombies(q)) if (z.alive && dist(z, el) <= 8) { q.b.world.kill(z, q.b.hero); killed++; }
     return q.outcome !== null || zombies(q).every(z => !z.alive);
   });
-  console.log(`  info: interceptando: ${killed} zumbis abatidos em ${(t / 20).toFixed(0)} s; ancião ${el.alive ? "vivo" : "morto"}`);
+  console.log(`  info: interceptando: ${killed} zumbis abatidos em ${(t / TICKS_PER_SEC).toFixed(0)} s; ancião ${el.alive ? "vivo" : "morto"}`);
   check(el.alive && !q.outcome && zombies(q).every(z => !z.alive), "zumbis interceptados a <= 8 células do ancião: ele sobrevive e o grupo 8 acaba");
   // falhas
   q = start(); settle(q, 5); q.b.world.kill(unit(q, 66)); settle(q, 30);
@@ -793,6 +809,8 @@ async function m102(): Promise<void> {
 
 // ------------------------------------------------------------------------------------------- 103
 const HEAD = "3670", STONE = "3671"; // itens 62 e 63 do script
+/** [x, y da unidade, id da estrutura que a ação de USAR aciona] medido no ORIGINAL (0x52bfe7 chamado pela caixa de correio, levers_probe.py) */
+const USE_PICK_103: [number, number, number][] = [[11, 19, 13], [11, 20, 13], [11, 21, 13], [12, 19, 13], [12, 21, 13], [13, 19, 13], [13, 20, 13], [13, 21, 13], [18, 72, 12], [18, 73, 12], [18, 74, 12], [18, 75, 5], [18, 76, 5], [18, 77, 5], [18, 78, 5], [18, 79, 5], [18, 80, 4], [18, 81, 4], [18, 82, 4], [19, 72, 12], [19, 74, 12], [19, 75, 5], [19, 77, 5], [19, 79, 5], [19, 80, 4], [19, 82, 4], [19, 130, 14], [19, 131, 14], [19, 132, 14], [20, 72, 12], [20, 73, 12], [20, 74, 12], [20, 75, 5], [20, 76, 5], [20, 77, 5], [20, 78, 5], [20, 79, 5], [20, 80, 4], [20, 81, 4], [20, 82, 4], [20, 130, 14], [20, 132, 14], [21, 72, 6], [21, 73, 6], [21, 74, 6], [21, 80, 4], [21, 81, 4], [21, 82, 4], [21, 130, 14], [21, 131, 14], [21, 132, 14], [22, 72, 6], [22, 74, 6], [22, 80, 4], [22, 82, 4], [23, 72, 6], [23, 73, 6], [23, 74, 6], [23, 80, 10], [23, 81, 10], [23, 82, 10], [24, 72, 6], [24, 73, 6], [24, 74, 6], [24, 80, 3], [24, 81, 3], [24, 82, 3], [25, 72, 6], [25, 74, 6], [25, 80, 3], [25, 82, 3], [26, 72, 7], [26, 73, 7], [26, 74, 7], [26, 80, 3], [26, 81, 3], [26, 82, 3], [27, 72, 1], [27, 73, 1], [27, 74, 1], [27, 75, 1], [27, 76, 1], [27, 77, 2], [27, 78, 2], [27, 79, 2], [27, 80, 2], [27, 81, 2], [27, 82, 3], [28, 72, 1], [28, 74, 1], [28, 76, 1], [28, 77, 2], [28, 79, 2], [28, 80, 2], [28, 82, 3], [29, 72, 1], [29, 73, 1], [29, 74, 1], [29, 75, 1], [29, 76, 1], [29, 77, 2], [29, 78, 2], [29, 79, 2], [29, 80, 2], [29, 81, 2], [29, 82, 9], [127, 12, 16], [127, 13, 16], [127, 14, 16], [128, 12, 16], [128, 14, 16], [129, 12, 16], [129, 13, 16], [129, 14, 16], [130, 115, 15], [130, 116, 15], [130, 117, 15], [131, 115, 15], [131, 117, 15], [132, 115, 15], [132, 116, 15], [132, 117, 15]];
 async function m103(): Promise<void> {
   console.log("\n=== Missão 103 — The Desert Oracle ===");
   const data = await loadData(103);
@@ -804,7 +822,7 @@ async function m103(): Promise<void> {
   check(Math.abs(h.cx - 72) <= 3 && Math.abs(h.cy - 12) <= 3, `herói nasce no Drop Location (72,12): ${h.cx},${h.cy}`);
   check(orc.player === 5 && witch.player === 2 && !!ogre && ogre.player === 7 && host.switches.size === 16 && unit(r, 131).items.includes("37269") && unit(r, 132).items.includes("30608"),
     "xamã orc 30 (jogador 5), feiticeira da areia 138, ogro com a cabeça (item 62 = 3670), 16 alavancas e os marcadores 131/132 com o prêmio dos enigmas");
-  settle(r, 20 * 3);
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && unit(r, 131).phased && unit(r, 132).phased && !r.outcome, "msg 1; os marcadores 131 e 132 fora de fase");
   // conversas curtas: feiticeira (60,25) msgs 2/3/4 e xamã (94,123) msgs 5/6/7, cada uma uma vez
   beside(r, h, 138); settle(r);
@@ -823,7 +841,7 @@ async function m103(): Promise<void> {
   w.kill(ogre, h); settle(r, 10);
   const hs = w.loot.find(l => l.items.includes(HEAD));
   check(!!hs, `o ogro morto larga a cabeça (item 62) em (${hs?.x},${hs?.y})`);
-  at(r, h, hs!.x - 2, hs!.y + 1);
+  at(r, h, hs!.x - 2, hs!.y + 1); unstone(r);   // a guarda do grupo das súcubos (raio em volta do centroide) volta a petrificar quem passa
   check(pickupAt(r, h, hs!.x, hs!.y) && h.items.includes(HEAD), "o herói pega a cabeça (ordem pickup)");
   // entrega ao xamã com as duas relíquias: msg 11, itens removidos, o grupo 1 (xamã) parte para (80,77) e depois (127,69)
   const orcStart = { x: orc.cx, y: orc.cy };
@@ -832,12 +850,12 @@ async function m103(): Promise<void> {
   check(orc.ai?.type === "move" && orc.ai.x === 80 && orc.ai.y === 77, `o xamã parte para o 1º ponto (80,77) (${JSON.stringify(orc.ai)})`);
   hold(r, unit(r, 10002)); hold(r, unit(r, 10003));
   orc.maxHp = orc.hp = 100000;
-  let t = run(r, 20 * 200, () => { keep(r); return orc.ai?.type === "move" && orc.ai.x === 127; });
-  console.log(`  info: o xamã andou de (${orcStart.x},${orcStart.y}) até perto de (80,77) em ${(t / 20).toFixed(0)} s; está em ${orc.cx},${orc.cy}`);
+  let t = run(r, TICKS_PER_SEC * 200, () => { keep(r); return orc.ai?.type === "move" && orc.ai.x === 127; });
+  console.log(`  info: o xamã andou de (${orcStart.x},${orcStart.y}) até perto de (80,77) em ${(t / TICKS_PER_SEC).toFixed(0)} s; está em ${orc.cx},${orc.cy}`);
   check(orc.ai?.type === "move" && orc.ai.x === 127 && orc.ai.y === 69, `no 1º ponto (80,77) o xamã segue para o 2º (127,69) (${JSON.stringify(orc.ai)})`);
-  t = run(r, 20 * 240, () => { keep(r); return distTo(orc, 128, 72) <= 4; });
-  console.log(`  info: de (80,77) até (127,69): ${(t / 20).toFixed(0)} s; xamã em ${orc.cx},${orc.cy}`);
-  run(r, 20 * 10, () => keep(r)); // termina de andar até (127,69)
+  t = run(r, TICKS_PER_SEC * 240, () => { keep(r); return distTo(orc, 128, 72) <= 4; });
+  console.log(`  info: de (80,77) até (127,69): ${(t / TICKS_PER_SEC).toFixed(0)} s; xamã em ${orc.cx},${orc.cy}`);
+  run(r, TICKS_PER_SEC * 10, () => keep(r)); // termina de andar até (127,69)
   check(distTo(orc, 128, 72) <= 4 && !r.outcome, `o xamã chega ao Oráculo (128,72) sozinho (${orc.cx},${orc.cy}); sem o grupo ali ainda não acaba`);
   at(r, h, 126, 71); settle(r, 25);
   check(has(r, 14) && r.outcome?.ok === true, `grupo a <= 4 de (126,71) e o xamã no Oráculo: msg 14 e Mission Complete (${JSON.stringify(r.outcome)})`);
@@ -859,6 +877,38 @@ async function m103(): Promise<void> {
   check(!w.loot.some(l => l.items.includes("37269")), "14, 16 e 13 ligadas (a 13 deveria estar desligada): o prêmio do enigma 2 não cai");
   sw(r, [13]);
   check(w.loot.some(l => l.items.includes("37269") && l.x === unit(r, 131).cx && l.y === unit(r, 131).cy), "14 e 16 ligadas, 13 e 15 desligadas (\"Item1\"): o marcador 131 larga o prêmio (arco 37269)");
+  {
+    // USAR como no original (ação 0xf de 0x50f12c → 0x52bfe7: 1ª estrutura da lista a Chebyshev ≤ 2 de (x−1, y−1)); tabela MEDIDA no original
+    // (tools/refcap/diff/levers_probe.py, refs/trace/levers/m103.json `pick`; notes/group-levers.md)
+    const q = start(), qh = q.b.host, qw = q.b.world;
+    const bad = USE_PICK_103.filter(([x, y, id]) => qh.useTarget(x, y)?.id !== id).map(([x, y, id]) => `(${x},${y}) o:${id} n:${qh.useTarget(x, y)?.id}`);
+    check(!bad.length, `usar: a estrutura acionada a partir de cada uma das ${USE_PICK_103.length} células medidas no original bate ${bad.slice(0, 4).join(" ")}`);
+    const hp = (id: number): number => qh.buildingHealth(id);
+    // cliques reais no original: com o herói vindo de (20,73) a 7 liga a 6; de (23,81) a 9 liga a 3; de (27,81) a 10 liga a 10
+    for (const [lever, fx, fy, want] of [[7, 20, 73, 6], [9, 23, 81, 3], [10, 27, 81, 10]] as const) {
+      const q2 = start(), h2 = q2.b.hero, use = new WalkThenUse();
+      for (const id of [10002, 10003]) at(q2, unit(q2, id), 60, 60);
+      // monstros parados (a aranha de (31,82) vinha lutar e ocupava a célula de chegada; o clique medido não tinha ninguém no caminho)
+      for (const u of q2.b.world.units) if (u.player !== 1 && Math.max(Math.abs(u.cx - fx), Math.abs(u.cy - fy)) < 15) u.suspended = true;
+      at(q2, h2, fx, fy); settle(q2, 5);
+      const lv = q2.b.host.switches.get(lever)!;
+      let toggled: number | undefined;
+      use.start(q2.b.world, h2, lv.x, lv.y, o => q2.b.world.command(h2, o), u => { toggled = q2.b.host.useFrom(u.cx, u.cy)?.id; });
+      for (let t = 0; t < TICKS_PER_SEC * 20 && use.active; t++) run(q2, 1, () => { keep(q2); use.step(q2.b.world); });
+      check(toggled === want && q2.b.host.buildingHealth(want) === 0, `clique na alavanca ${lever} com o herói vindo de (${fx},${fy}): liga a ${want} como no original (ligou ${toggled}, herói em ${h2.cx},${h2.cy})`);
+    }
+    // a 8 e a 11 nunca são acionadas pelo uso (de qualquer vizinha sai a 1 / a 5)
+    const near = (x: number, y: number): number[] => [-1, 0, 1].flatMap(dy => [-1, 0, 1].map(dx => qh.useTarget(x + dx, y + dy)?.id ?? 0));
+    check(near(28, 75).every(id => id !== 8) && near(19, 78).every(id => id !== 11), "a 8 (28,75) e a 11 (19,78) não são acionáveis pelo uso (o original aciona a 1 e a 5)");
+    // Fireball sobre a 6 a LIGA (vida 1 → 0); outra Fireball a mantém ligada; usar depois a desliga (medido)
+    castAt(q, q.b.hero, 2, 20, 22, 73, { x: 27, y: 73 });
+    check(hp(6) === 0 && hp(7) === 1 && hp(12) === 1, "Fireball na alavanca 6: só ela liga (a 7 a 3 células fica)");
+    castAt(q, q.b.hero, 2, 20, 22, 73, { x: 27, y: 73 });
+    check(hp(6) === 0, "Fireball de novo na 6: continua ligada");
+    qh.useFrom(23, 73);
+    check(hp(6) === 1, "usar a 6 depois da Fireball a desliga");
+    void qw;
+  }
   const quick = (hero: HeroState, who = 10001): Run => {
     const q = start(hero); settle(q, 5);
     const stone = who === 10001 ? q.b.hero : unit(q, who);
@@ -888,7 +938,7 @@ async function m103(): Promise<void> {
   const guards = group(r, 19);
   check(guards.length === 6, `a casa (41,50) tem ${guards.length} guardas (grupo 19)`);
   for (const id of [10001, 10002, 10003]) { const u = unit(r, id); u.maxHp = u.hp = 5000; }
-  run(r, 20 * 15, () => keep(r));
+  run(r, TICKS_PER_SEC * 15, () => keep(r));
   check(!r.outcome && r.b.world.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)), "15 s de combate real junto à casa: sem desfecho e sem NaN");
   companionsFail(start);
   const by = offeredBy(103, false, false);
@@ -909,17 +959,27 @@ async function m110(): Promise<void> {
   check(urd.player === 2 && urd.maxHp >= 10000 && knights(r).length === 12 && knights(r).every(u => u.player === 3) && druids(r).length === 14 && druids(r).every(u => u.player === 4) && group(r, 13).length === 15 && group(r, 14).length === 6 && group(r, 38).length === 1,
     `Urd (117, ${urd.maxHp} PV, jogador 2), 12 cavaleiros (grupo 11) e 14 druidas (grupo 12), super-lich (grupo 13, 15), super-cavaleiro da morte (grupo 14, 6), Skrakan (grupo 38)`);
   check(w.diplomacyValue(3, 4) === 0 && w.diplomacyValue(4, 3) === 0 && w.diplomacyValue(3, 1) === 2 && w.diplomacyValue(4, 1) === 2, "cavaleiros e druidas em paz entre si e aliados do herói antes do script");
-  settle(r, 20 * 3);
+  settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && w.diplomacyValue(3, 4) === 1 && w.diplomacyValue(4, 3) === 1, "msg 1: cavaleiros e druidas entram em guerra entre si");
   check(group(r, 38).every(u => u.phased), "Skrakan (grupo 38) fora de fase");
   check([1, 4, 13, 14].every(g => group(r, g).every(u => u.suspended)), "os grupos 1 (Urd), 4, 13 e 14 ficam suspensos (Suspend group a cada ciclo): ninguém do exército de Urd age");
   check(has(r, 5), "o contador (v71 >= 5) chega a 5 ciclos: msg 5 (\"Brothers!\")");
   check(!r.outcome && r.b.host.scenarioVars.get(779) === undefined, "sem desfecho; a variável de cenário 779 ainda não foi gravada");
+  {
+    // guarda do GRUPO [exe 0x57275f]: os 3 magos dos cavaleiros (237,221)/(242,221)/(244,224), longe dos druidas, recebem o alvo que o
+    // grupo vê (raio em volta do centroide), avançam e lançam (original, RE-DANO m110_idle*.jsonl: andam desde 0,25 s, lançam desde ~3 s)
+    const q = start(), mages = knights(q).filter(u => u.spells.length);
+    const home = mages.map(u => ({ x: u.cx, y: u.cy })), mana = mages.map(u => u.mana), low = [...mana];
+    run(q, TICKS_PER_SEC * 12, () => { keep(q); mages.forEach((u, i) => { low[i] = Math.min(low[i]!, u.mana); }); });
+    const moved = mages.filter((u, i) => Math.max(Math.abs(u.cx - home[i]!.x), Math.abs(u.cy - home[i]!.y)) >= 2).length;
+    const cast = mages.filter((_, i) => low[i]! <= mana[i]! - 40).length;
+    check(mages.length === 3 && moved >= 2 && cast >= 2, `guarda do grupo: os magos dos cavaleiros avançam (${moved}/3) e lançam (${cast}/3) em 12 s`);
+  }
   // guerra real: o grupo parado olha 90 s a guerra dos cavaleiros contra os druidas
   const k0 = knights(r).length, d0 = druids(r).length;
-  const t = run(r, 20 * 90, () => { keep(r); return knights(r).every(u => !u.alive) || druids(r).every(u => !u.alive); });
+  const t = run(r, TICKS_PER_SEC * 90, () => { keep(r); return knights(r).every(u => !u.alive) || druids(r).every(u => !u.alive); });
   const kLeft = knights(r).filter(u => u.alive).length, dLeft = druids(r).filter(u => u.alive).length;
-  console.log(`  info: guerra real em ${(t / 20).toFixed(0)} s: cavaleiros ${k0} -> ${kLeft}, druidas ${d0} -> ${dLeft}; 779 = ${r.b.host.scenarioVars.get(779)}; desfecho ${JSON.stringify(r.outcome)}`);
+  console.log(`  info: guerra real em ${(t / TICKS_PER_SEC).toFixed(0)} s: cavaleiros ${k0} -> ${kLeft}, druidas ${d0} -> ${dLeft}; 779 = ${r.b.host.scenarioVars.get(779)}; desfecho ${JSON.stringify(r.outcome)}`);
   check(kLeft < k0 || dLeft < d0, "a guerra entre os dois bandos faz baixas de verdade");
   check(w.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)), "sem NaN");
 
@@ -1004,7 +1064,7 @@ async function pickupUi(): Promise<void> {
   at(r, h, sx - 3, sy + 1);
   w.command(h, { type: "pickup", x: sx, y: sy });
   let seen: string[] | undefined;
-  for (let i = 0; i < 20 * 60 && !seen; i++) {
+  for (let i = 0; i < TICKS_PER_SEC * 60 && !seen; i++) {
     w.step();
     for (const e of w.events) if (e.type === "pickup" && e.unit === h.id) seen = e.items;
     w.events.length = 0;

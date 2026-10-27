@@ -1606,16 +1606,16 @@ addr	name	size	file	line	status	ts	note
 0x56dbc6	FUN_0056dbc6	53	game/g_560000.c	8636	pending		
 0x56dbfb	FUN_0056dbfb	41	game/g_560000.c	8648	pending		
 0x56dc24	ReleaseAccessors	37	game/g_560000.c	8659	pending		
-0x56dca2	Unit_ActionDispatcher	1719	game/g_560000.c	8696	pending		
+0x56dca2	Unit_ActionDispatcher	1719	game/g_560000.c	8696	ported	action.ts:unitActionDispatcher	pares 3 episódios 100% nos ramos portados (14078; exe_walkaction.ts); tarefas 2/5..9/0xb/0xc/0xf, IA+9=2 e fim de caminho (0x56dc24/0x57b020/0x56ed4e) = NotPorted ou adaptador da World (etapa 6, notes/integracao-andar.md)
 0x56e4ac	Unit_WalkNear	177	game/g_560000.c	8913	ported	walk_action.ts:unitWalkNear	pares 3 episódios 100% (exe_walkaction.ts)
-0x56e55d	Unit_Turn	95	game/g_560000.c	8941	pending		
+0x56e55d	Unit_Turn	95	game/g_560000.c	8941	ported	action.ts:unitTurn	exec 0 no corpus: sem pares; tradução direta (Unit_TurnStep + ação), chamada pelo caso 10 de 0x56dca2
 0x56e5bc	FUN_0056e5bc	252	game/g_560000.c	8960	pending		
 0x56e6b8	FUN_0056e6b8	523	game/g_560000.c	8991	pending		
 0x56e8c3	FUN_0056e8c3	67	game/g_560000.c	9054	pending		
 0x56e906	FUN_0056e906	128	game/g_560000.c	9067	pending		
 0x56e986	FUN_0056e986	158	game/g_560000.c	9085	pending		
 0x56ea24	FUN_0056ea24	46	game/g_560000.c	9105	pending		
-0x56ea52	FUN_0056ea52	99	game/g_560000.c	9120	pending		
+0x56ea52	FUN_0056ea52	99	game/g_560000.c	9120	ported	action.ts:fn_0x56ea52	pares 3 episódios 100% (628; exe_walkaction.ts): tarefa 4 / ramo de perseguir de 0x56eab5/0x56ebc0
 0x56eab5	FUN_0056eab5	120	game/g_560000.c	9140	pending		
 0x56eb2d	FUN_0056eb2d	147	game/g_560000.c	9164	pending		
 0x56ebc0	FUN_0056ebc0	127	game/g_560000.c	9191	pending		
