@@ -68,3 +68,5 @@ Economia: etapa 1 e piloto com modelo forte; lotes de porta com Sonnet em sessõ
 para `review`. Decisões pendentes do usuário: proveniência do código portado, aceitar a troca do núcleo do sim por partes.
 Estado 2026-10-27: etapas 1–4 prontas (oráculo por retomada, inventário de campos, `npm run tickcmp`, piloto com 12 funções a 100 %
 dos pares; seção 7.1 do documento). Perfil de execução `tools/re/exec_profile.tsv`. Próximo: `docs/briefings/ETAPA5-ANDAR.md`.
+Estado 2026-10-27 (noite): etapas 5–6 prontas (andar portado, 95 funções a 100 % dos pares, e integrado na `World` com o registro do exe
+como fonte de verdade; campos do andar 80/82/76 % de tiques idênticos, golden 54,6 % limpas). Próximo: `docs/briefings/ETAPA7-DESPACHANTE.md`.

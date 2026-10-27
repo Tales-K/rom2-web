@@ -211,9 +211,9 @@ Padrão estrangulador, subsistema a subsistema, atrás da interface que `mission
 | 2 ✅ | **Inventário de campos**: script Ghidra/grep que lista todo offset usado sobre cada tipo (unidade, grupo, jogador, objeto) com as funções que leem/escrevem; tipos Ghidra criados a partir dele; ganchos de entrada/saída no emulador gravando argumentos e memória tocada por função | Decodificador imagem → registro cobre 100 % dos offsets lidos pelo fecho; `export_state.py` reescrito sobre ele; pares (entrada, saída) por função gerados sem montar memória à mão | 2–3 sessões |
 | 3 ✅ | **Comparador de tique inteiro**: estado `T` → nosso `step()` → diff campo a campo com `T+1`; relatório "1º campo divergente → funções que o escrevem" | Roda em `npm run golden` sobre despejos por tique de 3–5 episódios; métrica "% de tiques exatos" e "mediana do 1º tique divergente sem ressincronização" | 1–2 sessões |
 | 4 ✅ | **Piloto de porta**: célula de aproximação + anel (11 funções) com registro fiel do caminho | Campo de posição exato em 100 % dos tiques dos episódios do piloto, ou causa residual nomeada por campo | 1–2 sessões. **Decide o método**: se o piloto não fechar, voltar aqui antes de escalar |
-| 5 | Andar/perseguir/golpe após andar (`docs/briefings/ETAPA5-ANDAR.md`) | `pos` e `hp` do herói exatos nos episódios da missão 10 | 3–4 sessões |
+| 5 ✅ | Andar/perseguir (`docs/briefings/ETAPA5-ANDAR.md`) e integração na `World` (`ETAPA6-INTEGRACAO-ANDAR.md`) | `pos` e caminho exatos com reancoragem por tique (feito: 100 % na m10_start, 1 tique residual nos outros dois, causa em combate); `hp` fica para a etapa 8 | 3–4 sessões |
 | 6 | Alvo (Stand ground, guarda de unidade e de grupo, sub-tarefas) | `target` exato; grupos 0x12 e 1 | 3–4 sessões |
-| 7 | Máquina de ação e despachante inteiros (por `case`) | Todos os campos da área de ação exatos | 4–6 sessões |
+| 7 | Despachante inteiro (olhar em volta, golpe/magia como sub-ação, fim de caminho; `docs/briefings/ETAPA7-DESPACHANTE.md`) e depois a máquina de ação `0x50f12c` por `case` | Todos os campos da área de ação exatos; `rng` com o mesmo nº de sorteios por tique | 4–6 sessões |
 | 8 | Dano, acerto, efeitos, magias, invocações, vida 0/−10, saque | Área de efeitos e vida exatas; GAME_DIFFS seção I zerada | 6–8 sessões |
 | 9 | Pensamento de jogador de IA e comandos de grupo; carregador (4.4) | Tique 0 e pensamento exatos nas 46 missões a partir da carga | 5–8 sessões |
 | 10 | Varredura do fecho restante por frequência de execução; `port_status.tsv` sem pendentes | Cobertura 100 % (portado ou fora do escopo justificado) | 5–10 sessões |
@@ -226,7 +226,7 @@ oráculo, commit, relatório de 10 linhas; 2 em paralelo quando não compartilha
 sessões (emulador + aproximação + andar) o resíduo `pos` 508 deve cair pela metade. O original real só volta a rodar para **despejar
 imagens** (uma por missão e uma por episódio de interesse), nunca para traçar.
 
-### 7.1 Resultado das etapas 1–4 (2026-10-27)
+### 7.1 Resultado das etapas 1–6 (2026-10-27)
 
 - **Etapa 1, oráculo** (commits 61d920b, 64b8b4b; `tools/re/oracle/`, `notes/oracle-resume.md`): portão passou nos 3 episódios
   (traço de 960 tiques + `rand` a cada 16 tiques idênticos ao golden), ~430–530 tiques/s por instância, HLE de ~12 APIs. Dois
@@ -255,6 +255,18 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   (chamado de `Path_ClearDynamic` quando a sub-tarefa da IA é 3), não um caso da máquina de ação; nenhuma função do andar sorteia;
   as 8 ondas são 2 códigos com constantes diferentes; o backtrace do original lê lixo de pilha num ramo que o corpus não atinge
   (a porta lança erro nele). Briefing da integração: `docs/briefings/ETAPA6-INTEGRACAO-ANDAR.md`.
+- **Etapa 6, integração do andar** (commit 0efd512; `exe/action.ts`, `mapbuild.ts`, `recio.ts`; `notes/integracao-andar.md`): cada
+  `Unit` carrega `rec: UnitRec` e `x/y/cx/cy/dir/angle` viram getters sobre ele; a `World` carrega o `MapRec` (montado da `Grid`,
+  idêntico ao tique 0 das missões 10 e 20); `act(u)` chama o despachante `0x56dca2` portado (100 % de 14 078 pares nos ramos
+  portados), com adaptadores do motor antigo nos chamados ainda não portados. Apagados `exeStep`, `moveStep`, o giro antigo e o A*
+  (`sim/path.ts`). O despejo do oráculo passou a trazer o registro do exe por unidade e os deltas do mapa. Comparador, campos do
+  andar: 19,4 / 27,6 / 4,8 % → **80,1 / 82,4 / 75,9 %** de tiques idênticos; estado inteiro 10,2 / 8,2 / 2,8 % → 38,5 / 32,6 / 32,3 %
+  (63 / 63 / 60 % ignorando o rumo do olhar em volta). Golden: janelas limpas 34,0 % → **54,6 %** (313 melhores, 3 piores);
+  `--ci` falha por uma assinatura de combate que reapareceu (`alive|t69|orig_dead`, Spirit da m20_mage) — fica para as etapas 7–8.
+  Resíduo nomeado por campo (todos fora do andar): decisão de golpe `0x56eab5`, ordem de ataque repetida pelo cliente, pensamento
+  da guarda `0x5728fa`, olhar em volta `0x56e5bc`. Mudança de jogo: unidades 2×2 (ogro) ocupam as 4 células, como no original.
+- **Próximo**: etapa 7 (`docs/briefings/ETAPA7-DESPACHANTE.md`): o olhar em volta `0x56e5bc` tem fecho de 3 funções e é o maior
+  resíduo de sorteios; depois golpe/magia como sub-ação e fim de caminho, até o despachante não alcançar nenhum `NotPorted` no corpus.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
