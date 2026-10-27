@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "tickcmp": "tsx ../tools/refcap/diff/tick_compare.mts",
     "test:script": "tsx src/script/test/run.ts",
     "test:missions": "tsx src/sim/test/missions_smoke.ts",
     "test:campaign": "tsx src/campaign/test/run.ts && tsx src/campaign/test/e2e.ts",
