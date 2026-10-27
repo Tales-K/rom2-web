@@ -1,0 +1,1278 @@
+type	path	size	n_funcs	n_writes	example_funcs	known
+unit	0x0	1	8	7	0x536ab0:FUN_00536ab0,0x54f9b9:FUN_0054f9b9,0x54fbf7:Unit_SetPosition	
+unit	0x0	2	5	5	0x515617:FUN_00515617,0x51583b:FUN_0051583b,0x515a6c:FUN_00515a6c	
+unit	0x0	4	224	119	0x401900:FUN_00401900,0x41ea60:FUN_0041ea60,0x43b6e0:FUN_0043b6e0	
+unit	0x0->0x4	4	12	0	0x5108fa:Sack_PickupAll,0x519db8:Spell_Apply,0x5259af:FUN_005259af	
+unit	0x0->0x8	4	1	0	0x50164f:Server_SendStats	
+unit	0x0->0x10	4	2	0	0x50164f:Server_SendStats,0x506071:FUN_00506071	
+unit	0x0->0x14	4	1	0	0x52bbb7:World_SecondTick	
+unit	0x0->0x18	4	3	0	0x4f04cf:Server_WorldTick,0x52b459:FUN_0052b459,0x52c279:FUN_0052c279	
+unit	0x0->0x1c	4	15	0	0x50d884:FUN_0050d884,0x50d8c0:FUN_0050d8c0,0x5169de:FUN_005169de	
+unit	0x0->0x20	4	1	0	0x55f330:FUN_0055f330	
+unit	0x0->0x2c	4	5	0	0x503672:FUN_00503672,0x504052:FUN_00504052,0x5041d6:FUN_005041d6	
+unit	0x0->0x30	4	6	0	0x4e488c:FUN_004e488c,0x502019:Server_Event,0x502d67:FUN_00502d67	
+unit	0x0->0x34	4	1	0	0x503672:FUN_00503672	
+unit	0x0->0x3c	4	1	0	0x4e488c:FUN_004e488c	
+unit	0x0->0x40	4	2	0	0x529f3f:FUN_00529f3f,0x529fb6:FUN_00529fb6	
+unit	0x0->0x42	2	2	2	0x52151c:FUN_0052151c,0x5259af:FUN_005259af	
+unit	0x0->0x44	4	5	0	0x4ea6ab:FUN_004ea6ab,0x50f12c:Unit_ActionMachine,0x511959:Human_Create	
+unit	0x0->0x48	4	3	0	0x4ea6ab:FUN_004ea6ab,0x510a70:Unit_Die,0x514f59:Hero_InitSkills	
+unit	0x0->0x4c	4	10	0	0x4ea6ab:FUN_004ea6ab,0x4ed5f5:FUN_004ed5f5,0x510a70:Unit_Die	
+unit	0x0->0x4d	1	1	1	0x522767:Shop_Generate	
+unit	0x0->0x50	4	7	0	0x521d4c:Shop_SellToShopkeeper,0x52350b:FUN_0052350b,0x5259af:FUN_005259af	
+unit	0x0->0x58	4	4	0	0x4ea6ab:FUN_004ea6ab,0x50f065:FUN_0050f065,0x5145d1:FUN_005145d1	
+unit	0x0->0x5c	4	2	0	0x511959:Human_Create,0x5145d1:FUN_005145d1	
+unit	0x0->0x6c	4	1	0	0x516ceb:Unit_StrikeHit	
+unit	0x0->0x74	4	1	0	0x50f12c:Unit_ActionMachine	
+unit	0x1	1	9	6	0x54f9b9:FUN_0054f9b9,0x54fbf7:Unit_SetPosition,0x54fc41:FUN_0054fc41	
+unit	0x2	1	3	1	0x5513b6:FUN_005513b6,0x579596:FUN_00579596,0x57998c:FUN_0057998c	
+unit	0x2	2	10	10	0x515617:FUN_00515617,0x54c620:FUN_0054c620,0x54c690:FUN_0054c690	
+unit	0x2	4	1	0	0x5728fa:FUN_005728fa	
+unit	0x3	1	4	2	0x4f0cbe:FUN_004f0cbe,0x4f515d:Server_PacketDispatcher,0x579596:FUN_00579596	
+unit	0x3	2	1	0	0x4f515d:Server_PacketDispatcher	
+unit	0x4	1	9	7	0x4f515d:Server_PacketDispatcher,0x50ba7d:FUN_0050ba7d,0x54f9b9:FUN_0054f9b9	magic-original:id
+unit	0x4	2	17	4	0x4f515d:Server_PacketDispatcher,0x503236:FUN_00503236,0x50338e:FUN_0050338e	magic-original:id
+unit	0x4[]	2	1	1	0x515617:FUN_00515617	magic-original:id
+unit	0x4	4	192	152	0x41ea60:FUN_0041ea60,0x41ed30:FUN_0041ed30,0x4213d0:FUN_004213d0	magic-original:id
+unit	0x4->0x0[]	4	34	18	0x41ed30:FUN_0041ed30,0x4a65f0:FUN_004a65f0,0x4e4570:FUN_004e4570	
+unit	0x4->0x0	4	2	0	0x5402b0:FUN_005402b0,0x547bc0:FUN_00547bc0	
+unit	0x4->0x4	4	2	2	0x5402b0:FUN_005402b0,0x547bc0:FUN_00547bc0	~magic-original:id
+unit	0x4->0x8	4	2	0	0x5402b0:FUN_005402b0,0x547bc0:FUN_00547bc0	
+unit	0x5	1	8	6	0x54f9b9:FUN_0054f9b9,0x54fbf7:Unit_SetPosition,0x54fc41:FUN_0054fc41	
+unit	0x5	2	1	1	0x4f515d:Server_PacketDispatcher	
+unit	0x6	2	4	3	0x4ea6ab:FUN_004ea6ab,0x5113e7:FUN_005113e7,0x54c620:FUN_0054c620	
+unit	0x7	2	3	4	0x4f0cbe:FUN_004f0cbe,0x4f515d:Server_PacketDispatcher,0x5053a8:FUN_005053a8	
+unit	0x8	1	15	3	0x5041d6:FUN_005041d6,0x5042ba:FUN_005042ba,0x51906d:FUN_0051906d	
+unit	0x8[]	1	1	12	0x579596:FUN_00579596	
+unit	0x8	2	4	2	0x5113e7:FUN_005113e7,0x54c620:FUN_0054c620,0x54c690:FUN_0054c690	
+unit	0x8	4	186	154	0x41ea60:FUN_0041ea60,0x41ed30:FUN_0041ed30,0x41ed70:Add	
+unit	0x8[]	4	1	2	0x562745:FUN_00562745	
+unit	0x9	1	7	8	0x4f0cbe:FUN_004f0cbe,0x51906d:FUN_0051906d,0x51922e:FUN_0051922e	
+unit	0xa	1	6	4	0x4f0cbe:FUN_004f0cbe,0x4f515d:Server_PacketDispatcher,0x51906d:FUN_0051906d	magic-original:defensiva | ~ai-behaviors:giro
+unit	0xa	2	3	2	0x4f515d:Server_PacketDispatcher,0x54c620:FUN_0054c620,0x54c690:FUN_0054c690	magic-original:defensiva | ~ai-behaviors:giro
+unit	0xa	4	5	5	0x4ea6ab:FUN_004ea6ab,0x4f1d9c:FUN_004f1d9c,0x4f515d:Server_PacketDispatcher	magic-original:defensiva | ~ai-behaviors:giro
+unit	0xb	1	2	1	0x4f0cbe:FUN_004f0cbe,0x4f515d:Server_PacketDispatcher	
+unit	0xc	1	6	0	0x523148:FUN_00523148,0x577cee:AI_GroupCommandDispatch,0x5783be:FUN_005783be	magic-original:vro (CPtrArray em +4: dados +8, tamanho | magic-original:mana (i16
+unit	0xc	2	31	30	0x5045a5:FUN_005045a5,0x50d772:FUN_0050d772,0x5113e7:FUN_005113e7	magic-original:vro (CPtrArray em +4: dados +8, tamanho | magic-original:mana (i16
+unit	0xc	4	132	131	0x41ea60:FUN_0041ea60,0x4213d0:FUN_004213d0,0x43b81f:FUN_0043b81f	magic-original:vro (CPtrArray em +4: dados +8, tamanho | magic-original:mana (i16
+unit	0xd	1	2	1	0x4f0cbe:FUN_004f0cbe,0x4f515d:Server_PacketDispatcher	
+unit	0xe	1	6	4	0x4f515d:Server_PacketDispatcher,0x5045a5:FUN_005045a5,0x51583b:FUN_0051583b	magic-original:tipo (u16 | magic-original:dano mín.
+unit	0xe	2	13	8	0x4f515d:Server_PacketDispatcher,0x4f89d1:Cheat_SummonUnits,0x50d772:FUN_0050d772	magic-original:tipo (u16 | magic-original:dano mín.
+unit	0xe[]	2	1	4	0x504e87:FUN_00504e87	magic-original:tipo (u16 | magic-original:dano mín.
+unit	0xe	4	2	1	0x4f1d9c:FUN_004f1d9c,0x4f515d:Server_PacketDispatcher	magic-original:tipo (u16 | magic-original:dano mín.
+unit	0xf[]	1	1	1	0x4e3620:FUN_004e3620	magic-original:amplitude
+unit	0xf	1	4	3	0x4f515d:Server_PacketDispatcher,0x515a6c:FUN_00515a6c,0x5195b1:Spell_Instance	magic-original:amplitude
+unit	0x10[]	1	2	2	0x4e3620:FUN_004e3620,0x515617:FUN_00515617	combat-formulas:x,y da célula âncora/ | combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x10	1	6	1	0x51583b:FUN_0051583b,0x5776fd:Script_ValueTeleportation,0x577cee:AI_GroupCommandDispatch	combat-formulas:x,y da célula âncora/ | combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x10	2	3	6	0x5113e7:FUN_005113e7,0x5195b1:Spell_Instance,0x536ea3:FUN_00536ea3	combat-formulas:x,y da célula âncora/ | combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x10	4	222	122	0x4213d0:FUN_004213d0,0x43b6e0:FUN_0043b6e0,0x43b81f:FUN_0043b81f	combat-formulas:x,y da célula âncora/ | combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x10->0x0[]	1	1	1	0x534ad4:FUN_00534ad4	
+unit	0x10->0x4	4	1	0	0x4e2fc3:FUN_004e2fc3	~magic-original:id
+unit	0x11	1	1	1	0x515a6c:FUN_00515a6c	
+unit	0x11	2	1	0	0x4edbaf:FUN_004edbaf	
+unit	0x12	1	3	2	0x4f515d:Server_PacketDispatcher,0x51583b:FUN_0051583b,0x515a6c:FUN_00515a6c	~differential-fuzz:nº
+unit	0x12	2	2	0	0x4f515d:Server_PacketDispatcher,0x515a6c:FUN_00515a6c	~differential-fuzz:nº
+unit	0x12	4	1	0	0x4f515d:Server_PacketDispatcher	~differential-fuzz:nº
+unit	0x13	1	2	3	0x4ea6ab:FUN_004ea6ab,0x515a6c:FUN_00515a6c	~differential-fuzz:ids) entregue por 0x670e50.0x50164f pela
+unit	0x13[]	2	1	0	0x4f515d:Server_PacketDispatcher	~differential-fuzz:ids) entregue por 0x670e50.0x50164f pela
+unit	0x14	1	6	4	0x4ea6ab:FUN_004ea6ab,0x4edbaf:FUN_004edbaf,0x51583b:FUN_0051583b	differential-fuzz:Unit_Regen 0x50fc5a | differential-fuzz:Unit_Regen
+unit	0x14	2	7	2	0x4f515d:Server_PacketDispatcher,0x50ba7d:FUN_0050ba7d,0x50f12c:Unit_ActionMachine	differential-fuzz:Unit_Regen 0x50fc5a | differential-fuzz:Unit_Regen
+unit	0x14	4	117	74	0x4e2fc3:FUN_004e2fc3,0x4e9e97:FUN_004e9e97,0x4edbaf:FUN_004edbaf	differential-fuzz:Unit_Regen 0x50fc5a | differential-fuzz:Unit_Regen
+unit	0x14->0x4	1	1	0	0x57977a:FUN_0057977a	~magic-original:id
+unit	0x14->0x4	2	14	0	0x502019:Server_Event,0x503236:FUN_00503236,0x50f12c:Unit_ActionMachine	~magic-original:id
+unit	0x14->0x24	4	2	0	0x4f0568:FUN_004f0568,0x52b459:FUN_0052b459	
+unit	0x14->0x28	4	1	0	0x4f515d:Server_PacketDispatcher	~ai-original:posto (centroide
+unit	0x14->0x2c	4	15	0	0x510a70:Unit_Die,0x54d76e:Path_WaveSearch,0x55aca2:FUN_0055aca2	~ai-original:≠ 0) → magias por 0x57a769 e | ~ai-original:max(dist + scanRange) (0x56f850
+unit	0x14->0x30	2	1	0	0x4f0568:FUN_004f0568	
+unit	0x14->0x32	2	1	0	0x55aca2:FUN_0055aca2	
+unit	0x14->0x34	4	2	0	0x56bb53:AI_AutocastTargetsMask,0x56bc7b:AI_Autocast	~ai-behaviors:→ ajustes de IA do jogador
+unit	0x14->0x34->0x20	1	2	0	0x56bb53:AI_AutocastTargetsMask,0x56bc7b:AI_Autocast	~ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut
+unit	0x14->0x38	4	3	0	0x502019:Server_Event,0x50f12c:Unit_ActionMachine,0x510a70:Unit_Die	~ai-original:max( | ~ai-original:+ 4 + rand(−1..1) (0x5726f7) e
+unit	0x14->0x3c	4	1	0	0x4e9e97:FUN_004e9e97	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x14->0x40	1	1	1	0x510a70:Unit_Die	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unit	0x14->0xa48	4	2	0	0x4e9e97:FUN_004e9e97,0x502019:Server_Event	
+unit	0x14->0xa4c	4	2	0	0x4e9e97:FUN_004e9e97,0x502019:Server_Event	
+unit	0x14->0xa50	4	1	1	0x50f12c:Unit_ActionMachine	
+unit	0x14->0xa54	4	3	1	0x4e9e97:FUN_004e9e97,0x502019:Server_Event,0x510a70:Unit_Die	~ai-original:icado; tabela de preferência por classe
+unit	0x14->0xa58	4	2	0	0x4e9e97:FUN_004e9e97,0x502019:Server_Event	
+unit	0x14->0xa60	4	1	0	0x52b459:FUN_0052b459	
+unit	0x14->0xa74	4	1	1	0x4e9e97:FUN_004e9e97	
+unit	0x15	1	1	1	0x515a6c:FUN_00515a6c	~differential-fuzz:++
+unit	0x16	2	3	1	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit,0x569003:FUN_00569003	differential-fuzz:golden_worker.inferUnreach deduz do traç | ~differential-fuzz:é gravado no caminho ESTÁTICO da
+unit	0x18[]	1	1	1	0x502019:Server_Event	differential-fuzz:Unit_ActionMachine). | ~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable
+unit	0x18	1	1	0	0x57847e:FUN_0057847e	differential-fuzz:Unit_ActionMachine). | ~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable
+unit	0x18	2	9	9	0x4f0568:FUN_004f0568,0x503672:FUN_00503672,0x5049f5:FUN_005049f5	differential-fuzz:Unit_ActionMachine). | ~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable
+unit	0x18	4	53	39	0x4e2fc3:FUN_004e2fc3,0x4ea6ab:FUN_004ea6ab,0x4edbaf:FUN_004edbaf	differential-fuzz:Unit_ActionMachine). | ~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable
+unit	0x1c	1	2	0	0x4ea6ab:FUN_004ea6ab,0x57847e:FUN_0057847e	combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+unit	0x1c	2	5	5	0x50164f:Server_SendStats,0x5039e2:FUN_005039e2,0x503bef:FUN_00503bef	combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+unit	0x1c	4	19	9	0x4e2fc3:FUN_004e2fc3,0x503672:FUN_00503672,0x50d6ae:FUN_0050d6ae	combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+unit	0x1e	1	2	1	0x51583b:FUN_0051583b,0x515a6c:FUN_00515a6c	
+unit	0x20	1	1	0	0x57847e:FUN_0057847e	ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut
+unit	0x20	2	1	0	0x5165dd:FUN_005165dd	ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut
+unit	0x20	4	12	10	0x4e488c:FUN_004e488c,0x4e4bb0:FUN_004e4bb0,0x4ea6ab:FUN_004ea6ab	ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut
+unit	0x21	2	1	1	0x4ea6ab:FUN_004ea6ab	
+unit	0x22	1	2	1	0x51583b:FUN_0051583b,0x515a6c:FUN_00515a6c	
+unit	0x22	2	1	1	0x4ea6ab:FUN_004ea6ab	
+unit	0x24	1	10	4	0x4f515d:Server_PacketDispatcher,0x50164f:Server_SendStats,0x5039e2:FUN_005039e2	
+unit	0x24	4	7	6	0x4e488c:FUN_004e488c,0x4e4bb0:FUN_004e4bb0,0x4ea6ab:FUN_004ea6ab	
+unit	0x25	2	2	2	0x4ea6ab:FUN_004ea6ab,0x519db8:Spell_Apply	
+unit	0x26	1	2	1	0x51583b:FUN_0051583b,0x515a6c:FUN_00515a6c	
+unit	0x28	2	2	0	0x4f515d:Server_PacketDispatcher,0x503bef:FUN_00503bef	ai-original:posto (centroide
+unit	0x28	4	10	10	0x4e488c:FUN_004e488c,0x4e4bb0:FUN_004e4bb0,0x4ea6ab:FUN_004ea6ab	ai-original:posto (centroide
+unit	0x28	8	1	2	0x57aee0:AI_ProfileTimer2	ai-original:posto (centroide
+unit	0x2a	1	2	1	0x51583b:FUN_0051583b,0x515a6c:FUN_00515a6c	~ai-original:/
+unit	0x2a	4	1	1	0x4f515d:Server_PacketDispatcher	~ai-original:/
+unit	0x2c	4	6	4	0x4e8b10:FUN_004e8b10,0x4ea6ab:FUN_004ea6ab,0x515cd8:FUN_00515cd8	ai-original:≠ 0) → magias por 0x57a769 e | ai-original:max(dist + scanRange) (0x56f850
+unit	0x2e	4	1	1	0x4f515d:Server_PacketDispatcher	
+unit	0x30[]	1	1	1	0x562745:FUN_00562745	
+unit	0x30	2	1	1	0x515cd8:FUN_00515cd8	
+unit	0x30	4	3	1	0x4e4bb0:FUN_004e4bb0,0x4ea6ab:FUN_004ea6ab,0x5513b6:FUN_005513b6	
+unit	0x32	4	1	1	0x4f515d:Server_PacketDispatcher	
+unit	0x34	1	1	0	0x5513b6:FUN_005513b6	~ai-behaviors:→ ajustes de IA do jogador
+unit	0x34	2	2	2	0x4ffb8c:FUN_004ffb8c,0x50c7f5:FUN_0050c7f5	~ai-behaviors:→ ajustes de IA do jogador
+unit	0x34	4	6	7	0x43b6e0:FUN_0043b6e0,0x43b81f:FUN_0043b81f,0x4e488c:FUN_004e488c	~ai-behaviors:→ ajustes de IA do jogador
+unit	0x38	1	2	2	0x50bed8:FUN_0050bed8,0x50c019:FUN_0050c019	ai-original:max( | ai-original:+ 4 + rand(−1..1) (0x5726f7) e
+unit	0x38	2	12	8	0x502019:Server_Event,0x5041d6:FUN_005041d6,0x5042ba:FUN_005042ba	ai-original:max( | ai-original:+ 4 + rand(−1..1) (0x5726f7) e
+unit	0x38	4	4	3	0x4e488c:FUN_004e488c,0x4e4bb0:FUN_004e4bb0,0x4f515d:Server_PacketDispatcher	ai-original:max( | ai-original:+ 4 + rand(−1..1) (0x5726f7) e
+unit	0x3a[]	1	1	2	0x562745:FUN_00562745	
+unit	0x3c	1	6	6	0x4ffb8c:FUN_004ffb8c,0x503e41:FUN_00503e41,0x50bed8:FUN_0050bed8	ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x3c	2	1	1	0x50c7f5:FUN_0050c7f5	ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x3c	4	29	23	0x4e488c:FUN_004e488c,0x4e4bb0:FUN_004e4bb0,0x502019:Server_Event	ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x3c->0x10	4	1	1	0x534ad4:FUN_00534ad4	~combat-formulas:x,y da célula âncora/ | ~combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x3c->0x14	4	1	0	0x52c279:FUN_0052c279	~differential-fuzz:Unit_Regen 0x50fc5a | ~differential-fuzz:Unit_Regen
+unit	0x3c->0x34	4	1	1	0x534ad4:FUN_00534ad4	~ai-behaviors:→ ajustes de IA do jogador
+unit	0x3d	1	2	3	0x51caa0:FUN_0051caa0,0x51cb98:FUN_0051cb98	
+unit	0x40	1	4	3	0x50f12c:Unit_ActionMachine,0x515cd8:FUN_00515cd8,0x517719:FUN_00517719	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unit	0x40	2	11	9	0x519db8:Spell_Apply,0x522e5c:FUN_00522e5c,0x522ee0:FUN_00522ee0	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unit	0x40	4	22	18	0x4ea6ab:FUN_004ea6ab,0x50dc2b:FUN_0050dc2b,0x50dd41:Monster_CreateByName	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unit	0x40->0x0	4	1	0	0x52b459:FUN_0052b459	
+unit	0x40->0x0->0x2c	4	1	0	0x52b459:FUN_0052b459	~ai-original:≠ 0) → magias por 0x57a769 e | ~ai-original:max(dist + scanRange) (0x56f850
+unit	0x40->0x0->0x50	4	1	0	0x52b459:FUN_0052b459	~ai-original:s passam pelo mesmo despachante (tarefa | ~fn:AI_TaskDispatcher:Despachante de tarefas de IA da unidade (switch 
+unit	0x40->0x0->0x68	4	1	0	0x52b459:FUN_0052b459	~combat-formulas:item em uso) [exe 0x519998].
+unit	0x40->0xe	2	1	0	0x52b459:FUN_0052b459	~magic-original:tipo (u16 | ~magic-original:dano mín.
+unit	0x40->0x14	4	1	0	0x52b459:FUN_0052b459	~differential-fuzz:Unit_Regen 0x50fc5a | ~differential-fuzz:Unit_Regen
+unit	0x40->0x14->0x4	2	1	0	0x52b459:FUN_0052b459	~magic-original:id
+unit	0x40->0x14->0x44[]	1	1	1	0x52b459:FUN_0052b459	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unit	0x40->0x14->0xa48	4	1	1	0x52b459:FUN_0052b459	
+unit	0x40->0x14->0xa4c	4	1	1	0x52b459:FUN_0052b459	
+unit	0x40->0x3c	4	1	0	0x52b459:FUN_0052b459	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x41	1	1	1	0x517774:FUN_00517774	
+unit	0x42	2	9	4	0x503e41:FUN_00503e41,0x517774:FUN_00517774,0x5201b2:FUN_005201b2	
+unit	0x44	1	10	11	0x522e5c:FUN_00522e5c,0x522ee0:FUN_00522ee0,0x522fab:FUN_00522fab	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unit	0x44	2	5	4	0x50c7f5:FUN_0050c7f5,0x517719:FUN_00517719,0x517774:FUN_00517774	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unit	0x44	4	22	18	0x4ea6ab:FUN_004ea6ab,0x4f515d:Server_PacketDispatcher,0x503672:FUN_00503672	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unit	0x44->0x0	4	1	0	0x4f515d:Server_PacketDispatcher	
+unit	0x44->0x0->0x4	4	1	0	0x4f515d:Server_PacketDispatcher	~magic-original:id
+unit	0x45	1	11	9	0x522ee0:FUN_00522ee0,0x522fab:FUN_00522fab,0x523148:FUN_00523148	
+unit	0x46	1	11	9	0x522ee0:FUN_00522ee0,0x522fab:FUN_00522fab,0x523148:FUN_00523148	
+unit	0x46	2	2	3	0x503e41:FUN_00503e41,0x517774:FUN_00517774	
+unit	0x48	1	5	4	0x4f515d:Server_PacketDispatcher,0x50dc2b:FUN_0050dc2b,0x50dd41:Monster_CreateByName	differential-fuzz:(gatilhos do script
+unit	0x48	2	11	11	0x4ed5f5:FUN_004ed5f5,0x522ee0:FUN_00522ee0,0x522fab:FUN_00522fab	differential-fuzz:(gatilhos do script
+unit	0x48	4	10	5	0x4ed5f5:FUN_004ed5f5,0x5178d4:Spell_AttachToTarget,0x517c1a:SpellArea_Construct	differential-fuzz:(gatilhos do script
+unit	0x48[]	4	1	1	0x536ab0:FUN_00536ab0	differential-fuzz:(gatilhos do script
+unit	0x48->0x10	4	2	0	0x5178d4:Spell_AttachToTarget,0x518d1e:FUN_00518d1e	~combat-formulas:x,y da célula âncora/ | ~combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x49	1	1	1	0x50e173:FUN_0050e173	
+unit	0x4a	1	3	1	0x50e173:FUN_0050e173,0x50f12c:Unit_ActionMachine,0x510a26:FUN_00510a26	ai-original:peso (coluna 3 do item × fatores de form | combat-formulas:> 1
+unit	0x4a	2	6	5	0x522ee0:FUN_00522ee0,0x522fab:FUN_00522fab,0x5232bb:FUN_005232bb	ai-original:peso (coluna 3 do item × fatores de form | combat-formulas:> 1
+unit	0x4b	1	5	4	0x4ea6ab:FUN_004ea6ab,0x50e173:FUN_0050e173,0x5145d1:FUN_005145d1	
+unit	0x4c	1	22	17	0x4ec732:FUN_004ec732,0x4f1d9c:FUN_004f1d9c,0x502019:Server_Event	~ai-behaviors:classe de recuo
+unit	0x4c	2	5	3	0x4f515d:Server_PacketDispatcher,0x503672:FUN_00503672,0x52a780:FUN_0052a780	~ai-behaviors:classe de recuo
+unit	0x4c	4	4	3	0x5178d4:Spell_AttachToTarget,0x518d1e:FUN_00518d1e,0x519db8:Spell_Apply	~ai-behaviors:classe de recuo
+unit	0x4d	1	6	4	0x5045a5:FUN_005045a5,0x517c1a:SpellArea_Construct,0x522ee0:FUN_00522ee0	
+unit	0x4f	1	3	3	0x4ea6ab:FUN_004ea6ab,0x517c1a:SpellArea_Construct,0x519db8:Spell_Apply	
+unit	0x50	2	2	2	0x517c1a:SpellArea_Construct,0x518d1e:FUN_00518d1e	ai-original:s passam pelo mesmo despachante (tarefa | fn:AI_TaskDispatcher:Despachante de tarefas de IA da unidade (switch 
+unit	0x50	4	33	31	0x4ed5f5:FUN_004ed5f5,0x50abcd:FUN_0050abcd,0x50e173:FUN_0050e173	ai-original:s passam pelo mesmo despachante (tarefa | fn:AI_TaskDispatcher:Despachante de tarefas de IA da unidade (switch 
+unit	0x54	1	9	11	0x4ea6ab:FUN_004ea6ab,0x4edbaf:FUN_004edbaf,0x5273f0:FUN_005273f0	ai-original:ação 3 golpe / 0xd magia em unidade / 0x | combat-formulas:do herói/humano/monstro) só calcula o da
+unit	0x54	2	2	5	0x50f12c:Unit_ActionMachine,0x52810d:FUN_0052810d	ai-original:ação 3 golpe / 0xd magia em unidade / 0x | combat-formulas:do herói/humano/monstro) só calcula o da
+unit	0x54	4	28	42	0x50e173:FUN_0050e173,0x50f12c:Unit_ActionMachine,0x50fc5a:Unit_Regen	ai-original:ação 3 golpe / 0xd magia em unidade / 0x | combat-formulas:do herói/humano/monstro) só calcula o da
+unit	0x56	2	2	5	0x50f12c:Unit_ActionMachine,0x528c92:FUN_00528c92	
+unit	0x58	1	4	8	0x4ea6ab:FUN_004ea6ab,0x4edbaf:FUN_004edbaf,0x50f12c:Unit_ActionMachine	ai-original:fase | ~differential-fuzz:5 carga
+unit	0x58	2	2	2	0x52765b:FUN_0052765b,0x536ea3:FUN_00536ea3	ai-original:fase | ~differential-fuzz:5 carga
+unit	0x58	4	4	3	0x50e173:FUN_0050e173,0x50f12c:Unit_ActionMachine,0x510534:Unit_Revive	ai-original:fase | ~differential-fuzz:5 carga
+unit	0x59	1	1	5	0x50f12c:Unit_ActionMachine	
+unit	0x5a	1	1	5	0x50f12c:Unit_ActionMachine	
+unit	0x5b	1	1	5	0x50f12c:Unit_ActionMachine	
+unit	0x5c	1	2	2	0x4ea6ab:FUN_004ea6ab,0x4edbaf:FUN_004edbaf	
+unit	0x5c	4	38	5	0x4ea6ab:FUN_004ea6ab,0x504155:FUN_00504155,0x50e173:FUN_0050e173	
+unit	0x5c->0x4	2	1	0	0x504155:FUN_00504155	~magic-original:id
+unit	0x5c->0x10	4	7	0	0x577030:FUN_00577030,0x5770d1:FUN_005770d1,0x57714d:FUN_0057714d	~combat-formulas:x,y da célula âncora/ | ~combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x5c->0x14	4	8	0	0x577f8d:FUN_00577f8d,0x57800b:FUN_0057800b,0x578066:FUN_00578066	~differential-fuzz:Unit_Regen 0x50fc5a | ~differential-fuzz:Unit_Regen
+unit	0x5c->0x14->0x2c	4	1	0	0x57857d:FUN_0057857d	~ai-original:≠ 0) → magias por 0x57a769 e | ~ai-original:max(dist + scanRange) (0x56f850
+unit	0x5c->0x54	4	3	0	0x576fef:FUN_00576fef,0x577268:FUN_00577268,0x577600:FUN_00577600	~ai-original:ação 3 golpe / 0xd magia em unidade / 0x | ~combat-formulas:do herói/humano/monstro) só calcula o da
+unit	0x5c->0x70	4	1	0	0x562745:FUN_00562745	~differential-fuzz:v = S×8 (S = byte [[[u
+unit	0x5c->0x70->0x3c	4	1	0	0x562745:FUN_00562745	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x5c->0x70->0x3c->0x48	4	1	1	0x562745:FUN_00562745	~differential-fuzz:(gatilhos do script
+unit	0x5c->0x7c	4	8	2	0x5773aa:FUN_005773aa,0x577527:FUN_00577527,0x5775b1:FUN_005775b1	~differential-fuzz:ou quando | ~ai-behaviors:/
+unit	0x5c->0x94	2	2	1	0x5771a8:FUN_005771a8,0x57887a:FUN_0057887a	~magic-original:vida (continua < 0 no corpo
+unit	0x5c->0xbe	2	1	1	0x57887a:FUN_0057887a	~magic-original:defesa | ~magic-original:copiados do corpo (a defesa já foi divid
+unit	0x5c->0xc0	2	1	1	0x57887a:FUN_0057887a	~fn:Inn_SplitNpcLists:Separa mercenarios (+0xc0) dos demais (+0xe8)
+unit	0x5c->0x144	4	1	0	0x577857:FUN_00577857	~ai-behaviors:bits de efeitos ativos | ~differential-fuzz:→ Shield
+unit	0x5c->0x1c4	4	1	0	0x577300:FUN_00577300	~ai-original:[0] (célula atual se 0 | ~magic-original:IA (+8 tarefa
+unit	0x5c->0x1c4->0x8	1	1	0	0x577300:FUN_00577300	
+unit	0x5c->0x1c4->0xc	4	1	0	0x577300:FUN_00577300	~magic-original:vro (CPtrArray em +4: dados +8, tamanho | ~magic-original:mana (i16
+unit	0x5c->0x1c4->0xc->0x8	4	1	0	0x577300:FUN_00577300	
+unit	0x60	1	3	2	0x50e173:FUN_0050e173,0x56dca2:Unit_ActionDispatcher,0x56e986:FUN_0056e986	
+unit	0x60	4	8	0	0x50f12c:Unit_ActionMachine,0x562745:FUN_00562745,0x576fc8:FUN_00576fc8	
+unit	0x60->0x3c	4	2	0	0x562745:FUN_00562745,0x5781a7:FUN_005781a7	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x60->0x3c->0x48	4	2	2	0x562745:FUN_00562745,0x5781a7:FUN_005781a7	~differential-fuzz:(gatilhos do script
+unit	0x61	1	4	2	0x50e173:FUN_0050e173,0x50f12c:Unit_ActionMachine,0x56dca2:Unit_ActionDispatcher	
+unit	0x64	1	1	1	0x528c92:FUN_00528c92	
+unit	0x64	2	2	5	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	
+unit	0x64	4	18	7	0x4ea6ab:FUN_004ea6ab,0x50e173:FUN_0050e173,0x50f12c:Unit_ActionMachine	
+unit	0x64->0x0	4	1	0	0x50f12c:Unit_ActionMachine	
+unit	0x64->0x0->0x4	4	1	0	0x50f12c:Unit_ActionMachine	~magic-original:id
+unit	0x64->0x4	2	1	0	0x577359:FUN_00577359	~magic-original:id
+unit	0x64->0x4	4	1	0	0x50f12c:Unit_ActionMachine	~magic-original:id
+unit	0x64->0x8	1	1	0	0x510745:FUN_00510745	
+unit	0x64->0x28	4	2	0	0x5771e4:FUN_005771e4,0x57745b:FUN_0057745b	~ai-original:posto (centroide
+unit	0x65	1	1	1	0x528c92:FUN_00528c92	
+unit	0x66	2	2	5	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	
+unit	0x68	1	2	2	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	~combat-formulas:item em uso) [exe 0x519998].
+unit	0x68	4	13	9	0x4ea6ab:FUN_004ea6ab,0x4f515d:Server_PacketDispatcher,0x50e173:FUN_0050e173	~combat-formulas:item em uso) [exe 0x519998].
+unit	0x68->0x0	4	1	0	0x50f12c:Unit_ActionMachine	
+unit	0x68->0x0->0x4	4	1	0	0x50f12c:Unit_ActionMachine	~magic-original:id
+unit	0x68->0x4	2	1	0	0x577359:FUN_00577359	~magic-original:id
+unit	0x68->0x10	4	1	0	0x577268:FUN_00577268	~combat-formulas:x,y da célula âncora/ | ~combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x68->0x14	4	2	0	0x577f8d:FUN_00577f8d,0x5785cb:FUN_005785cb	~differential-fuzz:Unit_Regen 0x50fc5a | ~differential-fuzz:Unit_Regen
+unit	0x68->0x3c	4	1	0	0x562745:FUN_00562745	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x68->0x3c->0x48	4	1	1	0x562745:FUN_00562745	~differential-fuzz:(gatilhos do script
+unit	0x68->0x44	1	1	0	0x510745:FUN_00510745	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unit	0x68->0x54	4	1	0	0x577268:FUN_00577268	~ai-original:ação 3 golpe / 0xd magia em unidade / 0x | ~combat-formulas:do herói/humano/monstro) só calcula o da
+unit	0x68->0x70	4	1	0	0x562745:FUN_00562745	~differential-fuzz:v = S×8 (S = byte [[[u
+unit	0x68->0x70->0x3c	4	1	0	0x562745:FUN_00562745	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x68->0x70->0x3c->0x48	4	1	1	0x562745:FUN_00562745	~differential-fuzz:(gatilhos do script
+unit	0x68->0x7c	4	2	0	0x577f8d:FUN_00577f8d,0x5785cb:FUN_005785cb	~differential-fuzz:ou quando | ~ai-behaviors:/
+unit	0x69	1	2	2	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	
+unit	0x69	2	1	1	0x4ea6ab:FUN_004ea6ab	
+unit	0x6a	1	2	2	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	
+unit	0x6b	1	2	2	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	
+unit	0x6c	1	1	8	0x50f12c:Unit_ActionMachine	combat-formulas:x13c = 1, defesa ÷ 2, animação de queda | combat-formulas:no tique seguinte; acabada a animação
+unit	0x6c	2	5	1	0x562745:FUN_00562745,0x577f8d:FUN_00577f8d,0x57800b:FUN_0057800b	combat-formulas:x13c = 1, defesa ÷ 2, animação de queda | combat-formulas:no tique seguinte; acabada a animação
+unit	0x6c	4	4	0	0x50f12c:Unit_ActionMachine,0x5773aa:FUN_005773aa,0x577527:FUN_00577527	combat-formulas:x13c = 1, defesa ÷ 2, animação de queda | combat-formulas:no tique seguinte; acabada a animação
+unit	0x6e	2	1	1	0x528c92:FUN_00528c92	
+unit	0x70	4	22	4	0x4f0568:FUN_004f0568,0x4f254b:FUN_004f254b,0x4f2c83:FUN_004f2c83	~differential-fuzz:v = S×8 (S = byte [[[u
+unit	0x70[]	4	1	1	0x536ab0:FUN_00536ab0	~differential-fuzz:v = S×8 (S = byte [[[u
+unit	0x70->0x1c	4	1	0	0x52b459:FUN_0052b459	~combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+unit	0x70->0x3c	4	4	0	0x54d76e:Path_WaveSearch,0x55915a:FUN_0055915a,0x55aca2:FUN_0055aca2	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x70->0x3c->0x20	1	1	0	0x54d76e:Path_WaveSearch	~ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut
+unit	0x70->0x3c->0x44	1	1	0	0x55915a:FUN_0055915a	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unit	0x70->0x3c->0x45	1	2	3	0x55aca2:FUN_0055aca2,0x55b406:FUN_0055b406	
+unit	0x70->0x3c->0x48	4	1	0	0x55b406:FUN_0055b406	~differential-fuzz:(gatilhos do script
+unit	0x70->0x42	2	2	1	0x5776d7:FUN_005776d7,0x57855f:FUN_0057855f	
+unit	0x70->0x44	4	1	0	0x51618e:FUN_0051618e	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unit	0x70->0x44->0x2c	4	1	0	0x51618e:FUN_0051618e	~ai-original:≠ 0) → magias por 0x57a769 e | ~ai-original:max(dist + scanRange) (0x56f850
+unit	0x70->0x48	4	1	0	0x52b459:FUN_0052b459	~differential-fuzz:(gatilhos do script
+unit	0x70->0x4c	4	1	0	0x52b459:FUN_0052b459	~ai-behaviors:classe de recuo
+unit	0x71	1	1	1	0x569003:FUN_00569003	~ai-behaviors:See invisible | ~ai-behaviors:→ +0x1c4+0x40/+0x44/
+unit	0x74	2	2	0	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	~ai-original:spera da arma (0x50f6ba): com arma em | ~differential-fuzz:0164f, ficha salva a cada 15 s só com
+unit	0x74	4	36	3	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x4f1d9c:FUN_004f1d9c	~ai-original:spera da arma (0x50f6ba): com arma em | ~differential-fuzz:0164f, ficha salva a cada 15 s só com
+unit	0x74->0x3c	4	1	0	0x510a70:Unit_Die	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x74->0x40	2	1	0	0x502d67:FUN_00502d67	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unit	0x74->0x4a	2	1	0	0x50f12c:Unit_ActionMachine	~ai-original:peso (coluna 3 do item × fatores de form | ~combat-formulas:> 1
+unit	0x74->0x84	4	2	0	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	~magic-original:Body
+unit	0x74->0x84->0x8	1	1	0	0x516ceb:Unit_StrikeHit	
+unit	0x76	2	2	0	0x50f12c:Unit_ActionMachine,0x516ceb:Unit_StrikeHit	~differential-fuzz:/+9/
+unit	0x78	4	5	1	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x502d67:FUN_00502d67	magic-original:magia escolhida | magic-original:0 (padrão do New Game) só a arma
+unit	0x78->0x40	2	1	0	0x502d67:FUN_00502d67	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unit	0x7c	4	29	4	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x4f08c0:Server_Tick	differential-fuzz:ou quando | ~ai-behaviors:/
+unit	0x7c->0x4	4	2	0	0x519db8:Spell_Apply,0x55b5f1:FUN_0055b5f1	~magic-original:id
+unit	0x7c->0x8	4	4	0	0x4f3d68:Cheat_CommandParser,0x504e34:FUN_00504e34,0x5109f5:Unit_DeathLoot	
+unit	0x7c->0xc	4	5	0	0x50480d:FUN_0050480d,0x519db8:Spell_Apply,0x52b459:FUN_0052b459	~magic-original:vro (CPtrArray em +4: dados +8, tamanho | ~magic-original:mana (i16
+unit	0x7c->0x1c	4	1	1	0x4f515d:Server_PacketDispatcher	~combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+unit	0x7c->0x20	4	1	0	0x50f065:FUN_0050f065	~ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut
+unit	0x84	2	5	6	0x4e9e97:FUN_004e9e97,0x4f254b:FUN_004f254b,0x50ec60:FUN_0050ec60	magic-original:Body
+unit	0x84	4	5	4	0x502019:Server_Event,0x519db8:Spell_Apply,0x528808:FUN_00528808	magic-original:Body
+unit	0x84->0x8	1	1	0	0x528fd8:FUN_00528fd8	
+unit	0x86	2	6	7	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x4f254b:FUN_004f254b	magic-original:Reaction | ~ai-original:×5) / 12
+unit	0x88	2	8	7	0x4e9e97:FUN_004e9e97,0x4f254b:FUN_004f254b,0x50ec60:FUN_0050ec60	magic-original:Mind | ~ai-behaviors:Spell1..3/Probability1..3.
+unit	0x88	4	3	0	0x502019:Server_Event,0x519db8:Spell_Apply,0x5711ea:AI_TargetCost	magic-original:Mind | ~ai-behaviors:Spell1..3/Probability1..3.
+unit	0x8a	2	5	7	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x4f254b:FUN_004f254b	magic-original:Spirit | ~differential-fuzz:/
+unit	0x8c	1	2	0	0x5703c0:AI_GroupCmd_Move,0x57063e:AI_GroupCmd_Swarm2	~differential-fuzz:+0x70]+0x3c]+0x44] se ≠ 0, senão Speed | ~differential-fuzz:âmica, +0x74/+0x76/+9/+0x78/+0x7c/+0x8a/
+unit	0x8c	2	4	3	0x50ec60:FUN_0050ec60,0x5113e7:FUN_005113e7,0x5121e1:FUN_005121e1	~differential-fuzz:+0x70]+0x3c]+0x44] se ≠ 0, senão Speed | ~differential-fuzz:âmica, +0x74/+0x76/+9/+0x78/+0x7c/+0x8a/
+unit	0x8c	4	5	7	0x502019:Server_Event,0x534ad4:FUN_00534ad4,0x55687d:FUN_0055687d	~differential-fuzz:+0x70]+0x3c]+0x44] se ≠ 0, senão Speed | ~differential-fuzz:âmica, +0x74/+0x76/+9/+0x78/+0x7c/+0x8a/
+unit	0x8e	2	2	2	0x50ec60:FUN_0050ec60,0x50f065:FUN_0050f065	
+unit	0x90	2	2	4	0x50ec60:FUN_0050ec60,0x50f065:FUN_0050f065	
+unit	0x90	4	2	2	0x502019:Server_Event,0x534ad4:FUN_00534ad4	
+unit	0x92	2	3	2	0x50ec60:FUN_0050ec60,0x50f065:FUN_0050f065,0x5113e7:FUN_005113e7	
+unit	0x94	2	27	25	0x4f254b:FUN_004f254b,0x50ec60:FUN_0050ec60,0x50f12c:Unit_ActionMachine	magic-original:vida (continua < 0 no corpo
+unit	0x94	4	8	0	0x4f08c0:Server_Tick,0x502019:Server_Event,0x503672:FUN_00503672	magic-original:vida (continua < 0 no corpo
+unit	0x96	2	18	5	0x4ea6ab:FUN_004ea6ab,0x4f254b:FUN_004f254b,0x50ec60:FUN_0050ec60	magic-original:vida máx.
+unit	0x98	1	1	1	0x534ad4:FUN_00534ad4	magic-original:período de regeneração | ~differential-fuzz:− relógio16
+unit	0x98	2	2	1	0x50ec60:FUN_0050ec60,0x519db8:Spell_Apply	magic-original:período de regeneração | ~differential-fuzz:− relógio16
+unit	0x98	4	1	0	0x50fc5a:Unit_Regen	magic-original:período de regeneração | ~differential-fuzz:− relógio16
+unit	0x9a	2	12	7	0x4ea6ab:FUN_004ea6ab,0x4f254b:FUN_004f254b,0x50ec60:FUN_0050ec60	magic-original:mana | ~combat-formulas:só se a magia não vem de item (
+unit	0x9c	2	8	2	0x4f254b:FUN_004f254b,0x50ec60:FUN_0050ec60,0x510a26:FUN_00510a26	~differential-fuzz:r de 1/s): ferida e ds < 30 → MoveTo | ~differential-fuzz:→ MoveTo(+0x9c); ds < 10 → MoveTo
+unit	0x9c	4	5	1	0x4ea6ab:FUN_004ea6ab,0x502019:Server_Event,0x50fc5a:Unit_Regen	~differential-fuzz:r de 1/s): ferida e ds < 30 → MoveTo | ~differential-fuzz:→ MoveTo(+0x9c); ds < 10 → MoveTo
+unit	0x9e	2	1	1	0x50ec60:FUN_0050ec60	
+unit	0xa0	2	2	2	0x50ec60:FUN_0050ec60,0x5114f3:Monster_LoadTemplate	
+unit	0xa0	4	5	3	0x4ffa94:FUN_004ffa94,0x4ffada:FUN_004ffada,0x4ffb8c:FUN_004ffb8c	
+unit	0xa2	1	1	1	0x50e173:FUN_0050e173	
+unit	0xa3	1	1	1	0x50e173:FUN_0050e173	
+unit	0xa4	1	1	1	0x50ec60:FUN_0050ec60	~ai-original:ceil(dif /
+unit	0xa4	2	1	1	0x5113e7:FUN_005113e7	~ai-original:ceil(dif /
+unit	0xa4	4	4	3	0x4ffa94:FUN_004ffa94,0x4ffada:FUN_004ffada,0x4ffb8c:FUN_004ffb8c	~ai-original:ceil(dif /
+unit	0xa5	1	3	1	0x50ec60:FUN_0050ec60,0x552c28:Vision_Compute,0x56c960:FUN_0056c960	ai-behaviors:(células | ~ai-original:
+unit	0xa6	2	3	4	0x5114f3:Monster_LoadTemplate,0x514cf2:FUN_00514cf2,0x519db8:Spell_Apply	magic-original:toHit | ~magic-original:e defesa (
+unit	0xa8[]	2	8	5	0x4ea6ab:FUN_004ea6ab,0x511913:FUN_00511913,0x511959:Human_Create	magic-original:+2i habilidades (i = 1 fogo … 5 astral → | ~combat-formulas:+ 2·esfera) + Mind (
+unit	0xa8	2	1	1	0x5114f3:Monster_LoadTemplate	magic-original:+2i habilidades (i = 1 fogo … 5 astral → | ~combat-formulas:+ 2·esfera) + Mind (
+unit	0xaa	2	1	1	0x511959:Human_Create	~differential-fuzz:nº de tiques
+unit	0xac	2	1	1	0x511959:Human_Create	~differential-fuzz:contador
+unit	0xac	4	1	0	0x502019:Server_Event	~differential-fuzz:contador
+unit	0xae	2	1	1	0x511959:Human_Create	
+unit	0xb0	2	1	1	0x511959:Human_Create	
+unit	0xb0	4	1	0	0x502019:Server_Event	
+unit	0xb2	2	2	2	0x511959:Human_Create,0x514f59:Hero_InitSkills	magic-original:dades (i = 1 fogo … 5 astral → astral | ~magic-original:/ 25 + 1
+unit	0xb4	1	2	4	0x5114f3:Monster_LoadTemplate,0x5121e1:FUN_005121e1	
+unit	0xb4	4	3	1	0x502019:Server_Event,0x5121e1:FUN_005121e1,0x569003:FUN_00569003	
+unit	0xb5	1	1	3	0x5114f3:Monster_LoadTemplate	
+unit	0xb7	1	1	1	0x5114f3:Monster_LoadTemplate	
+unit	0xb8	1	1	1	0x5114f3:Monster_LoadTemplate	
+unit	0xb8	4	1	0	0x502019:Server_Event	
+unit	0xb9	1	1	1	0x5114f3:Monster_LoadTemplate	
+unit	0xba	1	1	1	0x5114f3:Monster_LoadTemplate	
+unit	0xbe	2	4	5	0x50f12c:Unit_ActionMachine,0x510534:Unit_Revive,0x510a26:FUN_00510a26	magic-original:defesa | ~magic-original:copiados do corpo (a defesa já foi divid
+unit	0xc0	4	1	0	0x502019:Server_Event	~fn:Inn_SplitNpcLists:Separa mercenarios (+0xc0) dos demais (+0xe8)
+unit	0xc4	4	2	0	0x502019:Server_Event,0x5303ed:FUN_005303ed	
+unit	0xc8	4	2	0	0x502019:Server_Event,0x5303ed:FUN_005303ed	
+unit	0xca	2	1	0	0x519db8:Spell_Apply	
+unit	0xcc	2	1	0	0x519db8:Spell_Apply	
+unit	0xcc	4	2	0	0x502019:Server_Event,0x5303ed:FUN_005303ed	
+unit	0xd0	4	1	0	0x5303ed:FUN_005303ed	~differential-fuzz:0x6904b8: +5 remetente = word [[[app]
+unit	0xd4	1	1	0	0x4e9e97:FUN_004e9e97	
+unit	0xd4	2	1	0	0x5303ed:FUN_005303ed	
+unit	0xd4	4	1	0	0x502019:Server_Event	
+unit	0xd5	1	1	0	0x4e9e97:FUN_004e9e97	
+unit	0xd6	1	1	0	0x4e9e97:FUN_004e9e97	
+unit	0xd7	1	1	0	0x4e9e97:FUN_004e9e97	
+unit	0xd8	4	2	1	0x502019:Server_Event,0x534ad4:FUN_00534ad4	
+unit	0xdc	4	1	1	0x534ad4:FUN_00534ad4	
+unit	0xe0	4	4	1	0x52f813:FUN_0052f813,0x52f8e2:FUN_0052f8e2,0x5303ed:FUN_005303ed	
+unit	0xe4	4	2	13	0x52f8e2:FUN_0052f8e2,0x5303ed:FUN_005303ed	
+unit	0xe8	1	1	1	0x534ad4:FUN_00534ad4	~fn:Inn_SplitNpcLists:Separa mercenarios (+0xc0) dos demais (+0xe8)
+unit	0xf4	1	1	1	0x51ca4d:Spell_WallObject	
+unit	0xf8[]	4	1	0	0x57a47d:FUN_0057a47d	
+unit	0xf8[]->0xa	1	1	0	0x57a47d:FUN_0057a47d	~magic-original:defensiva | ~ai-behaviors:giro
+unit	0x104	1	2	2	0x515cd8:FUN_00515cd8,0x517719:FUN_00517719	
+unit	0x108	1	1	1	0x515cd8:FUN_00515cd8	
+unit	0x108	2	17	27	0x4ed5f5:FUN_004ed5f5,0x503672:FUN_00503672,0x50480d:FUN_0050480d	
+unit	0x10c	1	1	1	0x515cd8:FUN_00515cd8	
+unit	0x114	1	4	1	0x522e5c:FUN_00522e5c,0x52765b:FUN_0052765b,0x52810d:FUN_0052810d	
+unit	0x114[]	4	2	4	0x5039e2:FUN_005039e2,0x5053a8:FUN_005053a8	
+unit	0x116[]	2	4	4	0x4ea6ab:FUN_004ea6ab,0x5132c2:FUN_005132c2,0x513497:FUN_00513497	
+unit	0x118	1	4	1	0x522e5c:FUN_00522e5c,0x52765b:FUN_0052765b,0x52810d:FUN_0052810d	magic-original:da unidade cliente = 24
+unit	0x118	2	1	1	0x517719:FUN_00517719	magic-original:da unidade cliente = 24
+unit	0x128	1	2	0	0x5110b8:Corpse_Decay,0x52b459:FUN_0052b459	
+unit	0x128	2	7	4	0x522e5c:FUN_00522e5c,0x52765b:FUN_0052765b,0x52810d:FUN_0052810d	
+unit	0x12c	1	8	2	0x502019:Server_Event,0x504ab8:FUN_00504ab8,0x50ec60:FUN_0050ec60	ai-behaviors:magia escolhida com mana, senão arma
+unit	0x130	4	4	7	0x4ea6ab:FUN_004ea6ab,0x50e173:FUN_0050e173,0x5132c2:FUN_005132c2	
+unit	0x134	1	8	4	0x504155:FUN_00504155,0x504ab8:FUN_00504ab8,0x50ec60:FUN_0050ec60	~ai-original:→ a magia sai
+unit	0x134	2	1	0	0x50f12c:Unit_ActionMachine	~ai-original:→ a magia sai
+unit	0x135	1	4	1	0x504155:FUN_00504155,0x504ab8:FUN_00504ab8,0x50ec60:FUN_0050ec60	~ai-original:+ rand(0..3) (0x51fa25(3)) + 1º inteiro 
+unit	0x136	1	6	6	0x50e173:FUN_0050e173,0x50f12c:Unit_ActionMachine,0x510534:Unit_Revive	differential-fuzz:≠ 0 | ~differential-fuzz:spera), act_cnt (+0x6c), act_ready
+unit	0x138	4	7	6	0x5040c4:FUN_005040c4,0x504155:FUN_00504155,0x5041d6:FUN_005041d6	
+unit	0x13c	1	9	8	0x4f254b:FUN_004f254b,0x50480d:FUN_0050480d,0x50e173:FUN_0050e173	combat-formulas:1 | combat-formulas:1 no tique seguinte
+unit	0x13c	4	2	0	0x5110b8:Corpse_Decay,0x519db8:Spell_Apply	combat-formulas:1 | combat-formulas:1 no tique seguinte
+unit	0x140	4	18	5	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x4f515d:Server_PacketDispatcher	magic-original:livro (CPtrArray em +4: dados +8 | ~ai-behaviors:livro de magias (0x51c391(id) → magia: +
+unit	0x140->0x0	4	1	0	0x4ea6ab:FUN_004ea6ab	
+unit	0x140->0x0->0x4	4	1	0	0x4ea6ab:FUN_004ea6ab	~magic-original:id
+unit	0x144	4	13	1	0x50e173:FUN_0050e173,0x5106d2:FUN_005106d2,0x567a16:AI_EnemyFilter	~ai-behaviors:bits de efeitos ativos | ~differential-fuzz:→ Shield
+unit	0x148	4	7	4	0x50e173:FUN_0050e173,0x510a70:Unit_Die,0x519db8:Spell_Apply	magic-original:≠ 0 | magic-original:id de quem invocou
+unit	0x14c	2	7	5	0x4f254b:FUN_004f254b,0x502019:Server_Event,0x50480d:FUN_0050480d	
+unit	0x14c	4	3	0	0x502019:Server_Event,0x510a70:Unit_Die,0x52b459:FUN_0052b459	
+unit	0x150	4	3	3	0x510484:Unit_AddHeal,0x510534:Unit_Revive,0x519db8:Spell_Apply	~magic-original:(0x4c6d05
+unit	0x158	2	2	2	0x52765b:FUN_0052765b,0x52810d:FUN_0052810d	
+unit	0x170	4	4	2	0x56fe4d:FUN_0056fe4d,0x574ba1:FUN_00574ba1,0x574f3f:FUN_00574f3f	
+unit	0x170->0x4	4	3	2	0x574ba1:FUN_00574ba1,0x574f3f:FUN_00574f3f,0x578910:Cheat_AltKeyDebugger	~magic-original:id
+unit	0x194	4	2	1	0x50e173:FUN_0050e173,0x5303ed:FUN_005303ed	
+unit	0x198	4	2	1	0x50e173:FUN_0050e173,0x5303ed:FUN_005303ed	
+unit	0x19c	4	2	1	0x50e173:FUN_0050e173,0x5303ed:FUN_005303ed	
+unit	0x1a0	4	3	3	0x50e173:FUN_0050e173,0x510a70:Unit_Die,0x519db8:Spell_Apply	combat-formulas:não deixam o que carregam | magic-original:"sem saque/sem XP" (invocada
+unit	0x1a4	2	10	4	0x4f254b:FUN_004f254b,0x502019:Server_Event,0x503672:FUN_00503672	
+unit	0x1a4	4	2	0	0x52b321:FUN_0052b321,0x52b459:FUN_0052b459	
+unit	0x1a6	2	1	1	0x50e173:FUN_0050e173	
+unit	0x1a8	4	1	0	0x4e9e97:FUN_004e9e97	
+unit	0x1b0	4	1	0	0x4f8967:FUN_004f8967	
+unit	0x1b4	4	1	1	0x4f08c0:Server_Tick	
+unit	0x1b8	4	1	2	0x4f08c0:Server_Tick	
+unit	0x1bc	4	4	4	0x4ea6ab:FUN_004ea6ab,0x4f08c0:Server_Tick,0x4f515d:Server_PacketDispatcher	
+unit	0x1c0	1	2	0	0x555411:Unit_ActionWalk,0x55574d:Unit_ActionChase	ai-original:+8 = 5 escrito só pelo construtor 0x5513 | fn:Unit_Construct:Construtor da unidade (+0x1c0+8 = 5)
+unit	0x1c0	2	4	0	0x555411:Unit_ActionWalk,0x55574d:Unit_ActionChase,0x555b38:Path_ClearDynamic	ai-original:+8 = 5 escrito só pelo construtor 0x5513 | fn:Unit_Construct:Construtor da unidade (+0x1c0+8 = 5)
+unit	0x1c0	4	56	10	0x4ea6ab:FUN_004ea6ab,0x4f08c0:Server_Tick,0x4f2c83:FUN_004f2c83	ai-original:+8 = 5 escrito só pelo construtor 0x5513 | fn:Unit_Construct:Construtor da unidade (+0x1c0+8 = 5)
+unit	0x1c0->0x0	1	9	0	0x50f12c:Unit_ActionMachine,0x55532d:FUN_0055532d,0x555c7e:FUN_00555c7e	
+unit	0x1c0->0x1	1	8	5	0x50e173:FUN_0050e173,0x50f12c:Unit_ActionMachine,0x50ff2d:FUN_0050ff2d	
+unit	0x1c0->0x5	1	4	0	0x54d76e:Path_WaveSearch,0x55c440:Path_TargetFree,0x55c5a0:Unit_FootprintCheck	
+unit	0x1c0->0x6	1	1	0	0x502019:Server_Event	
+unit	0x1c0->0x6	2	4	1	0x502019:Server_Event,0x555c7e:FUN_00555c7e,0x56d4ba:FUN_0056d4ba	
+unit	0x1c0->0x8	1	5	0	0x567911:FUN_00567911,0x567988:AI_EnemiesAroundPost,0x5679cf:FUN_005679cf	
+unit	0x1c0->0xa	1	4	2	0x50ec60:FUN_0050ec60,0x5121e1:FUN_005121e1,0x5551ef:Unit_WalkWait	~magic-original:defensiva | ~ai-behaviors:giro
+unit	0x1c0->0x70	2	2	1	0x555c7e:FUN_00555c7e,0x56fc69:FUN_0056fc69	~differential-fuzz:v = S×8 (S = byte [[[u
+unit	0x1c0->0x72	2	1	1	0x55020a:Unit_PlaceOnCells	
+unit	0x1c0->0x76	2	1	0	0x555dc2:Path_RefreshDynamic	~differential-fuzz:/+9/
+unit	0x1c0->0x7c	4	1	1	0x56d969:FUN_0056d969	~differential-fuzz:ou quando | ~ai-behaviors:/
+unit	0x1c0->0x80	2	6	3	0x54d76e:Path_WaveSearch,0x55020a:Unit_PlaceOnCells,0x55be86:FUN_0055be86	
+unit	0x1c0->0x82	1	1	1	0x55020a:Unit_PlaceOnCells	
+unit	0x1c0->0x83	1	1	1	0x55020a:Unit_PlaceOnCells	
+unit	0x1c0->0x84	1	1	1	0x55020a:Unit_PlaceOnCells	~magic-original:Body
+unit	0x1c0->0x85	1	1	1	0x55020a:Unit_PlaceOnCells	
+unit	0x1c0->0x86	1	1	1	0x55073f:FUN_0055073f	~magic-original:Reaction | ~ai-original:×5) / 12
+unit	0x1c0->0x87	1	1	1	0x55073f:FUN_0055073f	
+unit	0x1c0->0x88	1	1	1	0x55073f:FUN_0055073f	~magic-original:Mind | ~ai-behaviors:Spell1..3/Probability1..3.
+unit	0x1c0->0x89	1	1	1	0x55073f:FUN_0055073f	
+unit	0x1c0->0x90	4	3	3	0x56d032:FUN_0056d032,0x56da98:FUN_0056da98,0x56dafe:FUN_0056dafe	
+unit	0x1c0->0x98	4	1	1	0x555dc2:Path_RefreshDynamic	~magic-original:período de regeneração | ~differential-fuzz:o despachante 0x56dca2 larga a sub-taref
+unit	0x1c0->0x9c	1	1	1	0x555c7e:FUN_00555c7e	~differential-fuzz:r de 1/s): ferida e ds < 30 → MoveTo | ~differential-fuzz:→ MoveTo(+0x9c); ds < 10 → MoveTo
+unit	0x1c0->0x9d	1	1	2	0x556454:Unit_TurnStep	
+unit	0x1c0->0xa0	4	1	2	0x556454:Unit_TurnStep	
+unit	0x1c0->0xa4	1	1	3	0x556454:Unit_TurnStep	~ai-original:ceil(dif /
+unit	0x1c0->0xa8	2	1	1	0x559195:Unit_WalkFormula	~magic-original:+2i habilidades (i = 1 fogo … 5 astral → | ~differential-fuzz:passo
+unit	0x1c0->0xaa	1	1	0	0x50ff2d:FUN_0050ff2d	~differential-fuzz:nº de tiques
+unit	0x1c0->0xaa	2	2	2	0x554fd2:FUN_00554fd2,0x559195:Unit_WalkFormula	~differential-fuzz:nº de tiques
+unit	0x1c0->0xac	2	2	2	0x554fd2:FUN_00554fd2,0x555c7e:FUN_00555c7e	~differential-fuzz:contador
+unit	0x1c0->0xae	2	3	1	0x50ff2d:FUN_0050ff2d,0x554fd2:FUN_00554fd2,0x559195:Unit_WalkFormula	
+unit	0x1c0->0xb0	1	2	2	0x554fd2:FUN_00554fd2,0x559195:Unit_WalkFormula	
+unit	0x1c0->0xb1	1	2	2	0x554fd2:FUN_00554fd2,0x559195:Unit_WalkFormula	
+unit	0x1c4	1	9	0	0x56d1be:FUN_0056d1be,0x56d5b9:FUN_0056d5b9,0x56d638:FUN_0056d638	ai-original:[0] (célula atual se 0 | magic-original:IA (+8 tarefa
+unit	0x1c4	2	4	0	0x569321:AI_TaskDispatcher,0x56dca2:Unit_ActionDispatcher,0x56e986:FUN_0056e986	ai-original:[0] (célula atual se 0 | magic-original:IA (+8 tarefa
+unit	0x1c4	4	96	14	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x4f08c0:Server_Tick	ai-original:[0] (célula atual se 0 | magic-original:IA (+8 tarefa
+unit	0x1c4->0x0	1	1	0	0x56a5fc:AI_Task_Guard	
+unit	0x1c4->0x0	2	9	9	0x569b62:AI_Task_Patrol,0x56a5fc:AI_Task_Guard,0x56d4ba:FUN_0056d4ba	
+unit	0x1c4->0x2	2	2	2	0x569b62:AI_Task_Patrol,0x56d6b7:FUN_0056d6b7	
+unit	0x1c4->0x4	4	2	3	0x569b62:AI_Task_Patrol,0x56d6b7:FUN_0056d6b7	~magic-original:id
+unit	0x1c4->0x8	1	33	38	0x54d76e:Path_WaveSearch,0x56969c:AI_TeleportCast,0x5696e8:FUN_005696e8	
+unit	0x1c4->0x9	1	2	3	0x56e8c3:FUN_0056e8c3,0x56f492:FUN_0056f492	
+unit	0x1c4->0xa	2	8	12	0x56a909:FUN_0056a909,0x56c8af:AI_MoveTo,0x56c8da:FUN_0056c8da	~magic-original:defensiva | ~ai-behaviors:giro
+unit	0x1c4->0xc	4	6	4	0x56acc8:AI_Task_Attack,0x56c840:FUN_0056c840,0x56e8c3:FUN_0056e8c3	differential-fuzz:o Stand ground volta ao alvo anterior se | ~magic-original:vro (CPtrArray em +4: dados +8, tamanho
+unit	0x1c4->0x14	1	9	15	0x56969c:AI_TeleportCast,0x56acc8:AI_Task_Attack,0x56c72b:AI_CastAtTarget	~differential-fuzz:Unit_Regen 0x50fc5a | ~differential-fuzz:Unit_Regen
+unit	0x1c4->0x15	1	1	1	0x56e8c3:FUN_0056e8c3	~differential-fuzz:++
+unit	0x1c4->0x16	2	2	1	0x54d76e:Path_WaveSearch,0x5728fa:FUN_005728fa	~differential-fuzz:golden_worker.inferUnreach deduz do traç | ~differential-fuzz:− seg
+unit	0x1c4->0x18	4	1	1	0x56c960:FUN_0056c960	~differential-fuzz:Unit_ActionMachine). | ~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable
+unit	0x1c4->0x20	4	7	4	0x57240b:AI_GroupAssignTargets,0x5725a8:FUN_005725a8,0x57275f:AI_GroupGuardState1	ai-original:(0x57240b) → 0x56acc8 | ~ai-original:e o Lightning acerta 19 tiques após o in
+unit	0x1c4->0x24	2	2	2	0x5703c0:AI_GroupCmd_Move,0x57063e:AI_GroupCmd_Swarm2	
+unit	0x1c4->0x26	2	2	2	0x5703c0:AI_GroupCmd_Move,0x57063e:AI_GroupCmd_Swarm2	
+unit	0x1c4->0x28	4	2	2	0x56c72b:AI_CastAtTarget,0x56d3e6:FUN_0056d3e6	~ai-original:posto (centroide
+unit	0x1c4->0x30	4	4	4	0x56969c:AI_TeleportCast,0x56c72b:AI_CastAtTarget,0x56d3e6:FUN_0056d3e6	~ai-original:16 para o Skrakan) e grava a magia em
+unit	0x1c4->0x38	4	1	1	0x570e83:FUN_00570e83	~ai-original:max( | ~ai-original:+ 4 + rand(−1..1) (0x5726f7) e
+unit	0x1c4->0x3c	2	2	2	0x56969c:AI_TeleportCast,0x56d446:FUN_0056d446	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unit	0x1c4->0x40	4	3	9	0x56cd11:AI_Withdraw,0x57382c:AI_SetDefaultWimpy,0x57393c:FUN_0057393c	~ai-behaviors:/ | ~ai-behaviors:Withdraw
+unit	0x1c4->0x44	4	3	9	0x56cb0c:AI_Wimpy,0x57382c:AI_SetDefaultWimpy,0x573b38:FUN_00573b38	~ai-original:Wimpy e | ~ai-behaviors:Wimpy
+unit	0x1c4->0x4c	1	3	7	0x57382c:AI_SetDefaultWimpy,0x57393c:FUN_0057393c,0x573b38:FUN_00573b38	~ai-behaviors:classe de recuo
+unit	0x1c4->0x50	4	1	1	0x56dbfb:FUN_0056dbfb	~ai-original:s passam pelo mesmo despachante (tarefa | ~fn:AI_TaskDispatcher:Despachante de tarefas de IA da unidade (switch 
+unit	0x1c4->0x54	4	2	2	0x56e5bc:FUN_0056e5bc,0x56e6b8:FUN_0056e6b8	~ai-original:ação 3 golpe / 0xd magia em unidade / 0x | ~combat-formulas:do herói/humano/monstro) só calcula o da
+unit	0x1c4->0x58	2	4	4	0x569fd4:FUN_00569fd4,0x56e6b8:FUN_0056e6b8,0x571c4d:AI_GroupVisibleEnemies	~ai-original:fase | ~differential-fuzz:5 carga
+unit	0x1c4->0x5a	1	4	4	0x569fd4:FUN_00569fd4,0x56e6b8:FUN_0056e6b8,0x571c4d:AI_GroupVisibleEnemies	
+unit	0x1c4->0x60	4	10	34	0x569968:FUN_00569968,0x56a981:FUN_0056a981,0x56b059:AI_CastChosenSpell	
+unit	0x1c4->0x68	4	2	2	0x56af23:FUN_0056af23,0x56d22b:FUN_0056d22b	~combat-formulas:item em uso) [exe 0x519998].
+unit	0x1c4->0x70	1	2	0	0x5696e8:FUN_005696e8,0x569857:FUN_00569857	~differential-fuzz:v = S×8 (S = byte [[[u
+unit	0x1c4->0x71	1	3	0	0x567a16:AI_EnemyFilter,0x567b2d:AI_AlliesScan,0x567c56:FUN_00567c56	~ai-behaviors:See invisible | ~ai-behaviors:→ +0x1c4+0x40/+0x44/
+unit	0x1c4->0x78	1	6	2	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x4f2c83:FUN_004f2c83	magic-original:Magia escolhida | ~magic-original:magia escolhida
+unit	0x1c4->0x7c[]	4	2	1	0x511959:Human_Create,0x56acc8:AI_Task_Attack	~differential-fuzz:ou quando | ~ai-behaviors:/
+unit	0x1c4->0x88[]	4	2	1	0x511959:Human_Create,0x56acc8:AI_Task_Attack	~magic-original:Mind | ~ai-behaviors:Spell1..3/Probability1..3.
+unit	0x1c4->0x94	4	1	1	0x56e6b8:FUN_0056e6b8	~magic-original:vida (continua < 0 no corpo
+unit	0x1c4->0x98	4	2	1	0x56e6b8:FUN_0056e6b8,0x5728fa:FUN_005728fa	~magic-original:período de regeneração | ~differential-fuzz:− relógio16
+unit	0x1c4->0x9c	2	2	1	0x56e6b8:FUN_0056e6b8,0x5728fa:FUN_005728fa	~differential-fuzz:r de 1/s): ferida e ds < 30 → MoveTo | ~differential-fuzz:→ MoveTo(+0x9c); ds < 10 → MoveTo
+unit	0x1c4->0x9e	1	1	2	0x5728fa:FUN_005728fa	
+unit	0x1c4->0xa0	2	1	0	0x5728fa:FUN_005728fa	
+unit	0x1c4->0xa4	4	2	1	0x56bc7b:AI_Autocast,0x56c72b:AI_CastAtTarget	~ai-original:ceil(dif /
+unit	0x1c4->0xa8	4	2	1	0x56bc7b:AI_Autocast,0x56c72b:AI_CastAtTarget	~magic-original:+2i habilidades (i = 1 fogo … 5 astral → | ~combat-formulas:+ 2·esfera) + Mind (
+unit	0x1c4->0xac	4	1	1	0x57977a:FUN_0057977a	~differential-fuzz:contador
+unit	0x1c4->0xb0	2	1	1	0x5503af:FUN_005503af	
+unit	0x1c4->0xb4	4	3	0	0x569b62:AI_Task_Patrol,0x56d6b7:FUN_0056d6b7,0x56f492:FUN_0056f492	differential-fuzz:por lista de pontos (0x569b62, lista | ~fn:AI_Task_Patrol:Tarefa 0xa: patrulha por lista de pontos (+0x1c4
+unit	0x200	4	1	1	0x50e173:FUN_0050e173	
+unit	0x204	4	3	2	0x4f0568:FUN_004f0568,0x50480d:FUN_0050480d,0x50e173:FUN_0050e173	
+unit	0x208[]	4	1	0	0x4e9e97:FUN_004e9e97	
+unit	0x218	1	1	0	0x502019:Server_Event	
+unit	0x218	2	2	1	0x502019:Server_Event,0x5121e1:FUN_005121e1	
+unit	0x228	1	1	0	0x502019:Server_Event	
+unit	0x228	2	2	1	0x502019:Server_Event,0x5121e1:FUN_005121e1	
+unit	0x23c	4	4	3	0x4ea6ab:FUN_004ea6ab,0x514cf2:FUN_00514cf2,0x514f59:Hero_InitSkills	
+unit	0x23c[]	4	1	1	0x513497:FUN_00513497	
+unit	0x240	4	3	1	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x502019:Server_Event	
+unit	0x244	4	3	1	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x502019:Server_Event	
+unit	0x248	4	3	1	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x502019:Server_Event	
+unit	0x24c	4	3	1	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x502019:Server_Event	
+unit	0x250	4	3	1	0x4e9e97:FUN_004e9e97,0x4ea6ab:FUN_004ea6ab,0x502019:Server_Event	
+unit	0x258	2	5	1	0x502019:Server_Event,0x50fc5a:Unit_Regen,0x5121e1:FUN_005121e1	
+unit	0x260	4	1	0	0x50abcd:FUN_0050abcd	
+unit	0x264	4	1	1	0x50abcd:FUN_0050abcd	
+unit	0x268	2	3	2	0x502019:Server_Event,0x50fc5a:Unit_Regen,0x569968:FUN_00569968	
+unit	0x268	4	1	2	0x50abcd:FUN_0050abcd	
+unit	0x278	2	1	0	0x50fc5a:Unit_Regen	
+unit	0x288	1	1	1	0x50fc5a:Unit_Regen	
+unit	0x28c	1	1	1	0x50fc5a:Unit_Regen	
+unit	0x294	1	5	1	0x559eed:FUN_00559eed,0x56a5fc:AI_Task_Guard,0x56cb8c:FUN_0056cb8c	
+unit	0x298	2	1	0	0x502019:Server_Event	
+unit	0x2a0[]	2	1	1	0x52f8e2:FUN_0052f8e2	
+unit	0x2a8	1	1	0	0x502019:Server_Event	
+unit	0x2b8	1	1	0	0x502019:Server_Event	
+unit	0x2c8	1	1	0	0x502019:Server_Event	
+unit	0x2d4	1	2	1	0x502019:Server_Event,0x5121e1:FUN_005121e1	
+unit	0x2dc	1	1	0	0x502019:Server_Event	
+unit	0x2e4	1	1	0	0x502019:Server_Event	
+unit	0x2e8	1	1	0	0x502019:Server_Event	
+unit	0x2f8	2	1	0	0x502019:Server_Event	
+unit	0x318	1	1	0	0x502019:Server_Event	
+unit	0x318	4	1	1	0x536ab0:FUN_00536ab0	
+unit	0x328	1	1	0	0x502019:Server_Event	
+unit	0x354	1	1	0	0x502019:Server_Event	
+unit	0x358	1	1	0	0x502019:Server_Event	
+unit	0x35c	1	1	0	0x502019:Server_Event	
+unit	0x374	4	1	1	0x534ad4:FUN_00534ad4	
+unit	0x378	2	1	0	0x50fc5a:Unit_Regen	
+unit	0x378	4	1	1	0x534ad4:FUN_00534ad4	
+unit	0x37c	4	1	1	0x534ad4:FUN_00534ad4	
+unit	0x380	4	1	1	0x534ad4:FUN_00534ad4	
+unit	0x384	4	1	1	0x534ad4:FUN_00534ad4	
+unit	0x388	2	1	0	0x50fc5a:Unit_Regen	
+unit	0x388	4	1	1	0x534ad4:FUN_00534ad4	
+unit	0x38c	4	1	1	0x534ad4:FUN_00534ad4	
+unit	0x3a0[]	2	1	0	0x52f8e2:FUN_0052f8e2	
+unit	0x408[]	2	1	1	0x5175fc:FUN_005175fc	
+unit	0x438[]	1	1	1	0x5175fc:FUN_005175fc	
+unit	0x458[]	2	1	1	0x52f8e2:FUN_0052f8e2	
+unit	0x4d4	1	1	1	0x5121e1:FUN_005121e1	
+unit	0x4d8	1	1	0	0x4f04cf:Server_WorldTick	
+unit	0x4dc	4	7	1	0x50827e:FUN_0050827e,0x50839f:FUN_0050839f,0x5084a7:FUN_005084a7	
+unit	0x4e0	4	4	0	0x5082e0:FUN_005082e0,0x50839f:FUN_0050839f,0x5083f5:FUN_005083f5	
+unit	0x4e4	4	2	0	0x50abcd:FUN_0050abcd,0x50b10d:FUN_0050b10d	
+unit	0x520	4	1	0	0x52bbb7:World_SecondTick	
+unit	0x56c	4	3	0	0x50827e:FUN_0050827e,0x509603:FUN_00509603,0x50af9c:FUN_0050af9c	
+unit	0x570	4	1	0	0x50b153:FUN_0050b153	
+unit	0x570->0x4[]	4	1	0	0x50b153:FUN_0050b153	~magic-original:id
+unit	0x594	4	2	0	0x509603:FUN_00509603,0x50af9c:FUN_0050af9c	
+unit	0x598	4	4	4	0x5082e0:FUN_005082e0,0x5083f5:FUN_005083f5,0x5093d8:FUN_005093d8	
+unit	0x5a0	4	1	1	0x5093d8:FUN_005093d8	
+unit	0x5b4	4	3	0	0x50abcd:FUN_0050abcd,0x50af9c:FUN_0050af9c,0x50b153:FUN_0050b153	
+unit	0x5b4->0x0	4	1	0	0x50af9c:FUN_0050af9c	
+unit	0x5b4->0x0->0x10	4	1	0	0x50af9c:FUN_0050af9c	~combat-formulas:x,y da célula âncora/ | ~combat-formulas:fica na célula do CANTO SUPERIOR ESQUERD
+unit	0x5b4->0x0->0x24	4	1	0	0x50af9c:FUN_0050af9c	
+unit	0x5b8	4	1	1	0x50af9c:FUN_0050af9c	
+unit	0x5bc	4	1	1	0x50af9c:FUN_0050af9c	
+unit	0x5c4	4	1	1	0x50abcd:FUN_0050abcd	
+unit	0x698	2	2	2	0x52b321:FUN_0052b321,0x52b459:FUN_0052b459	
+unit	0x710	4	2	0	0x57240b:AI_GroupAssignTargets,0x5725a8:FUN_005725a8	
+unit	0x710->0x20	4	2	2	0x57240b:AI_GroupAssignTargets,0x5725a8:FUN_005725a8	~ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut
+unit	0x7f4	4	1	0	0x50abcd:FUN_0050abcd	
+unit	0x7fc	4	1	0	0x50b153:FUN_0050b153	
+unit	0xa44	1	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa48	4	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa4c	4	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa50	4	8	1	0x515cd8:FUN_00515cd8,0x56dca2:Unit_ActionDispatcher,0x56e4ac:Unit_WalkNear	
+unit	0xa50->0xa456c	4	1	0	0x56ed4e:FUN_0056ed4e	
+unit	0xa54	4	1	1	0x515cd8:FUN_00515cd8	~ai-original:icado; tabela de preferência por classe
+unit	0xa58	4	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa5c	4	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa60	4	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa64	4	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa68	4	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa6c	2	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa74	4	1	1	0x515cd8:FUN_00515cd8	
+unit	0xa78	1	1	1	0x515cd8:FUN_00515cd8	~fn:Cheat_IsCheater:Jogador trapaceiro: byte +0xa78 > 50
+unit	0x2914	1	1	1	0x515cd8:FUN_00515cd8	
+unit	0xbbe8	4	1	0	0x56dca2:Unit_ActionDispatcher	
+unit	0xbd98	4	1	2	0x56dca2:Unit_ActionDispatcher	
+unit	0xbd9c	4	1	1	0x56dca2:Unit_ActionDispatcher	
+unit	0xbda0	4	1	1	0x56dca2:Unit_ActionDispatcher	
+unit	0xbdc4	4	1	2	0x56dca2:Unit_ActionDispatcher	
+unit	0xbdc8	4	1	2	0x56dca2:Unit_ActionDispatcher	
+unit	0xbdcc	4	1	1	0x56dca2:Unit_ActionDispatcher	
+group	0x0	4	27	25	0x401950:FUN_00401950,0x41ee60:FUN_0041ee60,0x420ce0:FUN_00420ce0	
+group	0x4	4	51	25	0x41ee60:FUN_0041ee60,0x4209e0:FUN_004209e0,0x420c00:FUN_00420c00	~magic-original:id
+group	0x4->0x0[]	4	1	1	0x420c00:FUN_00420c00	
+group	0x4->0x0	4	3	0	0x53f160:FUN_0053f160,0x54c7b0:FUN_0054c7b0,0x55f110:FUN_0055f110	
+group	0x4->0x2	2	1	0	0x55f110:FUN_0055f110	
+group	0x4->0x4	4	4	4	0x53f160:FUN_0053f160,0x544df0:FUN_00544df0,0x54c7b0:FUN_0054c7b0	~magic-original:id
+group	0x4->0x8	4	2	0	0x53f160:FUN_0053f160,0x54c7b0:FUN_0054c7b0	
+group	0x8	4	40	30	0x41ee60:FUN_0041ee60,0x4209c0:FUN_004209c0,0x4209e0:FUN_004209e0	
+group	0x8->0x4	4	1	0	0x57b080:FUN_0057b080	~magic-original:id
+group	0x8->0x8	4	1	0	0x57b080:FUN_0057b080	
+group	0xc	4	21	23	0x4209e0:FUN_004209e0,0x450800:FUN_00450800,0x4e46c0:FUN_004e46c0	~ai-behaviors:alvo | ~ai-behaviors:mana
+group	0x10	4	19	20	0x4209e0:FUN_004209e0,0x4f89d1:Cheat_SummonUnits,0x53a210:FUN_0053a210	~ai-behaviors:objeto no mapa (célula = 0x54ff9e | ~differential-fuzz:índice da magia (tabela 0x5f8120
+group	0x14	4	8	7	0x4f89d1:Cheat_SummonUnits,0x53a260:FUN_0053a260,0x53b230:FUN_0053b230	differential-fuzz:Unit_Regen 0x50fc5a | ~ai-behaviors:jogador (
+group	0x18	4	2	0	0x53c830:FUN_0053c830,0x544b40:FUN_00544b40	~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable | ~differential-fuzz:c279 (lista +4: objetos/efeitos, vtable
+group	0x18	8	1	1	0x525606:Shop_GaussianWeightsDead	~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable | ~differential-fuzz:c279 (lista +4: objetos/efeitos, vtable
+group	0x1c	4	3	0	0x529ac2:Pack_AddItem,0x52f8e2:FUN_0052f8e2,0x5303ed:FUN_005303ed	~combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+group	0x20	4	4	8	0x529ae2:FUN_00529ae2,0x529c96:FUN_00529c96,0x529f3f:FUN_00529f3f	ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut
+group	0x34	4	6	3	0x4f515d:Server_PacketDispatcher,0x52469e:FUN_0052469e,0x524768:FUN_00524768	~ai-behaviors:→ ajustes de IA do jogador
+group	0x34->0x20	1	1	1	0x4f515d:Server_PacketDispatcher	~ai-original:e o Lightning acerta 19 tiques após o in | ~ai-behaviors:padrão do New Game = 0x19 (Average + só 
+group	0x38	4	7	3	0x4f515d:Server_PacketDispatcher,0x52469e:FUN_0052469e,0x524768:FUN_00524768	differential-fuzz:geometria | ~ai-original:max(
+group	0x38->0x94	2	1	0	0x4f515d:Server_PacketDispatcher	~magic-original:vida (continua < 0 no corpo
+group	0x3c	4	26	1	0x52aeff:FUN_0052aeff,0x52f8e2:FUN_0052f8e2,0x56f850:AI_GroupMaxScanRange	ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+group	0x3c->0xa	1	1	0	0x572ec4:FUN_00572ec4	~ai-behaviors:giro | ~ai-behaviors:defensiva
+group	0x3c->0xa	2	6	5	0x5700f3:AI_GroupThink,0x5703c0:AI_GroupCmd_Move,0x57063e:AI_GroupCmd_Swarm2	~ai-behaviors:giro | ~ai-behaviors:defensiva
+group	0x3c->0x15	1	2	3	0x5708ff:FUN_005708ff,0x572ec4:FUN_00572ec4	~differential-fuzz:++
+group	0x3c->0x20	1	14	13	0x5700f3:AI_GroupThink,0x5702be:FUN_005702be,0x57033d:FUN_0057033d	ai-original:Guard | fn:AI_GroupThink:Executa o comando do grupo (+0x3c+0x20)
+group	0x3c->0x24	4	2	2	0x56f850:AI_GroupMaxScanRange,0x56fa63:AI_GroupCentroid	
+group	0x3c->0x28	2	5	2	0x56f850:AI_GroupMaxScanRange,0x56fa63:AI_GroupCentroid,0x57026e:FUN_0057026e	~ai-original:posto (centroide
+group	0x3c->0x2a	1	2	2	0x56f850:AI_GroupMaxScanRange,0x56fa63:AI_GroupCentroid	~ai-original:/
+group	0x3c->0x2b	1	2	2	0x56f850:AI_GroupMaxScanRange,0x56fa63:AI_GroupCentroid	~ai-original:/
+group	0x3c->0x2c	1	3	2	0x56f850:AI_GroupMaxScanRange,0x56fa63:AI_GroupCentroid,0x57026e:FUN_0057026e	~ai-original:max(dist + scanRange) (0x56f850 | ~ai-original:+0x2d raio = max
+group	0x3c->0x2d	1	7	7	0x57026e:FUN_0057026e,0x5709d9:AI_GroupCmd_Guard,0x570aba:AI_GuardLoad	~ai-original:raio = max( | ~ai-original:do centroide
+group	0x3c->0x30	4	2	4	0x57275f:AI_GroupGuardState1,0x5728fa:FUN_005728fa	
+group	0x3c->0x34	4	2	8	0x57275f:AI_GroupGuardState1,0x5728fa:FUN_005728fa	~ai-behaviors:→ ajustes de IA do jogador
+group	0x3c->0x38	1	5	5	0x57026e:FUN_0057026e,0x5709d9:AI_GroupCmd_Guard,0x570aba:AI_GuardLoad	~differential-fuzz:geometria | ~ai-original:max(
+group	0x3c->0x39	1	2	2	0x5709d9:AI_GroupCmd_Guard,0x570aba:AI_GuardLoad	
+group	0x3c->0x44	1	3	2	0x5703c0:AI_GroupCmd_Move,0x57063e:AI_GroupCmd_Swarm2,0x573198:FUN_00573198	~ai-behaviors:Wimpy | ~ai-behaviors:/
+group	0x3c->0x45	1	1	0	0x570087:AI_PlayerThink	differential-fuzz:Grupos dormindo
+group	0x3c->0x48	4	1	1	0x52f8e2:FUN_0052f8e2	~differential-fuzz:(gatilhos do script
+group	0x43	1	1	1	0x4f515d:Server_PacketDispatcher	
+group	0x44	4	4	1	0x52af8c:FUN_0052af8c,0x562745:FUN_00562745,0x5703c0:AI_GroupCmd_Move	~ai-behaviors:Wimpy | ~ai-behaviors:/
+group	0x44->0x34	4	2	0	0x5703c0:AI_GroupCmd_Move,0x57063e:AI_GroupCmd_Swarm2	~ai-behaviors:→ ajustes de IA do jogador
+group	0x44->0x34->0x1f	1	2	0	0x5703c0:AI_GroupCmd_Move,0x57063e:AI_GroupCmd_Swarm2	
+group	0x48	4	1	0	0x5303ed:FUN_005303ed	~differential-fuzz:(gatilhos do script
+group	0x4c	4	1	0	0x5303ed:FUN_005303ed	~ai-behaviors:classe de recuo
+group	0x54	4	2	1	0x5254e7:Shop_Init,0x525f67:Shop_Gen	~ai-original:ação 3 golpe / 0xd magia em unidade / 0x | ~differential-fuzz:1 depois de golpeado.
+group	0x108	2	2	1	0x44f5b0:FUN_0044f5b0,0x53da20:FUN_0053da20	
+group	0x10c	4	1	0	0x41ee40:FUN_0041ee40	
+group	0x260	4	3	1	0x500060:FUN_00500060,0x50036a:FUN_0050036a,0x540400:FUN_00540400	
+group	0x298	4	1	0	0x50036a:FUN_0050036a	
+group	0x29c	4	1	0	0x53ddd0:Cheat_IsOperator	~fn:Cheat_IsOperator:Flag de operador/host (+0x29c)
+group	0x2a0	4	2	1	0x4936e0:FUN_004936e0,0x53dec0:FUN_0053dec0	
+group	0xa64	4	1	1	0x4f515d:Server_PacketDispatcher	
+player	0x0	4	1	0	0x53b010:FUN_0053b010	
+player	0x0->0x4	4	1	0	0x53b010:FUN_0053b010	
+player	0x4	1	2	0	0x4f0cbe:FUN_004f0cbe,0x504d39:FUN_00504d39	magic-original:id
+player	0x4	2	28	0	0x4f0cbe:FUN_004f0cbe,0x4f1d9c:FUN_004f1d9c,0x4f3d68:Cheat_CommandParser	magic-original:id
+player	0x4	4	1	0	0x5162f6:FUN_005162f6	magic-original:id
+player	0x8	1	2	0	0x4f0cbe:FUN_004f0cbe,0x504d39:FUN_00504d39	
+player	0x10	4	1	1	0x4f0cbe:FUN_004f0cbe	ai-behaviors:objeto no mapa (célula = 0x54ff9e | ~differential-fuzz:índice da magia (tabela 0x5f8120
+player	0x14	4	1	1	0x4f0cbe:FUN_004f0cbe	ai-behaviors:jogador ( | differential-fuzz:Unit_Regen 0x50fc5a
+player	0x24	4	7	0	0x4f254b:FUN_004f254b,0x4f2c83:FUN_004f2c83,0x4f3d68:Cheat_CommandParser	
+player	0x28	4	4	0	0x4f254b:FUN_004f254b,0x4f2c83:FUN_004f2c83,0x5162f6:FUN_005162f6	~ai-original:posto (centroide
+player	0x2c	4	5	0	0x4f0cbe:FUN_004f0cbe,0x4f3d68:Cheat_CommandParser,0x4f856a:FUN_004f856a	ai-behaviors:≠ 0 → jogador de IA | ai-original:≠ 0) → magias por 0x57a769 e
+player	0x30	2	16	0	0x4f1d9c:FUN_004f1d9c,0x4f254b:FUN_004f254b,0x4f515d:Server_PacketDispatcher	
+player	0x32	2	1	1	0x4f1d9c:FUN_004f1d9c	
+player	0x38	4	9	1	0x4f1d9c:FUN_004f1d9c,0x4f254b:FUN_004f254b,0x4f2c83:FUN_004f2c83	~ai-original:max( | ~ai-original:+ 4 + rand(−1..1) (0x5726f7) e
+player	0x38->0x6	2	1	1	0x4f856a:FUN_004f856a	
+player	0x38->0x10	4	2	0	0x4f1d9c:FUN_004f1d9c,0x4f3d68:Cheat_CommandParser	~ai-behaviors:objeto no mapa (célula = 0x54ff9e | ~differential-fuzz:índice da magia (tabela 0x5f8120
+player	0x38->0x14	4	1	0	0x4f3d68:Cheat_CommandParser	~ai-behaviors:jogador ( | ~differential-fuzz:Unit_Regen 0x50fc5a
+player	0x38->0x74	4	1	0	0x5325ee:Cheat_ShopNoCeiling	~ai-original:spera da arma (0x50f6ba): com arma em | ~differential-fuzz:0164f, ficha salva a cada 15 s só com
+player	0x38->0x78	4	1	0	0x5325ee:Cheat_ShopNoCeiling	~magic-original:magia escolhida | ~ai-behaviors:magia escolhida
+player	0x38->0x7c	4	2	1	0x4f3d68:Cheat_CommandParser,0x4f856a:FUN_004f856a	~ai-behaviors:/ | ~differential-fuzz:ou quando
+player	0x38->0x84	2	1	0	0x5325ee:Cheat_ShopNoCeiling	~magic-original:Body
+player	0x38->0x86	2	1	0	0x5325ee:Cheat_ShopNoCeiling	~magic-original:Reaction | ~ai-original:×5) / 12
+player	0x38->0x88	2	1	0	0x5325ee:Cheat_ShopNoCeiling	~magic-original:Mind | ~ai-behaviors:Spell1..3/Probability1..3.
+player	0x38->0x8a	2	1	0	0x5325ee:Cheat_ShopNoCeiling	~magic-original:Spirit | ~differential-fuzz:/
+player	0x38->0x94	2	1	0	0x4f856a:FUN_004f856a	~magic-original:vida (continua < 0 no corpo
+player	0x38->0xa8[]	2	1	0	0x5325ee:Cheat_ShopNoCeiling	~magic-original:+2i habilidades (i = 1 fogo … 5 astral → | ~combat-formulas:+ 2·esfera) + Mind (
+player	0x38->0x130	4	1	0	0x5325ee:Cheat_ShopNoCeiling	
+player	0x38->0x13c	1	2	0	0x4f3d68:Cheat_CommandParser,0x4f856a:FUN_004f856a	~magic-original:estado do corpo | ~combat-formulas:1
+player	0x38->0x140	4	2	0	0x4f3d68:Cheat_CommandParser,0x5325ee:Cheat_ShopNoCeiling	~magic-original:livro (CPtrArray em +4: dados +8 | ~ai-behaviors:livro de magias (0x51c391(id) → magia: +
+player	0x38->0x1bc	4	1	0	0x504d39:FUN_00504d39	
+player	0x38->0x208[]	4	1	0	0x5325ee:Cheat_ShopNoCeiling	
+player	0x3c	4	1	1	0x516238:Cheat_CreateGold	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+player	0x40	1	2	5	0x4f1d9c:FUN_004f1d9c,0x4f856a:FUN_004f856a	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+player	0x41	1	2	1	0x4f1d9c:FUN_004f1d9c,0x4f856a:FUN_004f856a	
+player	0x42	1	1	0	0x4f856a:FUN_004f856a	
+player	0x43	1	2	1	0x4f1d9c:FUN_004f1d9c,0x5160ef:FUN_005160ef	
+player	0x44[]	1	1	0	0x505582:FUN_00505582	~ai-behaviors:Wimpy | ~ai-behaviors:/
+player	0x104	1	1	0	0x5162f6:FUN_005162f6	
+player	0x108	1	1	1	0x4f0cbe:FUN_004f0cbe	
+player	0xa44	1	2	1	0x4f0cbe:FUN_004f0cbe,0x504d39:FUN_00504d39	
+player	0xa45	1	1	0	0x516942:FUN_00516942	
+player	0xa50	4	2	1	0x4f0cbe:FUN_004f0cbe,0x5162f6:FUN_005162f6	
+player	0xa64	4	1	1	0x4f856a:FUN_004f856a	
+player	0xa68	4	1	1	0x5162f6:FUN_005162f6	
+player	0xa6c	2	2	1	0x4f1d9c:FUN_004f1d9c,0x4f2c83:FUN_004f2c83	
+player	0xa78	1	2	1	0x53dd90:Cheat_IsCheater,0x53ddb0:Cheat_SetCheater	fn:Cheat_IsCheater:Jogador trapaceiro: byte +0xa78 > 50
+player	0x2914	1	1	1	0x4f0cbe:FUN_004f0cbe	
+world	0x0[]	1	7	5	0x550a96:FUN_00550a96,0x554626:FUN_00554626,0x55a147:FUN_0055a147	
+world	0x0	4	11	3	0x4029c0:FUN_004029c0,0x4029e0:FUN_004029e0,0x402a20:FUN_00402a20	
+world	0x0->0x0[]	1	1	0	0x4029e0:FUN_004029e0	
+world	0x0->0x4	4	1	0	0x4ec732:FUN_004ec732	
+world	0x4	2	1	0	0x5303ed:FUN_005303ed	magic-original:id
+world	0x4	4	5	2	0x4e2b5d:FUN_004e2b5d,0x4ec732:FUN_004ec732,0x4f04cf:Server_WorldTick	magic-original:id
+world	0x8	4	1	1	0x4e2b5d:FUN_004e2b5d	
+world	0xc	4	2	0	0x4f04cf:Server_WorldTick,0x5056f1:FUN_005056f1	magic-original:vro (CPtrArray em +4: dados +8, tamanho | ~ai-behaviors:alvo
+world	0xd	2	1	3	0x502d67:FUN_00502d67	
+world	0x11	2	2	10	0x4edbaf:FUN_004edbaf,0x5241bf:FUN_005241bf	
+world	0x13[]	1	1	7	0x5241bf:FUN_005241bf	~differential-fuzz:ids) entregue por 0x670e50.0x50164f pela
+world	0x14[]	1	1	3	0x5241bf:FUN_005241bf	differential-fuzz:Unit_Regen 0x50fc5a | combat-formulas:_tiddata
+world	0x16[]	2	1	1	0x5241bf:FUN_005241bf	~differential-fuzz:é gravado no caminho ESTÁTICO da | ~differential-fuzz:golden_worker.inferUnreach deduz do traç
+world	0x16[]	4	1	1	0x5241bf:FUN_005241bf	~differential-fuzz:é gravado no caminho ESTÁTICO da | ~differential-fuzz:golden_worker.inferUnreach deduz do traç
+world	0x24	4	1	0	0x5303ed:FUN_005303ed	
+world	0x28	4	1	0	0x5303ed:FUN_005303ed	~ai-original:posto (centroide
+world	0x2c	4	1	0	0x5303ed:FUN_005303ed	differential-fuzz:vtable | ~ai-behaviors:≠ 0 → jogador de IA
+world	0x30	4	1	0	0x56fe4d:FUN_0056fe4d	
+world	0x34	4	1	0	0x56fe4d:FUN_0056fe4d	~ai-behaviors:→ ajustes de IA do jogador
+world	0x60	4	1	0	0x56fe4d:FUN_0056fe4d	
+world	0x70	4	1	0	0x4f0cbe:FUN_004f0cbe	~differential-fuzz:v = S×8 (S = byte [[[u
+world	0x74	4	9	0	0x4e9816:FUN_004e9816,0x4f0cbe:FUN_004f0cbe,0x4f1d9c:FUN_004f1d9c	differential-fuzz:0164f, ficha salva a cada 15 s só com | ~ai-original:spera da arma (0x50f6ba): com arma em
+world	0x7c	4	8	1	0x4ec732:FUN_004ec732,0x4f1d9c:FUN_004f1d9c,0x4f3cad:FUN_004f3cad	~ai-behaviors:/ | ~differential-fuzz:ou quando
+world	0x7c->0x4	4	2	1	0x4ec732:FUN_004ec732,0x4f1d9c:FUN_004f1d9c	~magic-original:id
+world	0x7c->0x8	4	4	0	0x4ec732:FUN_004ec732,0x4f1d9c:FUN_004f1d9c,0x4f3d68:Cheat_CommandParser	
+world	0x7c->0xc	4	3	0	0x4ec732:FUN_004ec732,0x4f1d9c:FUN_004f1d9c,0x4f856a:FUN_004f856a	~magic-original:vro (CPtrArray em +4: dados +8, tamanho | ~ai-behaviors:alvo
+world	0x90	4	1	0	0x56fe4d:FUN_0056fe4d	
+world	0x94	4	3	2	0x4ec732:FUN_004ec732,0x4f0cbe:FUN_004f0cbe,0x4f89d1:Cheat_SummonUnits	magic-original:vida (continua < 0 no corpo
+world	0xc0	4	1	0	0x56fe4d:FUN_0056fe4d	~fn:Inn_SplitNpcLists:Separa mercenarios (+0xc0) dos demais (+0xe8)
+world	0xd4	4	2	0	0x4ec732:FUN_004ec732,0x4f1d9c:FUN_004f1d9c	
+world	0xd8	4	1	1	0x4ec732:FUN_004ec732	
+world	0x114[]	4	1	2	0x503bef:FUN_00503bef	
+world	0x170	4	1	0	0x4ec732:FUN_004ec732	
+world	0x174	4	1	0	0x4ec732:FUN_004ec732	
+world	0x17c	4	1	0	0x4ec732:FUN_004ec732	
+world	0x180	4	1	0	0x4ec732:FUN_004ec732	
+world	0x184	4	1	0	0x4ec732:FUN_004ec732	
+world	0x188	4	1	0	0x4ec732:FUN_004ec732	
+world	0x18c	4	1	0	0x4ec732:FUN_004ec732	
+world	0x190	4	1	0	0x4ec732:FUN_004ec732	
+world	0x194	4	1	0	0x4ec732:FUN_004ec732	
+world	0x198	4	1	0	0x4ec732:FUN_004ec732	
+world	0x19c	4	1	0	0x4ec732:FUN_004ec732	
+world	0x1a0	4	1	0	0x4ec732:FUN_004ec732	magic-original:"sem saque/sem XP" (invocada | ~combat-formulas:não deixam o que carregam
+world	0x1a4	4	1	0	0x4f3cad:FUN_004f3cad	
+world	0x1a8	4	1	0	0x4f515d:Server_PacketDispatcher	
+world	0x1cc	4	1	0	0x4f0cbe:FUN_004f0cbe	
+world	0x3f8[]	4	1	5	0x55aca2:FUN_0055aca2	
+world	0x3fc[]	2	1	0	0x55b507:FUN_0055b507	
+world	0x3fc[]	4	1	5	0x55aca2:FUN_0055aca2	
+world	0x400[]	4	1	5	0x55aca2:FUN_0055aca2	
+world	0x404[]	2	1	0	0x55b507:FUN_0055b507	
+world	0x404[]	4	3	5	0x55aca2:FUN_0055aca2,0x55b406:FUN_0055b406,0x55b5f1:FUN_0055b5f1	
+world	0x408[]	4	1	5	0x55aca2:FUN_0055aca2	
+world	0x4dc	4	1	0	0x508618:FUN_00508618	
+world	0x4e0	4	1	0	0x508618:FUN_00508618	
+world	0x56c	4	1	0	0x508618:FUN_00508618	
+world	0x598	4	1	0	0x508618:FUN_00508618	
+world	0x8b0	4	4	4	0x5680ba:FUN_005680ba,0x56811b:FUN_0056811b,0x5688d7:FUN_005688d7	
+world	0x8b4	4	4	4	0x5680ba:FUN_005680ba,0x56811b:FUN_0056811b,0x5688d7:FUN_005688d7	
+world	0x8bc	4	1	1	0x56fe4d:FUN_0056fe4d	
+world	0x8c0	4	1	1	0x56fe4d:FUN_0056fe4d	
+world	0x8dc	4	1	1	0x56fe4d:FUN_0056fe4d	
+world	0x8e0	4	1	1	0x56fe4d:FUN_0056fe4d	
+world	0x8e4	4	1	1	0x56fe4d:FUN_0056fe4d	
+world	0x8e8	4	1	1	0x56fe4d:FUN_0056fe4d	
+world	0x8ec	4	1	1	0x56fe4d:FUN_0056fe4d	
+world	0x8f0	4	1	1	0x56fe4d:FUN_0056fe4d	
+world	0xa48	1	4	3	0x5680ba:FUN_005680ba,0x56811b:FUN_0056811b,0x5688d7:FUN_005688d7	
+world	0xa49	1	2	1	0x5688d7:FUN_005688d7,0x57468d:FUN_0057468d	
+world	0xa4c	4	5	4	0x5680ba:FUN_005680ba,0x56811b:FUN_0056811b,0x5688d7:FUN_005688d7	
+world	0xa50	4	41	2	0x5303ed:FUN_005303ed,0x567911:FUN_00567911,0x567988:AI_EnemiesAroundPost	
+world	0xa50->0x58e88[]	1	3	0	0x56a981:FUN_0056a981,0x56b059:AI_CastChosenSpell,0x572ec4:FUN_00572ec4	
+world	0xa50->0x58e90[]	1	3	0	0x56a981:FUN_0056a981,0x56b059:AI_CastChosenSpell,0x572ec4:FUN_00572ec4	
+world	0xa50->0x58eb8	1	2	0	0x56d032:FUN_0056d032,0x572ec4:FUN_00572ec4	
+world	0xa50->0x58eb9	1	2	0	0x56d032:FUN_0056d032,0x572ec4:FUN_00572ec4	
+world	0xa50->0x58eba	1	2	0	0x56d032:FUN_0056d032,0x572ec4:FUN_00572ec4	
+world	0xa50->0x58ebb	1	2	0	0x56d032:FUN_0056d032,0x572ec4:FUN_00572ec4	
+world	0xa50->0x82ec8[]	1	3	3	0x569fd4:FUN_00569fd4,0x571c4d:AI_GroupVisibleEnemies,0x571e9b:FUN_00571e9b	
+world	0xa50->0xa456c	4	4	0	0x569fd4:FUN_00569fd4,0x571c4d:AI_GroupVisibleEnemies,0x571e9b:FUN_00571e9b	
+world	0xa54	1	1	1	0x56811b:FUN_0056811b	~ai-original:icado; tabela de preferência por classe
+world	0xa54[]	1	2	0	0x5711ea:AI_TargetCost,0x5713f8:FUN_005713f8	~ai-original:icado; tabela de preferência por classe
+world	0xa58	1	1	1	0x56811b:FUN_0056811b	
+world	0xa5c	1	1	1	0x56811b:FUN_0056811b	
+world	0xa60	1	1	1	0x56811b:FUN_0056811b	
+world	0xa60	4	1	0	0x5303ed:FUN_005303ed	
+world	0xc74[]	2	1	0	0x579ddf:Spell_PrismaticTargets	
+world	0xc74[]	4	1	3	0x579ddf:Spell_PrismaticTargets	
+world	0x1610	4	1	0	0x55b5f1:FUN_0055b5f1	
+world	0x1614	4	2	3	0x55b406:FUN_0055b406,0x55b5f1:FUN_0055b5f1	
+world	0x1618	4	1	1	0x55b5f1:FUN_0055b5f1	
+world	0x1624	4	2	2	0x55b406:FUN_0055b406,0x55b5f1:FUN_0055b5f1	
+world	0x1898	4	1	1	0x501347:FUN_00501347	
+world	0x189c	4	1	1	0x501347:FUN_00501347	
+world	0x18a0	4	1	1	0x501347:FUN_00501347	
+world	0x18a4	4	1	1	0x501347:FUN_00501347	
+world	0x18ac	4	1	0	0x501347:FUN_00501347	
+world	0x2924	1	2	2	0x5680ba:FUN_005680ba,0x56811b:FUN_0056811b	
+world	0x2954	1	1	1	0x56811b:FUN_0056811b	
+world	0x2958	1	1	1	0x56811b:FUN_0056811b	
+world	0x295c	1	1	1	0x56811b:FUN_0056811b	
+world	0x2964	1	1	1	0x56811b:FUN_0056811b	
+world	0x2968	1	1	1	0x56811b:FUN_0056811b	
+world	0x296c	1	1	1	0x56811b:FUN_0056811b	
+world	0x2974	1	1	1	0x56811b:FUN_0056811b	
+world	0x2978	1	1	1	0x56811b:FUN_0056811b	
+world	0x297c	1	1	1	0x56811b:FUN_0056811b	
+world	0x2984	1	1	1	0x56811b:FUN_0056811b	
+world	0x2988	1	1	1	0x56811b:FUN_0056811b	
+world	0x298c	1	1	1	0x56811b:FUN_0056811b	
+world	0xa724	1	3	1	0x56811b:FUN_0056811b,0x5703c0:AI_GroupCmd_Move,0x57063e:AI_GroupCmd_Swarm2	
+world	0xa8b8	1	1	0	0x5709d9:AI_GroupCmd_Guard	
+world	0xa8b8	4	3	1	0x56811b:FUN_0056811b,0x5709d9:AI_GroupCmd_Guard,0x570aba:AI_GuardLoad	
+world	0xa8c0	4	1	1	0x5688d7:FUN_005688d7	
+world	0xa8c4[]	1	14	5	0x4f1d9c:FUN_004f1d9c,0x4f3d68:Cheat_CommandParser,0x4f515d:Server_PacketDispatcher	
+world	0xbbe8	4	4	4	0x56811b:FUN_0056811b,0x568c9a:FUN_00568c9a,0x56fe4d:FUN_0056fe4d	
+world	0xbd98	4	2	2	0x56e6b8:FUN_0056e6b8,0x57240b:AI_GroupAssignTargets	
+world	0xbdc4	4	2	2	0x56e6b8:FUN_0056e6b8,0x57240b:AI_GroupAssignTargets	
+world	0xbdc8	4	1	1	0x56e6b8:FUN_0056e6b8	
+world	0xbdec	1	1	1	0x5688d7:FUN_005688d7	
+world	0xbdec[]	1	1	0	0x56f492:FUN_0056f492	
+world	0xbded	1	2	1	0x5688d7:FUN_005688d7,0x56f492:FUN_0056f492	
+world	0xbded[]	1	1	0	0x56f492:FUN_0056f492	
+world	0xbdee	1	1	1	0x5688d7:FUN_005688d7	
+world	0xbdef	1	1	1	0x5688d7:FUN_005688d7	
+world	0xbdf0	1	1	1	0x5688d7:FUN_005688d7	
+world	0xbdf1	1	1	1	0x5688d7:FUN_005688d7	
+world	0xbdf2	1	1	1	0x5688d7:FUN_005688d7	
+world	0xbdf3	1	1	1	0x5688d7:FUN_005688d7	
+world	0xbdfc	1	2	3	0x5688d7:FUN_005688d7,0x56f492:FUN_0056f492	
+world	0xbe00	4	2	2	0x5688d7:FUN_005688d7,0x56f492:FUN_0056f492	
+world	0xbe04	4	1	1	0x5688d7:FUN_005688d7	
+world	0xbe08	4	1	1	0x5688d7:FUN_005688d7	
+world	0xbe0c	4	4	2	0x4f856a:FUN_004f856a,0x5688d7:FUN_005688d7,0x57468d:FUN_0057468d	
+world	0xbe10	4	2	1	0x5688d7:FUN_005688d7,0x57468d:FUN_0057468d	
+world	0xbe14	1	1	0	0x4f856a:FUN_004f856a	
+world	0xbe14	4	5	3	0x4f856a:FUN_004f856a,0x5688d7:FUN_005688d7,0x57468d:FUN_0057468d	
+world	0xc710	4	2	2	0x5688d7:FUN_005688d7,0x57792a:FUN_0057792a	
+world	0xc77c	4	3	2	0x5688d7:FUN_005688d7,0x568c9a:FUN_00568c9a,0x577eac:FUN_00577eac	
+world	0xc780	4	1	1	0x5688d7:FUN_005688d7	
+world	0xc784[]	4	28	41	0x562745:FUN_00562745,0x574ba1:FUN_00574ba1,0x576fc8:FUN_00576fc8	
+world	0xd594	4	1	2	0x5688d7:FUN_005688d7	
+world	0xd598	4	1	1	0x5688d7:FUN_005688d7	
+world	0xd59c	4	2	2	0x5688d7:FUN_005688d7,0x57792a:FUN_0057792a	
+world	0xd720	4	2	2	0x5688d7:FUN_005688d7,0x57485b:FUN_0057485b	
+world	0xd724[]	4	1	0	0x574f3f:FUN_00574f3f	
+world	0xe6c4[]	1	1	2	0x574ba1:FUN_00574ba1	
+world	0xeaac	4	3	1	0x562745:FUN_00562745,0x5688d7:FUN_005688d7,0x574899:FUN_00574899	
+world	0xeab0	4	3	1	0x562745:FUN_00562745,0x5688d7:FUN_005688d7,0x574f3f:FUN_00574f3f	
+world	0xeab4	4	3	1	0x562745:FUN_00562745,0x5688d7:FUN_005688d7,0x574ba1:FUN_00574ba1	
+world	0xeab8	1	1	1	0x5688d7:FUN_005688d7	
+world	0x10000[]	1	18	15	0x54ec6a:Grid_UnitsInRings,0x550008:FUN_00550008,0x550966:FUN_00550966	~differential-fuzz:bit 0x20 | ~differential-fuzz:plano
+world	0x10808	1	1	0	0x559d70:FUN_00559d70	
+world	0x20000[]	1	7	6	0x550008:FUN_00550008,0x550966:FUN_00550966,0x550a96:FUN_00550a96	~differential-fuzz:plano 1 + unidades
+world	0x20000[]	2	1	2	0x552244:FUN_00552244	~differential-fuzz:plano 1 + unidades
+world	0x20028[]	2	1	2	0x552244:FUN_00552244	
+world	0x22000[]	1	2	6	0x552334:FUN_00552334,0x552af8:FUN_00552af8	
+world	0x22001[]	1	2	6	0x552334:FUN_00552334,0x552af8:FUN_00552af8	
+world	0x22028[]	1	1	6	0x552334:FUN_00552334	
+world	0x22029[]	1	1	6	0x552334:FUN_00552334	
+world	0x229a8	1	1	1	0x552334:FUN_00552334	
+world	0x229a9	1	1	1	0x552334:FUN_00552334	
+world	0x22aa8	1	1	1	0x552334:FUN_00552334	
+world	0x22aa9	1	1	1	0x552334:FUN_00552334	
+world	0x24000[]	4	1	1	0x552af8:FUN_00552af8	
+world	0x25450	4	1	1	0x552c28:Vision_Compute	
+world	0x28000[]	2	2	2	0x552334:FUN_00552334,0x552af8:FUN_00552af8	
+world	0x28028[]	2	1	2	0x552334:FUN_00552334	
+world	0x2a000	4	1	1	0x5536a4:FUN_005536a4	
+world	0x2a004	4	2	1	0x552c28:Vision_Compute,0x5536a4:FUN_005536a4	
+world	0x2a008[]	1	2	2	0x552af8:FUN_00552af8,0x552c28:Vision_Compute	
+world	0x30000[]	2	5	32	0x54d76e:Path_WaveSearch,0x55d010:Path_WaveStaticAtoB,0x55d830:Path_WaveStaticBtoA	~differential-fuzz:(0xffff = sem rótulo
+world	0x3a008	4	2	0	0x552af8:FUN_00552af8,0x552c28:Vision_Compute	
+world	0x3a008->0x944f4[]	1	1	0	0x552af8:FUN_00552af8	~differential-fuzz:[0x670e48]+y×256+x), altura
+world	0x50000	4	6	2	0x54e58c:Path_BacktraceStatic,0x54e886:Path_BacktraceDynamic,0x550d9f:FUN_00550d9f	
+world	0x50004	4	6	2	0x54e58c:Path_BacktraceStatic,0x54e886:Path_BacktraceDynamic,0x550db3:FUN_00550db3	
+world	0x50008[]	1	3	3	0x54d76e:Path_WaveSearch,0x55c910:FUN_0055c910,0x55cdf0:FUN_0055cdf0	
+world	0x51008[]	1	3	3	0x54d76e:Path_WaveSearch,0x55c910:FUN_0055c910,0x55cdf0:FUN_0055cdf0	
+world	0x52008[]	1	3	2	0x54d76e:Path_WaveSearch,0x55c6f0:FUN_0055c6f0,0x55cb30:FUN_0055cb30	
+world	0x53008[]	1	3	2	0x54d76e:Path_WaveSearch,0x55c6f0:FUN_0055c6f0,0x55cb30:FUN_0055cb30	
+world	0x54008	2	5	24	0x54d76e:Path_WaveSearch,0x55c910:FUN_0055c910,0x55cdf0:FUN_0055cdf0	
+world	0x5400a	2	5	23	0x54d76e:Path_WaveSearch,0x55c6f0:FUN_0055c6f0,0x55cb30:FUN_0055cb30	
+world	0x5402c	1	2	1	0x5508a0:FUN_005508a0,0x550966:FUN_00550966	
+world	0x5402d	1	2	1	0x5508a0:FUN_005508a0,0x550966:FUN_00550966	
+world	0x54030	4	4	3	0x5503af:FUN_005503af,0x55073f:FUN_0055073f,0x551edb:FUN_00551edb	
+world	0x54034	4	2	3	0x5503af:FUN_005503af,0x55073f:FUN_0055073f	
+world	0x54038	4	1	0	0x559bc9:FUN_00559bc9	
+world	0x5403c	4	3	3	0x5538c7:FUN_005538c7,0x5539e5:FUN_005539e5,0x553ad1:FUN_00553ad1	
+world	0x54040[]	4	1	0	0x55a88b:FUN_0055a88b	
+world	0x54058	4	2	3	0x55c1fe:FUN_0055c1fe,0x55c2ce:FUN_0055c2ce	
+world	0x5405c	4	2	3	0x55c1fe:FUN_0055c1fe,0x55c2ce:FUN_0055c2ce	
+world	0x54060	1	3	0	0x5503af:FUN_005503af,0x555b38:Path_ClearDynamic,0x55ba36:FUN_0055ba36	
+world	0x54061	1	1	0	0x5503af:FUN_005503af	
+world	0x54062	1	1	0	0x5503af:FUN_005503af	
+world	0x54063	1	1	0	0x5503af:FUN_005503af	
+world	0x54064	1	2	0	0x5503af:FUN_005503af,0x555b38:Path_ClearDynamic	
+world	0x54065	1	2	0	0x5503af:FUN_005503af,0x555b38:Path_ClearDynamic	
+world	0x54066	2	1	1	0x5508a0:FUN_005508a0	
+world	0x54084	4	1	0	0x550008:FUN_00550008	
+world	0x54084->0x8	4	1	0	0x550008:FUN_00550008	
+world	0x540a6	1	1	1	0x553d51:FUN_00553d51	
+world	0x540a6[]	1	1	0	0x55494d:Path_RockClass	
+world	0x540a7	1	1	1	0x553d51:FUN_00553d51	
+world	0x540a8	1	1	1	0x553d51:FUN_00553d51	
+world	0x540a9	1	1	1	0x553d51:FUN_00553d51	
+world	0x540aa	1	1	1	0x553d51:FUN_00553d51	
+world	0x540ab	1	1	1	0x553d51:FUN_00553d51	
+world	0x540ac	1	1	1	0x553d51:FUN_00553d51	
+world	0x540ad	1	1	1	0x553d51:FUN_00553d51	
+world	0x540ae	1	1	1	0x553d51:FUN_00553d51	
+world	0x540af	1	1	1	0x553d51:FUN_00553d51	
+world	0x540b0	1	1	1	0x553d51:FUN_00553d51	
+world	0x540b1	1	1	1	0x553d51:FUN_00553d51	
+world	0x540b2	1	1	1	0x553d51:FUN_00553d51	
+world	0x540b3	1	1	1	0x553d51:FUN_00553d51	
+world	0x540b6	1	1	1	0x553d51:FUN_00553d51	
+world	0x540b7	1	1	1	0x553d51:FUN_00553d51	
+world	0x540b8	1	1	1	0x553d51:FUN_00553d51	
+world	0x540b9	1	1	1	0x553d51:FUN_00553d51	
+world	0x540ba	1	1	1	0x553d51:FUN_00553d51	
+world	0x540bb	1	1	1	0x553d51:FUN_00553d51	
+world	0x540bc	1	1	1	0x553d51:FUN_00553d51	
+world	0x540bd	1	1	1	0x553d51:FUN_00553d51	
+world	0x540be	1	1	1	0x553d51:FUN_00553d51	
+world	0x540bf	1	1	1	0x553d51:FUN_00553d51	
+world	0x540c0	1	1	1	0x553d51:FUN_00553d51	
+world	0x540c1	1	1	1	0x553d51:FUN_00553d51	
+world	0x540c2	1	1	1	0x553d51:FUN_00553d51	
+world	0x540c3	1	1	1	0x553d51:FUN_00553d51	
+world	0x540c6	1	1	1	0x553d51:FUN_00553d51	
+world	0x540c7	1	1	1	0x553d51:FUN_00553d51	
+world	0x540c8	1	1	1	0x553d51:FUN_00553d51	
+world	0x540c9	1	1	1	0x553d51:FUN_00553d51	
+world	0x540ca	1	1	1	0x553d51:FUN_00553d51	
+world	0x540cb	1	1	1	0x553d51:FUN_00553d51	
+world	0x540cc	1	1	1	0x553d51:FUN_00553d51	
+world	0x540cd	1	1	1	0x553d51:FUN_00553d51	
+world	0x540ce	1	1	1	0x553d51:FUN_00553d51	
+world	0x540cf	1	1	1	0x553d51:FUN_00553d51	
+world	0x540d0	1	1	1	0x553d51:FUN_00553d51	
+world	0x540d1	1	1	1	0x553d51:FUN_00553d51	
+world	0x540d2	1	1	1	0x553d51:FUN_00553d51	
+world	0x540d3	1	1	1	0x553d51:FUN_00553d51	
+world	0x540d6	1	1	1	0x553d51:FUN_00553d51	
+world	0x540d7	1	1	1	0x553d51:FUN_00553d51	
+world	0x540d8	1	1	1	0x553d51:FUN_00553d51	
+world	0x540d9	1	1	1	0x553d51:FUN_00553d51	
+world	0x540da	1	1	1	0x553d51:FUN_00553d51	
+world	0x540db	1	1	1	0x553d51:FUN_00553d51	
+world	0x540dc	1	1	1	0x553d51:FUN_00553d51	
+world	0x540dd	1	1	1	0x553d51:FUN_00553d51	
+world	0x540de	1	1	1	0x553d51:FUN_00553d51	
+world	0x540df	1	1	1	0x553d51:FUN_00553d51	
+world	0x540e0	1	1	1	0x553d51:FUN_00553d51	
+world	0x540e1	1	1	1	0x553d51:FUN_00553d51	
+world	0x540e2	1	1	1	0x553d51:FUN_00553d51	
+world	0x540e3	1	1	1	0x553d51:FUN_00553d51	
+world	0x54126	1	1	1	0x553d51:FUN_00553d51	
+world	0x54126[]	1	1	0	0x55494d:Path_RockClass	
+world	0x54127	1	1	1	0x553d51:FUN_00553d51	
+world	0x54127[]	1	1	0	0x55494d:Path_RockClass	
+world	0x54128	1	1	1	0x553d51:FUN_00553d51	
+world	0x54129	1	1	1	0x553d51:FUN_00553d51	
+world	0x5412a	1	1	1	0x553d51:FUN_00553d51	
+world	0x5412b	1	1	1	0x553d51:FUN_00553d51	
+world	0x5412c	1	1	1	0x553d51:FUN_00553d51	
+world	0x5412d	1	1	1	0x553d51:FUN_00553d51	
+world	0x5412e	1	1	1	0x553d51:FUN_00553d51	
+world	0x5412f	1	1	1	0x553d51:FUN_00553d51	
+world	0x54130	1	1	1	0x553d51:FUN_00553d51	
+world	0x54131	1	1	1	0x553d51:FUN_00553d51	
+world	0x54132	1	1	1	0x553d51:FUN_00553d51	
+world	0x54133	1	1	1	0x553d51:FUN_00553d51	
+world	0x54134	1	1	1	0x553d51:FUN_00553d51	
+world	0x54135	1	1	1	0x553d51:FUN_00553d51	
+world	0x5413e	1	1	1	0x553d51:FUN_00553d51	
+world	0x5413f	1	1	1	0x553d51:FUN_00553d51	
+world	0x54146	1	2	1	0x553d51:FUN_00553d51,0x554626:FUN_00554626	
+world	0x54146[]	1	1	0	0x55494d:Path_RockClass	
+world	0x54147	1	1	1	0x553d51:FUN_00553d51	
+world	0x54148	1	1	1	0x553d51:FUN_00553d51	
+world	0x54149	1	1	1	0x553d51:FUN_00553d51	
+world	0x5414a	1	1	1	0x553d51:FUN_00553d51	
+world	0x5414b	1	2	1	0x550a96:FUN_00550a96,0x553d51:FUN_00553d51	
+world	0x5414c	1	1	1	0x553d51:FUN_00553d51	
+world	0x5414d	1	1	1	0x553d51:FUN_00553d51	
+world	0x5414e	1	1	1	0x553d51:FUN_00553d51	
+world	0x5414f	1	1	1	0x553d51:FUN_00553d51	
+world	0x54150	1	1	1	0x553d51:FUN_00553d51	
+world	0x54156	1	1	1	0x553d51:FUN_00553d51	
+world	0x54156[]	1	1	0	0x557f08:Unit_ApproachCell	
+world	0x54157	1	1	1	0x553d51:FUN_00553d51	
+world	0x54157[]	1	1	0	0x557f08:Unit_ApproachCell	
+world	0x54158	1	1	1	0x553d51:FUN_00553d51	
+world	0x54159	1	1	1	0x553d51:FUN_00553d51	
+world	0x5415a	1	1	1	0x553d51:FUN_00553d51	
+world	0x5415b	1	1	1	0x553d51:FUN_00553d51	
+world	0x5415c	1	1	1	0x553d51:FUN_00553d51	
+world	0x5415d	1	1	1	0x553d51:FUN_00553d51	
+world	0x5415e	1	1	1	0x553d51:FUN_00553d51	
+world	0x5415f	1	1	1	0x553d51:FUN_00553d51	
+world	0x54160	1	1	1	0x553d51:FUN_00553d51	
+world	0x54161	1	1	1	0x553d51:FUN_00553d51	
+world	0x54162	1	1	1	0x553d51:FUN_00553d51	
+world	0x54163	1	1	1	0x553d51:FUN_00553d51	
+world	0x54164	1	1	1	0x553d51:FUN_00553d51	
+world	0x54165	1	1	1	0x553d51:FUN_00553d51	
+world	0x54166	1	1	1	0x553d51:FUN_00553d51	
+world	0x54167	1	1	1	0x553d51:FUN_00553d51	
+world	0x54168	1	1	1	0x553d51:FUN_00553d51	
+world	0x54169	1	1	1	0x553d51:FUN_00553d51	
+world	0x5416a	1	1	1	0x553d51:FUN_00553d51	
+world	0x5416b	1	1	1	0x553d51:FUN_00553d51	
+world	0x5416c	1	1	1	0x553d51:FUN_00553d51	
+world	0x5416d	1	1	1	0x553d51:FUN_00553d51	
+world	0x54170	4	1	1	0x553d51:FUN_00553d51	
+world	0x54174	4	1	1	0x553d51:FUN_00553d51	
+world	0x54178	4	1	1	0x553d51:FUN_00553d51	
+world	0x5417c	4	1	1	0x553d51:FUN_00553d51	
+world	0x54180	4	1	1	0x553d51:FUN_00553d51	
+world	0x54184	4	1	1	0x553d51:FUN_00553d51	
+world	0x54188	4	1	1	0x553d51:FUN_00553d51	
+world	0x5418c	4	1	1	0x553d51:FUN_00553d51	
+world	0x54584	2	1	2	0x54d76e:Path_WaveSearch	~differential-fuzz:/ B
+world	0x54584[]	2	3	16	0x54d76e:Path_WaveSearch,0x55d830:Path_WaveStaticBtoA,0x55e870:Path_WaveDynamicBtoA	~differential-fuzz:/ B
+world	0x56584[]	2	3	16	0x54d76e:Path_WaveSearch,0x55d010:Path_WaveStaticAtoB,0x55e050:Path_WaveDynamicAtoB	~differential-fuzz:sem rótulo), listas A +0x54584 / B
+world	0x58584	4	2	1	0x54d76e:Path_WaveSearch,0x553d51:FUN_00553d51	
+world	0x58588	4	2	1	0x54d76e:Path_WaveSearch,0x553d51:FUN_00553d51	
+world	0x5858c	4	2	1	0x553d51:FUN_00553d51,0x555411:Unit_ActionWalk	
+world	0x58590	4	3	1	0x553d51:FUN_00553d51,0x555411:Unit_ActionWalk,0x55574d:Unit_ActionChase	
+world	0x58594	4	2	1	0x553d51:FUN_00553d51,0x555dc2:Path_RefreshDynamic	
+world	0x58598	4	3	1	0x553d51:FUN_00553d51,0x55574d:Unit_ActionChase,0x555dc2:Path_RefreshDynamic	
+world	0x58d80	4	3	1	0x555411:Unit_ActionWalk,0x558f4b:FUN_00558f4b,0x55a96c:Unit_TeleportTo	~fn:Vision_UpdateManager:Atualiza gerenciador de visao/nevoa (this+0x58d8
+world	0x58d84	4	2	1	0x553d51:FUN_00553d51,0x559195:Unit_WalkFormula	
+world	0x58e88	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e88[]	1	2	0	0x553d51:FUN_00553d51,0x559195:Unit_WalkFormula	
+world	0x58e89	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e8a	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e8b	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e8c	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e8d	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e8e	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e8f	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e90	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e90[]	1	2	0	0x553d51:FUN_00553d51,0x559195:Unit_WalkFormula	
+world	0x58e91	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e92	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e93	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e94	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e95	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e96	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e97	1	1	1	0x553d51:FUN_00553d51	
+world	0x58e98[]	4	2	1	0x553d51:FUN_00553d51,0x559195:Unit_WalkFormula	
+world	0x58eb8	1	2	1	0x554626:FUN_00554626,0x559536:FUN_00559536	
+world	0x58eb9	1	2	1	0x554626:FUN_00554626,0x559536:FUN_00559536	
+world	0x58eba	1	3	1	0x554626:FUN_00554626,0x559536:FUN_00559536,0x559d70:FUN_00559d70	
+world	0x58ebb	1	3	1	0x554626:FUN_00554626,0x559536:FUN_00559536,0x559d70:FUN_00559d70	
+world	0x58ebc	2	1	1	0x554626:FUN_00554626	
+world	0x58ebe	2	1	1	0x554626:FUN_00554626	
+world	0x92ec8	4	1	1	0x553d51:FUN_00553d51	
+world	0x932d0[]	4	2	0	0x503672:FUN_00503672,0x503bef:FUN_00503bef	
+world	0x944dc	4	1	1	0x553d51:FUN_00553d51	
+world	0x944e0	4	1	1	0x553d51:FUN_00553d51	
+world	0x944e4	4	1	1	0x553d51:FUN_00553d51	
+world	0x944f4[]	1	2	1	0x554626:FUN_00554626,0x559195:Unit_WalkFormula	~differential-fuzz:[0x670e48]+y×256+x), altura
+world	0xa452c[]	1	1	2	0x55be86:FUN_0055be86	
+world	0xa456c	4	2	1	0x553d51:FUN_00553d51,0x55b997:FUN_0055b997	
+path	0x0	1	1	0	0x5514ce:FUN_005514ce	
+path	0x1	1	1	0	0x558b3d:FUN_00558b3d	
+path	0x5	1	1	3	0x557a89:FUN_00557a89	
+path	0xa4	1	1	0	0x558b3d:FUN_00558b3d	~ai-original:ceil(dif /
+ai	0xb4	4	1	0	0x5690b0:FUN_005690b0	
+unknown	0x0	1	37	19	0x4e26c9:FUN_004e26c9,0x4e9046:FUN_004e9046,0x4e9268:FUN_004e9268	
+unknown	0x0[]	1	1	0	0x567618:Cheat_LookupCommand	
+unknown	0x0	2	36	19	0x422230:FUN_00422230,0x4e9816:FUN_004e9816,0x506526:FUN_00506526	
+unknown	0x0[]	2	6	6	0x4f515d:Server_PacketDispatcher,0x502d67:FUN_00502d67,0x504e87:FUN_00504e87	
+unknown	0x0	4	298	263	0x401c60:FUN_00401c60,0x41e4b0:FUN_0041e4b0,0x41ea60:FUN_0041ea60	
+unknown	0x0[]	4	11	3	0x4ee7cb:FUN_004ee7cb,0x4f0cbe:FUN_004f0cbe,0x4f8cec:FUN_004f8cec	
+unknown	0x0	8	1	1	0x525606:Shop_GaussianWeightsDead	
+unknown	0x0->0x0	4	26	0	0x493e60:FUN_00493e60,0x539f40:FUN_00539f40,0x53a570:FUN_0053a570	
+unknown	0x0->0x0->0x4	4	7	0	0x51c29e:Unit_AddSpellToBook,0x52151c:FUN_0052151c,0x5218c0:FUN_005218c0	
+unknown	0x0->0x0->0x40	4	1	0	0x525f67:Shop_Gen	
+unknown	0x0->0x0->0x50	4	1	0	0x52151c:FUN_0052151c	
+unknown	0x0->0x1	1	1	0	0x422b90:FUN_00422b90	
+unknown	0x0->0x4	2	1	0	0x504391:FUN_00504391	
+unknown	0x0->0x4	4	33	10	0x4e2b5d:FUN_004e2b5d,0x4e2e53:FUN_004e2e53,0x4f3d68:Cheat_CommandParser	
+unknown	0x0->0x8	4	9	0	0x493e60:FUN_00493e60,0x539f40:FUN_00539f40,0x53a570:FUN_0053a570	
+unknown	0x0[]->0xc	2	1	0	0x578696:FUN_00578696	
+unknown	0x0->0x10	4	1	0	0x501831:FUN_00501831	
+unknown	0x0->0x14	4	3	0	0x4ee7cb:FUN_004ee7cb,0x52c17c:FUN_0052c17c,0x52e0c4:FUN_0052e0c4	
+unknown	0x0->0x28	4	2	0	0x4e2b5d:FUN_004e2b5d,0x534ad4:FUN_00534ad4	
+unknown	0x0->0x30	4	3	0	0x41e4b0:FUN_0041e4b0,0x4f515d:Server_PacketDispatcher,0x534ad4:FUN_00534ad4	
+unknown	0x0->0x38	4	7	0	0x4e2b5d:FUN_004e2b5d,0x4ee7cb:FUN_004ee7cb,0x50f12c:Unit_ActionMachine	
+unknown	0x0->0x3c	4	6	1	0x4ee7cb:FUN_004ee7cb,0x52f8e2:FUN_0052f8e2,0x5325ee:Cheat_ShopNoCeiling	
+unknown	0x0->0x40	4	3	0	0x4f515d:Server_PacketDispatcher,0x5217a2:FUN_005217a2,0x562745:FUN_00562745	
+unknown	0x0->0x42	2	3	4	0x52151c:FUN_0052151c,0x525f67:Shop_Gen,0x5325ee:Cheat_ShopNoCeiling	
+unknown	0x0->0x44	1	1	0	0x525f67:Shop_Gen	
+unknown	0x0->0x48	1	1	0	0x562745:FUN_00562745	
+unknown	0x0->0x48	4	2	0	0x4f515d:Server_PacketDispatcher,0x562745:FUN_00562745	
+unknown	0x0->0x48[]	4	1	4	0x562745:FUN_00562745	
+unknown	0x0->0x4c	1	3	1	0x5224e7:FUN_005224e7,0x522936:FUN_00522936,0x562745:FUN_00562745	
+unknown	0x0->0x4c	4	1	0	0x524e31:Shop_BookList	
+unknown	0x0->0x4d	1	1	1	0x52151c:FUN_0052151c	
+unknown	0x0[]->0x50	2	1	1	0x578696:FUN_00578696	
+unknown	0x0->0x54	4	2	0	0x526ec4:FUN_00526ec4,0x52714f:FUN_0052714f	
+unknown	0x0->0x70[]	1	1	0	0x562745:FUN_00562745	
+unknown	0x0->0x70[]	4	1	0	0x562745:FUN_00562745	
+unknown	0x0->0x74	4	1	0	0x52269b:FUN_0052269b	
+unknown	0x0->0x74->0x14	4	1	0	0x52269b:FUN_0052269b	
+unknown	0x0->0x7c	4	1	0	0x401c60:FUN_00401c60	
+unknown	0x0->0x318	4	1	0	0x562745:FUN_00562745	
+unknown	0x1	1	5	0	0x53c140:FUN_0053c140,0x53c1f0:FUN_0053c1f0,0x53c2b0:FUN_0053c2b0	
+unknown	0x2	1	1	3	0x5241bf:FUN_005241bf	
+unknown	0x2	2	7	2	0x515617:FUN_00515617,0x539e70:FUN_00539e70,0x53a040:FUN_0053a040	
+unknown	0x3	2	1	6	0x519db8:Spell_Apply	
+unknown	0x4	1	6	7	0x50023b:FUN_0050023b,0x50036a:FUN_0050036a,0x5056f1:FUN_005056f1	~magic-original:id
+unknown	0x4	2	20	3	0x4f1cdd:FUN_004f1cdd,0x4f1d9c:FUN_004f1d9c,0x4f3a52:FUN_004f3a52	~magic-original:id
+unknown	0x4	4	177	89	0x401840:FUN_00401840,0x4029a0:FUN_004029a0,0x41e450:FUN_0041e450	~magic-original:id
+unknown	0x4->0x0[]	4	16	4	0x41ea60:FUN_0041ea60,0x421f30:FUN_00421f30,0x44f5f0:FUN_0044f5f0	
+unknown	0x4->0x0	4	10	9	0x539f70:FUN_00539f70,0x53b2e0:FUN_0053b2e0,0x53b470:FUN_0053b470	
+unknown	0x4->0x0->0x4	4	1	0	0x573f74:FUN_00573f74	
+unknown	0x4->0x4	4	2	2	0x540380:FUN_00540380,0x55f170:FUN_0055f170	
+unknown	0x5	1	1	1	0x5551d6:FUN_005551d6	
+unknown	0x5	2	2	2	0x50023b:FUN_0050023b,0x50036a:FUN_0050036a	
+unknown	0x7	1	2	2	0x50023b:FUN_0050023b,0x50036a:FUN_0050036a	
+unknown	0x7	2	2	2	0x4f1cdd:FUN_004f1cdd,0x4f1d9c:FUN_004f1d9c	
+unknown	0x8	1	5	3	0x4fff08:FUN_004fff08,0x5690ee:FUN_005690ee,0x5691c7:FUN_005691c7	
+unknown	0x8[]	1	3	3	0x57975e:FUN_0057975e,0x57977a:FUN_0057977a,0x57994d:FUN_0057994d	
+unknown	0x8	2	1	1	0x55fdc0:FUN_0055fdc0	
+unknown	0x8	4	108	74	0x401760:FUN_00401760,0x402970:Add,0x41e430:FUN_0041e430	
+unknown	0x8->0x18b4	4	1	0	0x53f270:FUN_0053f270	
+unknown	0x9	1	11	4	0x4f1cdd:FUN_004f1cdd,0x4f1d9c:FUN_004f1d9c,0x5690ee:FUN_005690ee	
+unknown	0xa	1	3	0	0x56c72b:AI_CastAtTarget,0x57a769:AI_CasterOffensiveSpell,0x57a999:AI_CasterShield	~ai-behaviors:giro | ~ai-behaviors:defensiva
+unknown	0xa	4	5	5	0x4f1cdd:FUN_004f1cdd,0x4f1d9c:FUN_004f1d9c,0x50cf04:FUN_0050cf04	~ai-behaviors:giro | ~ai-behaviors:defensiva
+unknown	0xc	2	11	2	0x502019:Server_Event,0x516b2f:Unit_StrikeExtra,0x519998:Spell_SpendMana	~ai-behaviors:alvo | ~ai-behaviors:mana
+unknown	0xc	4	61	19	0x41e560:FUN_0041e560,0x41ea00:FUN_0041ea00,0x41ea20:FUN_0041ea20	~ai-behaviors:alvo | ~ai-behaviors:mana
+unknown	0xc[]	4	1	0	0x562274:FUN_00562274	~ai-behaviors:alvo | ~ai-behaviors:mana
+unknown	0xe	1	1	0	0x5044ba:FUN_005044ba	~differential-fuzz:alvo | ~magic-original:tipo (u16
+unknown	0xe	2	1	6	0x519db8:Spell_Apply	~differential-fuzz:alvo | ~magic-original:tipo (u16
+unknown	0xf	1	8	7	0x4ed5f5:FUN_004ed5f5,0x51e8fa:FUN_0051e8fa,0x524e31:Shop_BookList	~magic-original:amplitude
+unknown	0x10[]	1	1	0	0x522767:Shop_Generate	~ai-behaviors:objeto no mapa (célula = 0x54ff9e | ~differential-fuzz:índice da magia (tabela 0x5f8120
+unknown	0x10	2	7	19	0x4ed5f5:FUN_004ed5f5,0x519db8:Spell_Apply,0x51e8fa:FUN_0051e8fa	~ai-behaviors:objeto no mapa (célula = 0x54ff9e | ~differential-fuzz:índice da magia (tabela 0x5f8120
+unknown	0x10	4	40	36	0x4f06ac:FUN_004f06ac,0x4f515d:Server_PacketDispatcher,0x50b9a7:FUN_0050b9a7	~ai-behaviors:objeto no mapa (célula = 0x54ff9e | ~differential-fuzz:índice da magia (tabela 0x5f8120
+unknown	0x10[]	4	1	0	0x521d4c:Shop_SellToShopkeeper	~ai-behaviors:objeto no mapa (célula = 0x54ff9e | ~differential-fuzz:índice da magia (tabela 0x5f8120
+unknown	0x10	8	1	0	0x55f290:FUN_0055f290	~ai-behaviors:objeto no mapa (célula = 0x54ff9e | ~differential-fuzz:índice da magia (tabela 0x5f8120
+unknown	0x10->0x0[]	1	1	0	0x554626:FUN_00554626	
+unknown	0x11	2	1	0	0x4ea6ab:FUN_004ea6ab	
+unknown	0x13	1	1	0	0x5201b2:FUN_005201b2	~differential-fuzz:ids) entregue por 0x670e50.0x50164f pela
+unknown	0x14	1	1	0	0x5201b2:FUN_005201b2	~ai-behaviors:jogador ( | ~ai-behaviors:alcance de ataque
+unknown	0x14	2	3	8	0x5056f1:FUN_005056f1,0x519db8:Spell_Apply,0x534ad4:FUN_00534ad4	~ai-behaviors:jogador ( | ~ai-behaviors:alcance de ataque
+unknown	0x14	4	12	3	0x401db0:FUN_00401db0,0x41e5a0:FUN_0041e5a0,0x4f515d:Server_PacketDispatcher	~ai-behaviors:jogador ( | ~ai-behaviors:alcance de ataque
+unknown	0x14[]	4	2	1	0x550a96:FUN_00550a96,0x5596ff:FUN_005596ff	~ai-behaviors:jogador ( | ~ai-behaviors:alcance de ataque
+unknown	0x14->0x0[]	1	1	0	0x554626:FUN_00554626	
+unknown	0x14->0xa6c	2	1	2	0x4f515d:Server_PacketDispatcher	
+unknown	0x14->0xa74	4	1	0	0x4f515d:Server_PacketDispatcher	
+unknown	0x18	1	1	1	0x4f086f:FUN_004f086f	~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable | ~differential-fuzz:c279 (lista +4: objetos/efeitos, vtable
+unknown	0x18[]	1	1	1	0x50cf04:FUN_0050cf04	~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable | ~differential-fuzz:c279 (lista +4: objetos/efeitos, vtable
+unknown	0x18[]	2	1	1	0x50cf3f:FUN_0050cf3f	~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable | ~differential-fuzz:c279 (lista +4: objetos/efeitos, vtable
+unknown	0x18	2	2	2	0x52ada6:FUN_0052ada6,0x52be01:FUN_0052be01	~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable | ~differential-fuzz:c279 (lista +4: objetos/efeitos, vtable
+unknown	0x18[]	4	1	1	0x50cf7c:FUN_0050cf7c	~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable | ~differential-fuzz:c279 (lista +4: objetos/efeitos, vtable
+unknown	0x18	4	18	0	0x52e212:FUN_0052e212,0x52e27d:FUN_0052e27d,0x53c010:FUN_0053c010	~differential-fuzz:WorldTick 0x4f04cf (lista +0x2c: vtable | ~differential-fuzz:c279 (lista +4: objetos/efeitos, vtable
+unknown	0x1c	1	1	1	0x53ec40:FUN_0053ec40	~combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+unknown	0x1c[]	2	2	0	0x523f8d:FUN_00523f8d,0x5247db:Shop_ClassMaterial	~combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+unknown	0x1c	4	6	2	0x458ff0:FUN_00458ff0,0x51e8fa:FUN_0051e8fa,0x523abd:FUN_00523abd	~combat-formulas:alvo (vfunc | ~combat-formulas:; sack.value = sack.gold + Σ item.valor
+unknown	0x1f	1	1	1	0x5691c7:FUN_005691c7	
+unknown	0x20[]	1	1	0	0x515617:FUN_00515617	~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut | ~ai-original:e o Lightning acerta 19 tiques após o in
+unknown	0x20	1	2	2	0x5690ee:FUN_005690ee,0x5691c7:FUN_005691c7	~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut | ~ai-original:e o Lightning acerta 19 tiques após o in
+unknown	0x20	4	2	1	0x549370:FUN_00549370,0x550a96:FUN_00550a96	~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut | ~ai-original:e o Lightning acerta 19 tiques após o in
+unknown	0x20	8	1	0	0x55f290:FUN_0055f290	~ai-behaviors:bits 1/2/4 = alvos próprios/aliados/neut | ~ai-original:e o Lightning acerta 19 tiques após o in
+unknown	0x22	2	1	1	0x4f06ac:FUN_004f06ac	
+unknown	0x24	1	1	1	0x5056f1:FUN_005056f1	
+unknown	0x24	4	18	12	0x4ec732:FUN_004ec732,0x4f0568:FUN_004f0568,0x4f1d9c:FUN_004f1d9c	
+unknown	0x24->0xc	4	1	0	0x562745:FUN_00562745	
+unknown	0x28	4	19	2	0x4e6079:FUN_004e6079,0x4e918e:FUN_004e918e,0x4e9816:FUN_004e9816	~ai-original:posto (centroide
+unknown	0x2c	1	2	0	0x4ea6ab:FUN_004ea6ab,0x579596:FUN_00579596	~ai-behaviors:≠ 0 → jogador de IA | ~ai-original:≠ 0) → magias por 0x57a769 e
+unknown	0x2c	4	13	2	0x4e9816:FUN_004e9816,0x4f0cbe:FUN_004f0cbe,0x4f1d9c:FUN_004f1d9c	~ai-behaviors:≠ 0 → jogador de IA | ~ai-original:≠ 0) → magias por 0x57a769 e
+unknown	0x2d	1	1	0	0x4ea6ab:FUN_004ea6ab	~ai-original:raio = max( | ~ai-original:do centroide
+unknown	0x2e	1	1	0	0x4ea6ab:FUN_004ea6ab	
+unknown	0x30	2	7	2	0x4ea6ab:FUN_004ea6ab,0x4f0568:FUN_004f0568,0x4f1d9c:FUN_004f1d9c	
+unknown	0x30	4	2	1	0x550a96:FUN_00550a96,0x5596ff:FUN_005596ff	
+unknown	0x32	2	3	4	0x4f1d9c:FUN_004f1d9c,0x4f515d:Server_PacketDispatcher,0x5165dd:FUN_005165dd	
+unknown	0x34	4	3	0	0x4e2445:FUN_004e2445,0x4e6079:FUN_004e6079,0x5737ba:FUN_005737ba	~ai-behaviors:→ ajustes de IA do jogador
+unknown	0x34->0x1f	1	1	1	0x5737ba:FUN_005737ba	~ai-behaviors:opção 0/1/2 → servidor 0/2/1 em jogador
+unknown	0x38	2	1	2	0x519db8:Spell_Apply	~ai-original:max( | ~ai-original:+ 4 + rand(−1..1) (0x5726f7) e
+unknown	0x38	4	4	1	0x4f515d:Server_PacketDispatcher,0x5303ed:FUN_005303ed,0x55b5f1:FUN_0055b5f1	~ai-original:max( | ~ai-original:+ 4 + rand(−1..1) (0x5726f7) e
+unknown	0x38->0x4	4	1	0	0x5303ed:FUN_005303ed	
+unknown	0x38->0x10	4	1	0	0x4f515d:Server_PacketDispatcher	
+unknown	0x38->0x94	2	1	1	0x4f515d:Server_PacketDispatcher	
+unknown	0x38->0xa8[]	2	1	0	0x5303ed:FUN_005303ed	
+unknown	0x38->0x130	4	1	0	0x5303ed:FUN_005303ed	
+unknown	0x38->0x140	4	1	0	0x5303ed:FUN_005303ed	
+unknown	0x3a	2	1	0	0x550a96:FUN_00550a96	
+unknown	0x3c	1	11	0	0x4f515d:Server_PacketDispatcher,0x510745:FUN_00510745,0x519c04:Spell_PrismaticSpray	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unknown	0x3c	2	1	0	0x534ad4:FUN_00534ad4	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unknown	0x3c	4	15	5	0x4ea6ab:FUN_004ea6ab,0x4f23d9:FUN_004f23d9,0x4f515d:Server_PacketDispatcher	~ai-original:a fuga, tarefa Guard da unidade. Grupo | ~differential-fuzz:v = S×8 (S = byte [[[u+0x70]
+unknown	0x3c->0x1c[]	2	1	0	0x52393e:Item_NameValid	
+unknown	0x3c->0x45	1	1	1	0x55b879:FUN_0055b879	~differential-fuzz:Grupos dormindo
+unknown	0x3c->0x48	4	1	2	0x562745:FUN_00562745	
+unknown	0x3d	1	6	8	0x519db8:Spell_Apply,0x51caa0:FUN_0051caa0,0x51cbfb:FUN_0051cbfb	
+unknown	0x40	1	6	1	0x4f515d:Server_PacketDispatcher,0x51e318:FUN_0051e318,0x5241bf:FUN_005241bf	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unknown	0x40	2	2	0	0x510745:FUN_00510745,0x51f7d3:FUN_0051f7d3	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unknown	0x40	4	12	5	0x4ea6ab:FUN_004ea6ab,0x4ec732:FUN_004ec732,0x519db8:Spell_Apply	~ai-behaviors:Withdraw | ~ai-original:Withdraw
+unknown	0x40->0x1	1	1	0	0x57a47d:FUN_0057a47d	
+unknown	0x40->0x2	1	1	0	0x57a47d:FUN_0057a47d	
+unknown	0x40->0x3	1	1	0	0x57a47d:FUN_0057a47d	
+unknown	0x41	1	4	1	0x4ed5f5:FUN_004ed5f5,0x51e318:FUN_0051e318,0x5241bf:FUN_005241bf	
+unknown	0x42	1	4	1	0x4f515d:Server_PacketDispatcher,0x4f8967:FUN_004f8967,0x516165:FUN_00516165	
+unknown	0x42	2	14	24	0x4ed5f5:FUN_004ed5f5,0x4f3d68:Cheat_CommandParser,0x516b2f:Unit_StrikeExtra	
+unknown	0x43	1	1	1	0x516165:FUN_00516165	
+unknown	0x44[]	1	1	1	0x562745:FUN_00562745	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unknown	0x44	4	4	5	0x4ec732:FUN_004ec732,0x519db8:Spell_Apply,0x52b459:FUN_0052b459	~ai-behaviors:Wimpy | ~ai-behaviors:/
+unknown	0x45	1	2	1	0x52393e:Item_NameValid,0x5690ee:FUN_005690ee	
+unknown	0x46	1	1	0	0x52393e:Item_NameValid	
+unknown	0x48	4	3	1	0x519db8:Spell_Apply,0x5247db:Shop_ClassMaterial,0x534ad4:FUN_00534ad4	~differential-fuzz:(gatilhos do script
+unknown	0x48->0x44	4	1	1	0x519db8:Spell_Apply	
+unknown	0x4c	4	2	1	0x5690ee:FUN_005690ee,0x56918c:~COleControlSiteOrWnd	~ai-behaviors:classe de recuo
+unknown	0x4d	1	1	1	0x4f06ac:FUN_004f06ac	
+unknown	0x4e	1	1	1	0x519db8:Spell_Apply	
+unknown	0x4e[]	1	1	1	0x562745:FUN_00562745	
+unknown	0x50	4	3	2	0x4ea6ab:FUN_004ea6ab,0x4f515d:Server_PacketDispatcher,0x534ad4:FUN_00534ad4	~ai-behaviors:código da tarefa | ~ai-behaviors:fas (despachante 0x569321, switch em
+unknown	0x54	4	3	2	0x4f0832:FUN_004f0832,0x4f086f:FUN_004f086f,0x4f3a52:FUN_004f3a52	~ai-original:ação 3 golpe / 0xd magia em unidade / 0x | ~differential-fuzz:1 depois de golpeado.
+unknown	0x5b	1	5	5	0x543040:Spell_FireDamageObj,0x543070:Spell_WaterDamageObj,0x5430a0:Spell_AirDamageObj	
+unknown	0x5c	1	5	5	0x543040:Spell_FireDamageObj,0x543070:Spell_WaterDamageObj,0x5430a0:Spell_AirDamageObj	
+unknown	0x5c	4	3	3	0x4ec732:FUN_004ec732,0x4f0832:FUN_004f0832,0x562745:FUN_00562745	
+unknown	0x5d	1	5	5	0x543040:Spell_FireDamageObj,0x543070:Spell_WaterDamageObj,0x5430a0:Spell_AirDamageObj	
+unknown	0x60	1	2	0	0x550a96:FUN_00550a96,0x55f950:FUN_0055f950	
+unknown	0x60	4	1	1	0x562745:FUN_00562745	
+unknown	0x61	1	1	1	0x4f086f:FUN_004f086f	
+unknown	0x64	4	4	4	0x4f06ac:FUN_004f06ac,0x550a96:FUN_00550a96,0x562745:FUN_00562745	
+unknown	0x68	4	1	3	0x562745:FUN_00562745	~combat-formulas:item em uso) [exe 0x519998].
+unknown	0x6c	4	9	0	0x521083:Shop_RegenerateMsg3f,0x521099:FUN_00521099,0x5210c9:FUN_005210c9	~ai-original:contador): fase 0 → 0x519998 gasta a man | ~differential-fuzz:+0x58: 5 carga, 7 espera), act_cnt
+unknown	0x70	4	2	0	0x52f8e2:FUN_0052f8e2,0x562745:FUN_00562745	~differential-fuzz:v = S×8 (S = byte [[[u
+unknown	0x70->0x3c	4	2	0	0x52f8e2:FUN_0052f8e2,0x562745:FUN_00562745	
+unknown	0x70->0x3c->0x48	4	2	3	0x52f8e2:FUN_0052f8e2,0x562745:FUN_00562745	
+unknown	0x74	4	11	7	0x506526:FUN_00506526,0x521ae3:FUN_00521ae3,0x521c29:FUN_00521c29	~ai-original:spera da arma (0x50f6ba): com arma em | ~differential-fuzz:0164f, ficha salva a cada 15 s só com
+unknown	0x74->0x14	4	3	0	0x521ae3:FUN_00521ae3,0x521c29:FUN_00521c29,0x521f3a:FUN_00521f3a	
+unknown	0x74->0x14->0x3c	4	2	2	0x521ae3:FUN_00521ae3,0x521c29:FUN_00521c29	
+unknown	0x74->0x7c	4	2	0	0x521c29:FUN_00521c29,0x5220d9:FUN_005220d9	
+unknown	0x78	4	3	0	0x506526:FUN_00506526,0x52e198:FUN_0052e198,0x52e34c:FUN_0052e34c	~ai-behaviors:magia escolhida | ~differential-fuzz:/
+unknown	0x78->0x8	4	2	0	0x506526:FUN_00506526,0x52e34c:FUN_0052e34c	
+unknown	0x7c	4	4	0	0x4f515d:Server_PacketDispatcher,0x52e13d:FUN_0052e13d,0x52e212:FUN_0052e212	~ai-behaviors:/ | ~differential-fuzz:ou quando
+unknown	0x7c->0x1c	4	1	2	0x4f515d:Server_PacketDispatcher	
+unknown	0x80	4	3	0	0x52e198:FUN_0052e198,0x52e91e:FUN_0052e91e,0x562745:FUN_00562745	
+unknown	0x80[]	4	1	0	0x562745:FUN_00562745	
+unknown	0x84	4	1	0	0x542580:Weapon_CastsSpell	~magic-original:Body
+unknown	0x84[]	4	1	0	0x562745:FUN_00562745	~magic-original:Body
+unknown	0x94	2	4	1	0x516104:Cheat_KillAll,0x542770:FUN_00542770,0x56c9bc:AI_FleeAction	~magic-original:vida (continua < 0 no corpo
+unknown	0x94	4	2	0	0x522767:Shop_Generate,0x540880:FUN_00540880	~magic-original:vida (continua < 0 no corpo
+unknown	0x98[]	4	1	0	0x562745:FUN_00562745	~differential-fuzz:− relógio16 | ~differential-fuzz:/
+unknown	0x9c	4	6	1	0x521ae3:FUN_00521ae3,0x521d4c:Shop_SellToShopkeeper,0x521fd1:FUN_00521fd1	~differential-fuzz:r de 1/s): ferida e ds < 30 → MoveTo | ~differential-fuzz:→ MoveTo(+0x9c); ds < 10 → MoveTo
+unknown	0x9c->0x94	4	1	0	0x521d4c:Shop_SellToShopkeeper	
+unknown	0xa0	4	5	2	0x4ffbd4:FUN_004ffbd4,0x4ffc34:FUN_004ffc34,0x53f210:FUN_0053f210	
+unknown	0xa4	4	2	1	0x4ffc34:FUN_004ffc34,0x53f210:FUN_0053f210	~ai-original:ceil(dif /
+unknown	0xa5	1	2	0	0x56f850:AI_GroupMaxScanRange,0x56fa63:AI_GroupCentroid	~ai-behaviors:(células | ~ai-original:
+unknown	0xa8[]	2	1	1	0x4f06ac:FUN_004f06ac	~combat-formulas:+ 2·esfera) + Mind ( | ~magic-original:+2i habilidades (i = 1 fogo … 5 astral →
+unknown	0xa8[]	4	1	0	0x562745:FUN_00562745	~combat-formulas:+ 2·esfera) + Mind ( | ~magic-original:+2i habilidades (i = 1 fogo … 5 astral →
+unknown	0xac	4	1	0	0x57877d:FUN_0057877d	~differential-fuzz:contador
+unknown	0xb4	4	2	1	0x562745:FUN_00562745,0x57877d:FUN_0057877d	
+unknown	0x104	1	1	1	0x519db8:Spell_Apply	
+unknown	0x108	2	4	4	0x4fff08:FUN_004fff08,0x510a70:Unit_Die,0x5217a2:FUN_005217a2	
+unknown	0x10c	4	1	1	0x4fff08:FUN_004fff08	
+unknown	0x135	1	1	1	0x4f06ac:FUN_004f06ac	~ai-original:+ rand(0..3) (0x51fa25(3)) + 1º inteiro 
+unknown	0x140	4	1	1	0x4f06ac:FUN_004f06ac	~ai-behaviors:livro de magias (0x51c391(id) → magia: + | ~ai-original:→
+unknown	0x14c	2	1	0	0x562518:FUN_00562518	
+unknown	0x150	4	1	1	0x4f515d:Server_PacketDispatcher	~magic-original:(0x4c6d05
+unknown	0x1a4	2	1	1	0x55b879:FUN_0055b879	
+unknown	0x1c4	4	1	0	0x4f515d:Server_PacketDispatcher	~ai-behaviors:dados da tarefa/IA: [0] posto (word x | ~ai-original:[0] (célula atual se 0
+unknown	0x1c4->0x78	1	1	2	0x4f515d:Server_PacketDispatcher	~magic-original:Magia escolhida
+unknown	0x204	4	1	0	0x5066f3:FUN_005066f3	
+unknown	0x260	4	2	1	0x508774:FUN_00508774,0x5087a4:FUN_005087a4	
+unknown	0x264	4	1	1	0x5087f8:FUN_005087f8	
+unknown	0x268	4	1	1	0x5087f8:FUN_005087f8	
+unknown	0x298	1	1	1	0x540010:FUN_00540010	
+unknown	0x29c	4	1	1	0x4fff08:FUN_004fff08	~fn:Cheat_IsOperator:Flag de operador/host (+0x29c)
+unknown	0x2a0	4	1	1	0x4fff08:FUN_004fff08	
+unknown	0x3f0	1	1	1	0x55f2f0:FUN_0055f2f0	
+unknown	0x400[]	4	1	0	0x50b8dc:FUN_0050b8dc	
+unknown	0x4e0	4	1	0	0x44fff0:FUN_0044fff0	
+unknown	0x5d8	4	2	0	0x439ee7:FUN_00439ee7,0x43a0a8:Server_Log	
+unknown	0x800[]	4	1	1	0x50b377:FUN_0050b377	
+unknown	0xa44	1	1	0	0x4f0cbe:FUN_004f0cbe	
+unknown	0xa48	4	1	1	0x4ea6ab:FUN_004ea6ab	
+unknown	0xa4c	4	1	1	0x4ea6ab:FUN_004ea6ab	
+unknown	0xa50	4	6	1	0x516165:FUN_00516165,0x56fc69:FUN_0056fc69,0x57393c:FUN_0057393c	
+unknown	0xa50->0x944dc	4	1	0	0x578ccb:FUN_00578ccb	
+unknown	0xa50->0xa456c	4	3	0	0x57393c:FUN_0057393c,0x573b38:FUN_00573b38,0x57909a:FUN_0057909a	
+unknown	0xa54	4	1	1	0x4ea6ab:FUN_004ea6ab	~ai-original:icado; tabela de preferência por classe
+unknown	0xa58	4	1	1	0x4ea6ab:FUN_004ea6ab	
+unknown	0xa68	4	1	1	0x4f515d:Server_PacketDispatcher	
+unknown	0xc00	4	1	0	0x50b9a7:FUN_0050b9a7	
+unknown	0x18a8	1	1	0	0x500cc0:FUN_00500cc0	
+unknown	0x18ac	4	2	0	0x500cc0:FUN_00500cc0,0x50148a:FUN_0050148a	
+unknown	0x18b0	4	1	0	0x540360:FUN_00540360	
+unknown	0x18b4	4	2	1	0x500ad9:FUN_00500ad9,0x50155f:FUN_0050155f	
+unknown	0x18f0[]	4	1	1	0x506071:FUN_00506071	
+unknown	0x1cf0[]	4	1	1	0x506071:FUN_00506071	
+unknown	0xa8c0	4	1	1	0x576fb1:FUN_00576fb1	
+unknown	0xa8c4[]	1	1	0	0x57909a:FUN_0057909a	
+unknown	0xbbe8	4	1	2	0x578910:Cheat_AltKeyDebugger	
+unknown	0xc780	4	1	1	0x573d34:FUN_00573d34	
+unknown	0x944f4[]	1	1	0	0x552c28:Vision_Compute	~differential-fuzz:[0x670e48]+y×256+x), altura
