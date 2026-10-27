@@ -4,13 +4,15 @@
  * IA+9 == 0 executa a tarefa IA+8 (1 andar 0x56e4ac, 4 perseguir 0x56ea52, 10 girar 0x56e55d...). No fim, se o caminho
  * dinâmico ficou vazio indo ao fim do estático (andar+0x98, 0x555dc2), trata a tarefa da unidade (+0x50).
  *
- * Portadas: 0x56dca2 Unit_ActionDispatcher, 0x56ea52 (tarefa 4: perseguir), 0x56e55d Unit_Turn.
+ * Portadas: 0x56dca2 Unit_ActionDispatcher, 0x56ea52 (tarefa 4: perseguir), 0x56e55d Unit_Turn, 0x56e5bc Unit_LookAround (tarefa 0xb:
+ * olhar em volta, sorteios 0x56e629/0x56e656 pelo `WorldRec.rng`).
  * Chamados não portados (IA, magia, visão; outra etapa): lançam NotPorted, salvo quando o chamador passa um adaptador em
  * `DispatchHooks` (World: comportamento do motor antigo para esses pedaços, ver o cabeçalho de sim/world.ts).
  */
 import { gridChebyshevDist, mapObjSubCellCenter } from "./walk";
 import { mapObjCellX, mapObjCellY } from "./path";
 import { NotPorted, pathClearDynamic, unitActionChase, unitTeleportTo, unitTurnStep, unitWalkNear } from "./walk_action";
+import { fn_0x57afd0, randUniformObject } from "./rand";
 import type { UnitRec, WorldRec } from "./types";
 
 /** Adaptadores para chamados de 0x56dca2 ainda não portados (sem adaptador: NotPorted). */
@@ -22,8 +24,32 @@ export interface DispatchHooks {
   patrolNext?(u: UnitRec): void;
   /** 0x56ed4e (fim do caminho nas demais tarefas): alvo ao alcance → tarefa 6 (0x56eff3), senão 0xb (0x56e5bc) ou 0. */
   f56ed4e?(u: UnitRec): void;
-  /** Tarefa IA+8 sem porta (2, 5..9, 0xb, 0xc, 0xf): o adaptador a executa e devolve true; false → NotPorted. */
+  /** Tarefa IA+8 sem porta (2, 5..9, 0xc, 0xf): o adaptador a executa e devolve true; false → NotPorted. */
   task?(u: UnitRec): boolean;
+}
+
+/**
+ * 0x56e5bc Unit_LookAround (thiscall; `this` = mundo): olhar em volta da unidade ociosa (tarefa IA+8 = 0xb). Já virada para o rumo
+ * desejado: sem golpe recebido (IA+0x54 = 0) e rand() > 204 → ação 0; senão rumo desejado = rumo + 33 + rand()×190/32768 (byte),
+ * IA+0x54 = 0, um passo de giro (0x556454) e ação 1. Ainda girando: um passo de giro e ação 1.
+ */
+export function unitLookAround(wd: WorldRec, u: UnitRec): void {
+  const w = u.walk;
+  if ((w.dir & 0xff) === (w.dirTarget & 0xff)) {
+    if ((u.ai.f54 | 0) === 0 && 0xcc < randUniformObject(wd, 0x56e629)) {
+      u.act = 0;
+      return;
+    }
+    const cVar1 = w.dir & 0xff;
+    const iVar2 = fn_0x57afd0(wd, 0xbe, 0x56e656);
+    w.dirTarget = (cVar1 + 0x21 + iVar2) & 0xff;
+    u.ai.f54 = 0;
+    unitTurnStep(u, w.dirTarget & 0xff);
+    u.act = 1;
+  } else {
+    unitTurnStep(u, w.dirTarget & 0xff);
+    u.act = 1;
+  }
 }
 
 /** 0x56e55d Unit_Turn (cdecl): já na direção `d` → tarefa 0 e ação 0; senão um passo de giro (0x556454) e ação 1. */
@@ -81,7 +107,7 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
       case 8: if (!hooks.task?.(u)) throw new NotPorted("0x56ebc0"); break;
       case 9: if (!hooks.task?.(u)) throw new NotPorted("0x56ec3f"); break;
       case 10: unitTurn(u, u.walk.dirTarget & 0xff); break;
-      case 0xb: if (!hooks.task?.(u)) throw new NotPorted("0x56e5bc"); break;
+      case 0xb: unitLookAround(wd, u); break;
       case 0xc: if (!hooks.task?.(u)) throw new NotPorted("0x56eb2d"); break;
       case 0xf: if (!hooks.task?.(u)) throw new NotPorted("0x56ecbc"); break;
     }

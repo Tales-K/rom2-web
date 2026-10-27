@@ -195,7 +195,10 @@ console.log("\n[fuga/recuo] Wimpy, Withdraw e Retreat Mode");
 
   const w2 = makeWorld();
   const archer = mon(w2, 612, 2, 20, 20); // Orc Archer: Withdraw 90 (> vida 60) → sempre recua de quem chega a 2 células
-  const h2 = heroFighter(w2, 26, 20);
+  // herói a 10 células: a chegada cai numa fase do pensamento 1×/s em que o arqueiro não está pronto para atirar (o teste depende da
+  // fase — giro antes do trecho e ordem que espera o pensamento, teste diferencial; a 16/s sai a 6, 10 e 11 células, a 5, 7, 8 e 9
+  // não, desde que o olhar em volta começou a entrar pelo pensamento (etapa 7); a 20/s era o contrário)
+  const h2 = heroFighter(w2, 30, 20);
   installMissionAi(w2, { spells });
   h2.hp = h2.maxHp = 5000;
   w2.command(h2, { type: "attack", target: archer.id });

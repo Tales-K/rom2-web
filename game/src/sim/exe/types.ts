@@ -8,8 +8,10 @@
  * Lote 5b (sim/exe/wave.ts): `MapRec` (o objeto de mapa/caminho inteiro, `this` das ondas), listas de caminho e sub-registros da unidade.
  * Lote 5c (sim/exe/walk_action.ts): o andar (`WalkRec` +0x00..+0xb1: giro, passo por tique, alvo), `WorldRec`, unidades por endereço.
  * Etapa 6 (sim/exe/action.ts): campos do despachante 0x56dca2 (unidade +0x50/+0x144, IA +0x14/+0x18, tipo +0x45, mundo +0xbbe8).
+ * Etapa 7 (sim/exe/action.ts, rand.ts): olhar em volta (IA +0x54), o sorteio do mundo (mundo +0 divisor, `rng`).
  */
 import { CListPtr, CListWord, CMapShortOcc } from "./mfc";
+import { Rng } from "../rng";
 
 /** Objeto de mapa da unidade (alvo do ponteiro unidade+0x10). Coordenadas em células e fração (1/256 de célula). */
 export class MapObjRec {
@@ -115,6 +117,7 @@ export class AiRec {
   target = 0;     // +0x18 u32 unidade perseguida pela tarefa 4 (endereço; 0x56ea52)
   f28 = 0;        // +0x28 u32 alvo da magia (endereço; tarefa 8 0x56ebc0 → 0x56ea52)
   f3c = 0;        // +0x3c u16 célula da magia no chão (tarefa 9 0x56ec3f → 0x56e4ac)
+  f54 = 0;        // +0x54 u32 1 = sofreu golpe/magia (0x56e6b8): a próxima olhada em volta gira sem o sorteio (0x56e5bc zera)
   spellSlot = 0;  // +0x78 u8  magia do livro escolhida (0 = nenhuma; 0x56ac5b)
   fb0 = 0;        // +0xb0 u16 destino do teleporte da célula (0x5503af, registro de ocupação de tipo 0x17)
 }
@@ -274,8 +277,11 @@ export class MapRec implements PathRec, FlagGridRec, ByteGridRec {
   }
 }
 
-/** Mundo/servidor (o `this` de 0x56dca2, 0x56e4ac e 0x56fc69). */
+/** Mundo/servidor (o `this` de 0x56dca2, 0x56e4ac, 0x56fc69 e dos sorteios 0x57afc0/0x57afd0). */
 export class WorldRec {
+  divisor = 0x8000;                  // +0x0000 u32 divisor do objeto de sorteio uniforme (0x57afd0: rand() × n / divisor)
   fbbe8 = 0;                         // +0xbbe8 u32 0 → 0x56dca2 testa o grupo dormindo (tipo+0x45)
+  /** o rand() do CRT (_tiddata+0x14) que 0x583290 usa: o `Rng` do motor (a World põe o seu aqui) */
+  rng: Rng = new Rng();
   constructor(public map: MapRec) {} // +0xa50 ptr objeto de mapa/caminho
 }

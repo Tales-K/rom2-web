@@ -1892,6 +1892,12 @@
    "source": "notes/ai-original.md"
   },
   {
+   "va": "0x56e5bc",
+   "name": "Unit_LookAround",
+   "desc": "Olhar em volta da unidade ociosa (tarefa 0xb): rand()>204 nada, senao rumo+33+rand*190/32768 e giro",
+   "source": "sim/exe/action.ts"
+  },
+  {
    "va": "0x56f111",
    "name": "AI_TestPatrol",
    "desc": "Patrulha de teste com coordenadas fixas (codigo morto)",

@@ -1609,7 +1609,7 @@ addr	name	size	file	line	status	ts	note
 0x56dca2	Unit_ActionDispatcher	1719	game/g_560000.c	8696	ported	action.ts:unitActionDispatcher	pares 3 episódios 100% nos ramos portados (14078; exe_walkaction.ts); tarefas 2/5..9/0xb/0xc/0xf, IA+9=2 e fim de caminho (0x56dc24/0x57b020/0x56ed4e) = NotPorted ou adaptador da World (etapa 6, notes/integracao-andar.md)
 0x56e4ac	Unit_WalkNear	177	game/g_560000.c	8913	ported	walk_action.ts:unitWalkNear	pares 3 episódios 100% (exe_walkaction.ts)
 0x56e55d	Unit_Turn	95	game/g_560000.c	8941	ported	action.ts:unitTurn	exec 0 no corpus: sem pares; tradução direta (Unit_TurnStep + ação), chamada pelo caso 10 de 0x56dca2
-0x56e5bc	FUN_0056e5bc	252	game/g_560000.c	8960	pending		
+0x56e5bc	FUN_0056e5bc	252	game/g_560000.c	8960	ported	unitLookAround	exe/action.ts; pares 3 ep. 100% com sorteios (0x56e629, 0x56e656)
 0x56e6b8	FUN_0056e6b8	523	game/g_560000.c	8991	pending		
 0x56e8c3	FUN_0056e8c3	67	game/g_560000.c	9054	pending		
 0x56e906	FUN_0056e906	128	game/g_560000.c	9067	pending		
@@ -1784,8 +1784,8 @@ addr	name	size	file	line	status	ts	note
 0x57ad97	FUN_0057ad97	11	game/g_570000.c	6753	pending		
 0x57aee0	AI_ProfileTimer2	157	game/g_570000.c	6819	pending		
 0x57af80	FUN_0057af80	42	game/g_570000.c	6842	pending		
-0x57afc0	Rand_UniformObject	16	game/g_570000.c	6865	pending		
-0x57afd0	FUN_0057afd0	31	game/g_570000.c	6877	pending		
+0x57afc0	Rand_UniformObject	16	game/g_570000.c	6865	ported	randUniformObject	exe/rand.ts; rand() cru pelo Rng do motor (site do chamador)
+0x57afd0	FUN_0057afd0	31	game/g_570000.c	6877	ported	fn_0x57afd0	exe/rand.ts; rand()*n/[mundo+0]
 0x57aff0	Rand_Range	42	game/g_570000.c	6889	pending		
 0x57b020	FUN_0057b020	91	game/g_570000.c	6903	pending		
 0x57b080	FUN_0057b080	91	game/g_570000.c	6930	pending		

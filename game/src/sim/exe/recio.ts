@@ -18,7 +18,7 @@ const WALK_FIELDS: Field[] = [
 ];
 const AI_FIELDS: Field[] = [
   [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x14, 1, "range"], [0x15, 1, "f15"],
-  [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x3c, 2, "f3c"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
+  [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x3c, 2, "f3c"], [0x54, 4, "f54"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
 ];
 
 function read(b: Uint8Array, [off, size, , signed]: Field): number {

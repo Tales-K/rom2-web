@@ -1,5 +1,6 @@
 /**
- * Prova da porta sim/exe/walk_action.ts (lote 5c, o andar) e do despachante sim/exe/action.ts (etapa 6: 0x56dca2, 0x56ea52) contra
+ * Prova da porta sim/exe/walk_action.ts (lote 5c, o andar), do despachante sim/exe/action.ts (etapa 6: 0x56dca2, 0x56ea52; etapa 7:
+ * 0x56e5bc olhar em volta) e dos sorteios sim/exe/rand.ts (0x57afc0, 0x57afd0) contra
  * os pares do oráculo (tools/re/oracle/fnprobe.py) e a varredura no Unicorn (tools/re/oracle/fuzz_walk.py). Pares de 0x56dca2 que
  * caem numa tarefa ainda não portada (NotPorted) contam à parte, não como falha. Rodar em game/:
  *   npx tsx src/sim/test/exe_walkaction.ts            (EXE_WALK_ONLY=0x555411,fuzz para só algumas)
@@ -8,7 +9,8 @@
  * pelos acessos da própria chamada (CallMem): o objeto de mapa inteiro (`TestMap`), as unidades pelos ponteiros (argumentos e
  * as que o mapa guarda: occCur+4, lista de 0x54ec6a), os sub-registros de andar (+0x1c0) e IA (+0x1c4), listas e CMap.
  * Exige igualdade exata em 100 % das chamadas:
- *   - retorno na largura declarada; nenhum rand();
+ *   - retorno na largura declarada; rand(): a mesma contagem e a mesma semente final (`nrand`, `rng1`), logo os mesmos valores na
+ *     mesma ordem (o `Rng` do motor parte da semente `rng0` da chamada);
  *   - mapa: todo byte que a porta mudou foi escrito pelo original e todo byte escrito pelo original igual ao final (CMap e
  *     lista de unidades conferidos por nós);
  *   - cada unidade tocada: cada campo espelhado (tabelas abaixo) igual ao final se o original o escreveu, intocado senão;
@@ -22,7 +24,9 @@ import {
   pathClearDynamic, unitActionChase, unitActionWalk, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkFormula,
   unitWalkNear, unitWalkWait,
 } from "../exe/walk_action";
-import { fn_0x56ea52, unitActionDispatcher } from "../exe/action";
+import { fn_0x56ea52, unitActionDispatcher, unitLookAround } from "../exe/action";
+import { fn_0x57afd0, randUniformObject } from "../exe/rand";
+import { Rng } from "../rng";
 import {
   MAP_ALT_OFF, MAP_DIR_CELL_OFF, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_RINGS_OFF, MAP_SPEED_MUL_OFF, MAP_WORLD_OFF, MapObjRec, MapRec,
   UnitRec, WorldRec,
@@ -50,8 +54,15 @@ const WALK_FIELDS: Field[] = [
 ];
 const AI_FIELDS: Field[] = [
   [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x14, 1, "range"],
-  [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x3c, 2, "f3c"], [0x78, 1, "spellSlot"], [0xb0, 2, "fb0"],
+  [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x3c, 2, "f3c"], [0x54, 4, "f54"], [0x78, 1, "spellSlot"],
+  [0xb0, 2, "fb0"],
 ];
+
+/** O rand() do CRT a partir da semente da chamada, contando os sorteios (prova da ordem: contagem e semente final iguais). */
+class CountingRng extends Rng {
+  n = 0;
+  override raw(): number { this.n++; return super.raw(); }
+}
 const UNIT_LISTS: [number, "pathStatic" | "pathDynamic"][] = [[0x1c8, "pathStatic"], [0x1e4, "pathDynamic"]];
 
 type Rec = Record<string, number>;
@@ -139,10 +150,18 @@ function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string | null {
 
 // --------------------------------------------------------------------------------------------------------- chamadas
 
-interface Ctx { d: Pair; cm: CallMem; memo: Map<number, UnitRec>; map: TestMap | null; mapBefore: Uint8Array | null; }
+interface Ctx { d: Pair; cm: CallMem; memo: Map<number, UnitRec>; map: TestMap | null; mapBefore: Uint8Array | null; rng: CountingRng | null; }
 
 function ctx(d: Pair, cm: CallMem): Ctx {
-  return { d, cm, memo: new Map(), map: null, mapBefore: null };
+  return { d, cm, memo: new Map(), map: null, mapBefore: null, rng: null };
+}
+/** Mundo em `w` com o gerador na semente da chamada e o divisor do sorteio (mundo+0) lido pela chamada. */
+function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
+  const wr = new WorldRec(m);
+  c.rng = new CountingRng(c.d.rng0);
+  wr.rng = c.rng;
+  if (c.cm.has(w)) wr.divisor = c.cm.u32(w) | 0;
+  return wr;
 }
 const U = (c: Ctx, a: number): UnitRec => unitFrom(c.cm, a, c.memo);
 function M(c: Ctx, base: number): TestMap {
@@ -157,8 +176,10 @@ function W(c: Ctx, w: number): WorldRec {
   const base = c.cm.u32(w + 0xa50);
   const m = M(c, base);
   if (c.cm.has(base + MAP_WORLD_OFF) && c.cm.u32(base + MAP_WORLD_OFF) !== (w >>> 0)) throw new Error("mapa+0x58d80 ≠ mundo");
-  return new WorldRec(m);
+  return worldRec(c, w, m);
 }
+/** Mundo sem o mapa remontado (funções que só sorteiam: 0x57afc0, 0x57afd0). */
+const WR = (c: Ctx, w: number): WorldRec => worldRec(c, w, new MapRec());
 
 /** Confere mapa, todas as unidades tocadas e o retorno. */
 function done(c: Ctx, r: number | null, ret?: (v: number) => number): string | null {
@@ -170,6 +191,9 @@ function done(c: Ctx, r: number | null, ret?: (v: number) => number): string | n
     const e = checkUnit(c.cm, c.d, a, u);
     if (e) return `unidade 0x${a.toString(16)}: ${e}`;
   }
+  const e = c.rng ? eq("rand(): sorteios", c.rng.n, c.d.nrand) ?? eq("rand(): semente final", c.rng.state, c.d.rng1 >>> 0)
+    : c.d.nrand !== 0 || c.d.rng0 !== c.d.rng1 ? "rand() chamado no original" : null;
+  if (e) return e;
   return r !== null && ret ? eq("retorno", r, ret(c.d.eax)) : null;
 }
 
@@ -201,6 +225,9 @@ const CHECKS: Record<string, Check> = {
   "0x56fc69": run((c, d) => { const w = W(c, d.this); return fn_0x56fc69(w, U(c, A(d, 0)), A(d, 1)); }, AL),
   "0x56dca2": run((c, d) => { const w = W(c, d.this); w.fbbe8 = c.cm.u32(d.this + 0xbbe8); unitActionDispatcher(w, U(c, A(d, 0))); return null; }),
   "0x56ea52": run((c, d) => { const w = W(c, d.this); fn_0x56ea52(w, U(c, A(d, 0)), A(d, 1)); return null; }),
+  "0x56e5bc": run((c, d) => { const w = W(c, d.this); unitLookAround(w, U(c, A(d, 0))); return null; }),
+  "0x57afc0": run((c, d) => randUniformObject(WR(c, d.this), 0x57afc0), EAX),
+  "0x57afd0": run((c, d) => fn_0x57afd0(WR(c, d.this), A(d, 0), 0x57afd0), EAX),
   "0x54ec6a": run((c, d) => {
     const m = M(c, d.this);
     const l = gridUnitsInRings(m, A(d, 0), A(d, 1));
@@ -210,7 +237,7 @@ const CHECKS: Record<string, Check> = {
   "0x52b22a": (d, cm) => {
     const l = ptrListFrom(cm, d.this + 4);
     fn_0x52b22a(l, A(d, 0));
-    return checkPtrList(cm, d.this + 4, l, "lista");
+    return checkPtrList(cm, d.this + 4, l, "lista") ?? (d.nrand !== 0 ? "rand() chamado no original" : null);
   },
   "0x55073f": run((c, d) => { const m = M(c, d.this); return fn_0x55073f(m, U(c, A(d, 0)), A(d, 1), A(d, 2)); }, EAX),
   "0x550697": run((c, d) => { const m = M(c, d.this); return fn_0x550697(m, U(c, A(d, 0))); }, EAX),
@@ -240,7 +267,6 @@ if (!existsSync(PAIRS)) {
         let err: string | null;
         try {
           err = check(d, new CallMem(d));
-          if (!err && (d.nrand !== 0 || d.rng0 !== d.rng1)) err = "rand() chamado no original";
         } catch (ex) {
           if (ex instanceof NotPorted) notPorted.set(ex.addr, (notPorted.get(ex.addr) ?? 0) + 1);
           // despachante: a chamada caiu numa tarefa/sub-ação ainda não portada (IA, golpe, magia): fora da prova

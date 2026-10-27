@@ -246,9 +246,6 @@ export class Unit {
   set unreachSec(v: number) { this.rec.ai.f16 = ((v & 0xffff) << 16) >> 16; }
   hitClock16 = -100000;
   fleeCell = 0;
-  /** olhar em volta da IA ociosa (0x56e5bc): tiques de giro restantes, `+0x1c4+0x54` (o rumo é `angle`) */
-  lookTurn = 0;
-  lookFlag = false;
   castSpell: SpellDef | null = null;
   /** ponto-alvo da magia em lançamento (magias de área/teleporte) */
   castX = 0;
@@ -395,8 +392,6 @@ export interface SpellArea {
 }
 
 export interface Loot { id: number; x: number; y: number; gold: number; items: string[]; }
-/** `Unit.lookTurn` ≥ isto: fora do modo 0xb (não olha em volta até o pensamento a deixar ociosa) */
-export const LOOK_OFF = 9999;
 export interface GroupGuardState { base: number; radius: number; combat: boolean; cmd12?: boolean }
 
 /** Quadro do desenho do saco pelo valor (ouro + valor dos itens): min(int(log10(valor)), n−1) [exe 0x4b1fa9]; valor < 1 → 0. */
@@ -492,6 +487,7 @@ export class World {
     for (const a of this.exe.occ.table ?? []) for (let p = a; p; p = p.next) this.exeBaseOcc.push([p.key, p.value.b.slice()]);
     this.exeBaseStructs.push(...this.exe.structs);
     this.rng = new Rng(seed);
+    this.exeWorld.rng = this.rng;   // os sorteios das funções portadas (0x57afc0) saem do mesmo gerador, nos mesmos sítios
     this.dip = Array.from({ length: players + 1 }, () => new Array(players + 1).fill(0));
     this.money = new Array(players + 1).fill(0);
     this.playerAi = Array.from({ length: players + 1 }, () => ({ formation: 1, retreat: 0, autocast: 0x18 | 1 }));
@@ -750,8 +746,6 @@ export class World {
   t16base: number | null = null;
   /** este tique é o do pensamento 1×/s (despachante de tarefas do exe) */
   thinkNow = false;
-  /** depuração do diferencial: ids de quem sorteou no olhar em volta (undefined = desligado) */
-  lookLog?: number[];
   /** unidades na ordem do servidor do exe: jogador e, dentro dele, id (o do original nos estados importados) */
   serverOrder(): Unit[] {
     return [...this.units].sort((a, b) => a.player - b.player || (a.regenSlot ?? a.id) - (b.regenSlot ?? b.id));
@@ -763,33 +757,11 @@ export class World {
    *  do pensamento calibrada em `thinkPhaseFor`), ou seja, k ≤ t ⇔ 1,25·k + 0,5 < t + 1 */
   clock16(t = this.tick): number { return Math.ceil(((2 * t + 1) * SERVER_TICKS_PER_SEC) / (2 * TICKS_PER_SEC)) - 1; }
 
-  /** Olhar em volta da unidade ociosa de jogador de IA (modo 0xb → 0x56e5bc, chamado pelo despachante 0x56dca2 em TODO tique de 16/s):
-   *  virada para onde quer, `+0x1c4+0x54` = 0 e `rand() > 204` → nada (1 sorteio); senão novo rumo = rumo + 33 + rand()×190/32768
-   *  (`+0x54` volta a 0) e gira (Unit_TurnStep: ⌈distância / giro⌉ tiques, sem sorteio). É o maior consumidor do `rand()` do original
-   *  (~1 por unidade ociosa por tique: 300+/s nas missões 10 e 20), então sem ele os sorteios de dano não batem. */
-  private idleLook(u: Unit): void {
-    if (u.isHero || !u.alive || !this.isAiPlayerUnit(u) || u.helpless || u.suspended || u.order.type !== "none" || u.state !== "idle" || !this.awake(u)) {
-      if (u.lookTurn > 0 && u.lookTurn < LOOK_OFF) u.lookTurn--;   // o giro continua
-      return;
-    }
-    if (u.lookTurn >= LOOK_OFF) return;
-    if (u.lookTurn > 0) { u.lookTurn--; return; }
-    this.lookLog?.push(u.id);
-    if (!u.lookFlag && this.rng.draw(0x56e629) > 204) return;
-    const d = 33 + this.rng.scaled(190, 0x56e656);
-    u.lookFlag = false;
-    u.angle = (u.angle + d) & 0xff;
-    const dist = d > 128 ? 256 - d : d;
-    // o rumo anda `giro` por tique já neste tique e encosta no desejado no último: ⌈dist/giro⌉ − 1 tiques sem sorteio (sonda rngprobe:
-    // 24583 giro 12, 122 → 10 tiques; 24619 giro 23, 83 → 3; 24597 giro 16, 44 → 2)
-    u.lookTurn = Math.ceil(dist / Math.max(1, u.stats.turnSpeed ?? 16)) - 1;
-  }
-
   /** 0x56e6b8 (chamada em todo golpe físico — acerto ou não — e em magias com dano): marca o tique de 16/s e o ponto de fuga da
    *  vítima = célula da vítima + 10 × (vítima − atacante) / max(|dx|,|dy|) em coordenadas finas, truncado (ftol), palavra y<<8 + x. */
   noteAttacked(a: Unit, t: Unit): void {
     t.hitClock16 = this.clock16();
-    t.lookFlag = true;   // +0x1c4+0x54 = 1: a próxima olhada gira sem o sorteio de 204
+    t.rec.ai.f54 = 1;   // IA+0x54 = 1: a próxima olhada em volta (0x56e5bc, tarefa 0xb) gira sem o sorteio de 204
     const dx = Math.floor(t.x * 256) - Math.floor(a.x * 256), dy = Math.floor(t.y * 256) - Math.floor(a.y * 256);
     const m = Math.max(Math.abs(dx), Math.abs(dy));
     if (!m) { t.fleeCell = 0; return; }
@@ -924,8 +896,6 @@ export class World {
         if (u.state === "dead" || u.state === "dying" || u.phased || !u.active || u.isHero || u.suspended || u.helpless || !this.isAiPlayerUnit(u)) continue;
         if (this.stunned(u) || !this.awake(u)) continue;
         aiThink(this, u, true);
-        // o pensamento deixou a unidade ociosa: modo 0xb (0x56afd9) — volta a olhar em volta (importada fora do modo 0xb)
-        if (u.lookTurn >= LOOK_OFF && u.order.type === "none" && u.state === "idle") u.lookTurn = 0;
       }
     }
     this.rng.shift = 0;
@@ -951,7 +921,6 @@ export class World {
         if (u.isHero) heroThink(this, u);
         else if (!u.suspended && !u.helpless) aiThink(this, u, decide || !this.isAiPlayerUnit(u)); // caído (vida 0 do mapa/script): não age nem se cura sozinho
       }
-      if (serverTick) this.idleLook(u);
       this.act(u);
     }
     this.stepProjectiles();
@@ -1153,6 +1122,14 @@ export class World {
     const o = u.order;
     switch (o.type) {
       case "none":
+        // ociosa de jogador de IA: o pensamento (0x56afd9, tique ≡ 7) põe a tarefa IA+8 = 0xb, e o despachante olha em volta em todo
+        // tique (0x56e5bc: sorteios 0x56e629/0x56e656, giro por 0x556454); a tarefa importada do oráculo vale até o pensamento
+        if (this.idleTask(u)) {
+          if (this.thinkNow && u.rec.ai.task !== 0xb) u.rec.ai.task = 0xb;
+          if (u.rec.ai.task === 0xb) { this.dispatch(u); return; }
+        }
+        this.stop(u);
+        return;
       case "hold":
       case "still":
         this.stop(u);
@@ -1358,6 +1335,11 @@ export class World {
     u.rec.act = 0;
   }
 
+  /** A unidade cabe na tarefa de olhar em volta do exe (IA+8 = 0xb, 0x56afd9): ociosa, de jogador de IA, acordada, sem ordem. */
+  private idleTask(u: Unit): boolean {
+    return !u.isHero && u.alive && this.isAiPlayerUnit(u) && !u.helpless && !u.suspended && u.order.type === "none" && this.awake(u);
+  }
+
   /** Giro no lugar até olhar para (tx, ty) antes de golpear/lançar: um passo de Unit_TurnStep (0x556454) por tique no rumo do exe
    *  (0x556b2c, 8 direções). Devolve true enquanto ainda está girando. */
   private turning(u: Unit, tx: number, ty: number): boolean {
@@ -1447,7 +1429,8 @@ export class World {
       this.grid.occ[this.grid.idx(u.cx, u.cy)] = u.id;
     }
     const moved = ((r.mapObj.x << 24) | (r.mapObj.y << 16) | (r.mapObj.fx << 8) | r.mapObj.fy) !== f0;
-    if (r.act === 1) { this.setState(u, "move"); u.lastActionTick = this.tick; if (moved) u.walkTime++; }
+    // ação 1 = andar/girar; o giro do olhar em volta (tarefa 0xb) fica no estado ocioso do motor (a IA antiga decide sobre "idle")
+    if (r.act === 1 && r.ai.task !== 0xb) { this.setState(u, "move"); u.lastActionTick = this.tick; if (moved) u.walkTime++; }
     else if (u.state === "move") this.setState(u, "idle");
     if (moved && mapObjSubCellCenter(r.mapObj) !== 0) { this.autoPickup(u); u.arriveTick = this.tick; }
   }
