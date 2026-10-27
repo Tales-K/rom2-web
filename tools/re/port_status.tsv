@@ -343,8 +343,8 @@ addr	name	size	file	line	status	ts	note
 0x50d6ae	FUN_0050d6ae	40	game/g_500000.c	9667	pending		
 0x50d6d6	FUN_0050d6d6	156	game/g_500000.c	9679	pending		
 0x50d772	FUN_0050d772	263	game/g_500000.c	9712	pending		
-0x50d884	FUN_0050d884	60	game/g_500000.c	9767	pending		
-0x50d8c0	FUN_0050d8c0	60	game/g_500000.c	9783	pending		
+0x50d884	FUN_0050d884	60	game/g_500000.c	9767	ported	path.ts:unitCenterX	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
+0x50d8c0	FUN_0050d8c0	60	game/g_500000.c	9783	ported	path.ts:unitCenterY	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x50d8fc	FUN_0050d8fc	35	game/g_500000.c	9799	pending		
 0x50d91f	FUN_0050d91f	40	game/g_500000.c	9808	pending		
 0x50d947	FUN_0050d947	34	game/g_500000.c	9817	pending		
@@ -1217,11 +1217,11 @@ addr	name	size	file	line	status	ts	note
 0x54fca8	FUN_0054fca8	207	game/g_540000.c	13900	pending		
 0x54feae	FUN_0054feae	88	game/g_540000.c	13995	pending		
 0x54ff06	FUN_0054ff06	85	game/g_540000.c	14010	pending		
-0x54ff5b	FUN_0054ff5b	33	game/g_540000.c	14025	pending		
-0x54ff7c	FUN_0054ff7c	34	game/g_540000.c	14034	pending		
+0x54ff5b	FUN_0054ff5b	33	game/g_540000.c	14025	ported	path.ts:mapObjFineX	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
+0x54ff7c	FUN_0054ff7c	34	game/g_540000.c	14034	ported	path.ts:mapObjFineY	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x54ff9e	Obj_CellOf	18	game/g_540000.c	14043	pending		
-0x54ffb0	FUN_0054ffb0	16	game/g_540000.c	14054	pending		
-0x54ffc0	FUN_0054ffc0	17	game/g_540000.c	14063	pending		
+0x54ffb0	FUN_0054ffb0	16	game/g_540000.c	14054	ported	path.ts:mapObjCellX	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
+0x54ffc0	FUN_0054ffc0	17	game/g_540000.c	14063	ported	path.ts:mapObjCellY	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x550008	FUN_00550008	514	game/g_550000.c	3	pending		
 0x55020a	Unit_PlaceOnCells	421	game/g_550000.c	68	pending		
 0x5503af	FUN_005503af	744	game/g_550000.c	125	pending		
@@ -1285,9 +1285,9 @@ addr	name	size	file	line	status	ts	note
 0x556dcd	AI_UnitDistance	393	game/g_550000.c	3925	pending		
 0x556f56	FUN_00556f56	273	game/g_550000.c	3970	pending		
 0x557a89	FUN_00557a89	71	game/g_550000.c	4307	pending		
-0x557cf1	Dir_Sector16	535	game/g_550000.c	4440	pending		
-0x557f08	Unit_ApproachCell	1644	game/g_550000.c	4554	pending		
-0x5585f4	Path_UnlabeledTargetRing	951	game/g_550000.c	4782	pending		
+0x557cf1	Dir_Sector16	535	game/g_550000.c	4440	ported	path.ts:dirSector16	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
+0x557f08	Unit_ApproachCell	1644	game/g_550000.c	4554	ported	path.ts:unitApproachCell	pares 93/93 + Unicorn 3000/3000 (sem celula, aneis multiplos, inclinacao NaN/inf, j>100); x87 reconstruido do asm: float32 + ftol; mesma sequencia de celulas lidas
+0x5585f4	Path_UnlabeledTargetRing	951	game/g_550000.c	4782	ported	path.ts:pathUnlabeledTargetRing	pares 37/37 + Unicorn 1000/1000; os dois ramos (lado==2 ou nao) sao identicos no asm, uma copia; mesma sequencia de celulas
 0x558b3d	FUN_00558b3d	56	game/g_550000.c	4951	pending		
 0x558b75	FUN_00558b75	29	game/g_550000.c	4967	pending		
 0x558b92	Grid_FineCoordCentroid	458	game/g_550000.c	4977	pending		
@@ -1364,8 +1364,8 @@ addr	name	size	file	line	status	ts	note
 0x55f5d0	FUN_0055f5d0	115	game/g_550000.c	8710	pending		
 0x55f7f0	FUN_0055f7f0	92	game/g_550000.c	8807	pending		
 0x55f950	FUN_0055f950	17	game/g_550000.c	8879	pending		
-0x55f970	FUN_0055f970	45	game/g_550000.c	8888	pending		
-0x55f9a0	FUN_0055f9a0	31	game/g_550000.c	8897	pending		
+0x55f970	FUN_0055f970	45	game/g_550000.c	8888	ported	path.ts:pathCostCellOff	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
+0x55f9a0	FUN_0055f9a0	31	game/g_550000.c	8897	ported	path.ts:pathCostIdxOff	sem pares proprios: provada pela sequencia de celulas lidas por 0x5585f4 (pares + Unicorn)
 0x55f9c0	FUN_0055f9c0	35	game/g_550000.c	8906	pending		
 0x55f9f0	FUN_0055f9f0	38	game/g_550000.c	8915	pending		
 0x55fa20	FUN_0055fa20	43	game/g_550000.c	8924	pending		
