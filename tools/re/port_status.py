@@ -73,6 +73,17 @@ def in_game(addr):
         return False
 
 
+PROFILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exec_profile.tsv")
+
+
+def load_profile():
+    """addr -> entradas somadas nos episódios (tools/re/oracle/exec_profile.py); {} se o arquivo não existe."""
+    if not os.path.exists(PROFILE):
+        return {}
+    with open(PROFILE, encoding="utf8") as f:
+        return {r["addr"].lower(): int(r["total"]) for r in csv.DictReader(f, delimiter="	")}
+
+
 def closure(roots, callees):
     seen, st = set(), list(roots)
     while st:
@@ -161,20 +172,25 @@ def field_patterns(s):
 def cmd_init(_):
     idx = load_index()
     callees, _ = load_callgraph()
-    fecho = sorted((a for a in closure(ROOTS, callees) if in_game(a) and a in idx), key=lambda x: int(x, 16))
+    base = closure(ROOTS, callees)
+    # Funções executadas no tique (exec_profile.tsv) que o callgraph não alcança a partir das raízes: chamadas por vtable ou
+    # ponteiro. Entram como raízes extras, com o seu próprio fecho, para a lista cobrir tudo o que roda no corpus.
+    prof = load_profile()
+    extra = sorted((a for a in prof if a in idx and in_game(a) and a not in base), key=lambda x: int(x, 16))
+    fecho = sorted((a for a in closure(list(ROOTS) + extra, callees) if in_game(a) and a in idx), key=lambda x: int(x, 16))
     old = read_tsv()
     rows = {}
     for a in fecho:
         r = idx[a]
         row = {"addr": a, "name": r["name"], "size": r["size_bytes"], "file": r["file"], "line": r["line"],
-               "status": "pending", "ts": "", "note": ""}
+               "status": "pending", "ts": "", "note": "raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)" if a in extra else ""}
         if a in old:
             for c in ("status", "ts", "note"):
                 row[c] = old[a].get(c, "") or row[c]
         rows[a] = row
     dropped = [a for a in old if a not in rows and old[a]["status"] != "pending"]
     write_tsv(rows)
-    print(f"{TSV}: {len(rows)} funções no fecho de {len(ROOTS)} raízes; {len(old)} linhas anteriores; "
+    print(f"{TSV}: {len(rows)} funções no fecho de {len(ROOTS)} raízes + {len(extra)} raízes extras do exec_profile; {len(old)} linhas anteriores; "
           f"{len(dropped)} marcadas que saíram do fecho (mantidas fora do tsv; confira): {dropped[:10]}")
 
 
@@ -193,13 +209,21 @@ def cmd_report(_):
     scope_b = sum(int(r["size"] or 0) for r in rows.values() if r["status"] != "out")
     ported_b = tot["ported"][1]
     print(f"cobertura: {ported_b}/{scope_b} bytes no escopo = {100.0 * ported_b / max(1, scope_b):.1f} %")
+    prof = load_profile()
+    if prof:
+        ex = [a for a, r in rows.items() if r["status"] != "out" and prof.get(a, 0) > 0]
+        ex_b = sum(int(rows[a]["size"] or 0) for a in ex)
+        ex_p = sum(int(rows[a]["size"] or 0) for a in ex if rows[a]["status"] == "ported")
+        print(f"executadas no corpus (exec_profile.tsv): {len(ex)} funções, {ex_b} bytes; portadas {ex_p}/{ex_b} bytes = "
+              f"{100.0 * ex_p / max(1, ex_b):.1f} %")
 
 
-def _print_batch(addrs, rows, n):
-    print("ordem  addr      size  status   name")
+def _print_batch(addrs, rows, n, prof=None):
+    prof = load_profile() if prof is None else prof
+    print("ordem  addr      size   exec  status   name")
     for i, a in enumerate(addrs[:n], 1):
         r = rows[a]
-        print(f"{i:>4}  {a}  {int(r['size'] or 0):>5}  {r['status']:<8} {r['name']}")
+        print(f"{i:>4}  {a}  {int(r['size'] or 0):>5} {prof.get(a, 0):>6}  {r['status']:<8} {r['name']}")
     if len(addrs) > n:
         print(f"... e mais {len(addrs) - n} pendentes no fecho")
 
@@ -216,8 +240,14 @@ def cmd_next(args):
         order = [a for a in postorder([root], callees, keep) if a in pend]
         if args.max_size:
             order = [a for a in order if int(rows[a]["size"] or 0) <= args.max_size]
-        print(f"fecho de {root} {rows.get(root, {}).get('name', '?')}: {len(keep)} funções, {len(order)} pendentes; folhas primeiro:")
-        _print_batch(order, rows, args.n)
+        prof = load_profile()
+        if args.executed:
+            if not prof:
+                sys.exit(f"--executed precisa de {PROFILE} (tools/re/oracle/exec_profile.py)")
+            order = [a for a in order if prof.get(a, 0) > 0]
+        print(f"fecho de {root} {rows.get(root, {}).get('name', '?')}: {len(keep)} funções, {len(order)} pendentes"
+              f"{' executadas no corpus' if args.executed else ''}; folhas primeiro:")
+        _print_batch(order, rows, args.n, prof)
     elif args.field:
         strict, loose = field_patterns(args.field)
         idx = load_index()
@@ -245,7 +275,8 @@ def cmd_show(args):
         sys.exit(f"{a} não está no index")
     r = idx[a]
     st = rows.get(a, {}).get("status", "(fora do fecho)")
-    print(f"== {a} {r['name']} size={r['size_bytes']} {r['file']}:{r['line']} status={st} {rows.get(a, {}).get('note', '')}")
+    ex = load_profile().get(a, 0)
+    print(f"== {a} {r['name']} size={r['size_bytes']} {r['file']}:{r['line']} status={st} exec={ex} {rows.get(a, {}).get('note', '')}")
     print("-- chama:")
     for c in callees.get(a, []):
         print(f"   {c} {idx.get(c, {}).get('name', '?'):<28} {rows.get(c, {}).get('status', '-')}")
@@ -284,6 +315,7 @@ def main():
     n.add_argument("--field")
     n.add_argument("--n", type=int, default=15)
     n.add_argument("--max-size", type=int, default=0)
+    n.add_argument("--executed", action="store_true", help="só funções com entradas no exec_profile.tsv")
     n.set_defaults(fn=cmd_next)
     s = sp.add_parser("show")
     s.add_argument("addr")

@@ -9,6 +9,7 @@ sem GUI e sem o jogo, com a memória inteira observável. Notas, HLE e mediçõe
 | `resume.py` | `Oracle`: mapeia a imagem, armadilhas nas DLLs do sistema, FS na TEB32 real, `tick()` = GATE + `Server_Tick`; `run_episode` refaz o laço de `run_orig` e compara com `refs/golden` |
 | `hle.py` | Tabela nome da API → (n.º de argumentos, tratador). Importação sem entrada = parada com erro |
 | `fnprobe.py` | Oráculo por função: cada chamada de funções escolhidas com argumentos, retorno, rng e todos os acessos à memória → `refs/oracle/pairs/<id>/<addr>.jsonl`; `--verify N` refaz chamadas numa imagem nova e exige registro idêntico |
+| `exec_profile.py` | Hook por bloco básico: quantas vezes cada função do `index.tsv` é entrada em N tiques de cada episódio → `tools/re/exec_profile.tsv` (coluna `exec` do `port_status.py`; raízes extras do `init`) |
 | `dump_ticks.py` | `read_state` normalizado a cada tique → `refs/oracle/ticks/<id>.jsonl.gz`; `--check` compara com `states.jsonl.gz` do golden |
 
 ```

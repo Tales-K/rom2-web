@@ -207,11 +207,11 @@ Padrão estrangulador, subsistema a subsistema, atrás da interface que `mission
 
 | # | Etapa | Pronto quando | Custo estimado |
 |---|---|---|---|
-| 1 | **Oráculo por retomada** (4.2): despejo do processo (`a2_diff`) num limite de tique; retomada no Unicorn; HLE mínima; injeção de ordens | Portão: 3 episódios do corpus (`m10_start`, `m10_mage`, `m20_start`, 960 tiques) com traço + `rand` idênticos ao gravado | 2–3 sessões. Se falhar em 3, plano B (oráculo por função com memória montada) |
-| 2 | **Inventário de campos**: script Ghidra/grep que lista todo offset usado sobre cada tipo (unidade, grupo, jogador, objeto) com as funções que leem/escrevem; tipos Ghidra criados a partir dele; ganchos de entrada/saída no emulador gravando argumentos e memória tocada por função | Decodificador imagem → registro cobre 100 % dos offsets lidos pelo fecho; `export_state.py` reescrito sobre ele; pares (entrada, saída) por função gerados sem montar memória à mão | 2–3 sessões |
-| 3 | **Comparador de tique inteiro**: estado `T` → nosso `step()` → diff campo a campo com `T+1`; relatório "1º campo divergente → funções que o escrevem" | Roda em `npm run golden` sobre despejos por tique de 3–5 episódios; métrica "% de tiques exatos" e "mediana do 1º tique divergente sem ressincronização" | 1–2 sessões |
-| 4 | **Piloto de porta**: célula de aproximação + anel (11 funções) com registro fiel do caminho | Campo de posição exato em 100 % dos tiques dos episódios do piloto, ou causa residual nomeada por campo | 1–2 sessões. **Decide o método**: se o piloto não fechar, voltar aqui antes de escalar |
-| 5 | Andar/perseguir/golpe após andar | `pos` e `hp` do herói exatos nos episódios da missão 10 | 3–4 sessões |
+| 1 ✅ | **Oráculo por retomada** (4.2): despejo do processo (`a2_diff`) num limite de tique; retomada no Unicorn; HLE mínima; injeção de ordens | Portão: 3 episódios do corpus (`m10_start`, `m10_mage`, `m20_start`, 960 tiques) com traço + `rand` idênticos ao gravado | 2–3 sessões. Se falhar em 3, plano B (oráculo por função com memória montada) |
+| 2 ✅ | **Inventário de campos**: script Ghidra/grep que lista todo offset usado sobre cada tipo (unidade, grupo, jogador, objeto) com as funções que leem/escrevem; tipos Ghidra criados a partir dele; ganchos de entrada/saída no emulador gravando argumentos e memória tocada por função | Decodificador imagem → registro cobre 100 % dos offsets lidos pelo fecho; `export_state.py` reescrito sobre ele; pares (entrada, saída) por função gerados sem montar memória à mão | 2–3 sessões |
+| 3 ✅ | **Comparador de tique inteiro**: estado `T` → nosso `step()` → diff campo a campo com `T+1`; relatório "1º campo divergente → funções que o escrevem" | Roda em `npm run golden` sobre despejos por tique de 3–5 episódios; métrica "% de tiques exatos" e "mediana do 1º tique divergente sem ressincronização" | 1–2 sessões |
+| 4 ✅ | **Piloto de porta**: célula de aproximação + anel (11 funções) com registro fiel do caminho | Campo de posição exato em 100 % dos tiques dos episódios do piloto, ou causa residual nomeada por campo | 1–2 sessões. **Decide o método**: se o piloto não fechar, voltar aqui antes de escalar |
+| 5 | Andar/perseguir/golpe após andar (`docs/briefings/ETAPA5-ANDAR.md`) | `pos` e `hp` do herói exatos nos episódios da missão 10 | 3–4 sessões |
 | 6 | Alvo (Stand ground, guarda de unidade e de grupo, sub-tarefas) | `target` exato; grupos 0x12 e 1 | 3–4 sessões |
 | 7 | Máquina de ação e despachante inteiros (por `case`) | Todos os campos da área de ação exatos | 4–6 sessões |
 | 8 | Dano, acerto, efeitos, magias, invocações, vida 0/−10, saque | Área de efeitos e vida exatas; GAME_DIFFS seção I zerada | 6–8 sessões |
@@ -226,9 +226,36 @@ oráculo, commit, relatório de 10 linhas; 2 em paralelo quando não compartilha
 sessões (emulador + aproximação + andar) o resíduo `pos` 508 deve cair pela metade. O original real só volta a rodar para **despejar
 imagens** (uma por missão e uma por episódio de interesse), nunca para traçar.
 
+### 7.1 Resultado das etapas 1–4 (2026-10-27)
+
+- **Etapa 1, oráculo** (commits 61d920b, 64b8b4b; `tools/re/oracle/`, `notes/oracle-resume.md`): portão passou nos 3 episódios
+  (traço de 960 tiques + `rand` a cada 16 tiques idênticos ao golden), ~430–530 tiques/s por instância, HLE de ~12 APIs. Dois
+  achados que o portão inicial não via: o Unicorn parte com FPCW 0 (precisão 24 bits) e o jogo roda com **0x27f (53 bits = double
+  do JS)**; a lista de cadáveres (+0x44) precisa entrar na imagem. `fnprobe.py` grava pares por função (argumentos, retorno, rng,
+  leituras e escritas com mapa endereço → unidade/sub-objeto/offset); `dump_ticks.py` grava o estado decodificado por tique.
+- **Etapa 2, inventário** (a0dd053): 524 offsets distintos de `this`, `fields_by_type.tsv` por tipo com leitores/escritores, vtables
+  de `.rdata`. Limite conhecido: escrita feita por ponteiro local não aparece (ex.: a fração de posição `+0x10->0x4` mostra 1 escritor).
+- **Etapa 3, comparador** (f3c6084; `npm run tickcmp`, `notes/tick-compare.md`): tiques 100 % idênticos hoje: 10,2 % / 8,2 % / 2,8 %
+  nos 3 episódios; mediana do 1º tique divergente sem reancorar: 46 / 45 / 74. 1ª divergência: `fx`/`fy` (1/256 no 5º tique de andar),
+  `dir16` (olhar em volta), `act` (ordem de andar vira ação 1 um tique depois), caminho dinâmico, `rng` (82–87 % dos tiques com o
+  mesmo nº de sorteios). O `applyState` sorteia `rand()` em 8–67 % dos tiques (o comparador restaura; o golden herda o desvio).
+- **Etapa 4, piloto** (73d35a0; `game/src/sim/exe/{types,path}.ts`, `test/exe_path.ts`): 12 funções portadas, 100 % dos pares nos 3
+  episódios + 4000 casos no Unicorn para os ramos que os pares não alcançam (`tools/re/oracle/fuzz_approach.py`), **na 1ª tentativa**.
+  A conta em x87 de `Unit_ApproachCell` foi reconstruída do assembly (inclinação em float32, `ftol` truncando, NaN/inf → 0). Os
+  pares mostraram: sem escritas, sem `rand()`, retorno válido só na largura declarada. O critério "posição exata em 100 % dos tiques"
+  **não foi avaliado**: o piloto não integrou nada em `world.ts` (decisão: integração vira etapa própria, abaixo). **Método confirmado.**
+- **Perfil de execução** (`tools/re/oracle/exec_profile.py` → `tools/re/exec_profile.tsv`, ~11 s por episódio): 730 funções rodam nos 3
+  episódios × 960 tiques; 70 delas no servidor **não são alcançadas pelo callgraph** (vtable/ponteiro) e hoje entram como raízes
+  extras no `port_status.py init` (lista: 1825 funções). Também revelou que `0x554bf8` "Unit_WalkTick" nunca executa (nome errado de
+  nota). Métrica nova: bytes executados no corpus já portados (2,2 %).
+- **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
+  depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
+  dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
+
 ## 8. Medir progresso (barato, monotônico)
 
-- **Funções provadas / fecho** (ponderado por bytes): sobe a cada sessão; roda em ms dentro de `test:sim`.
+- **Funções provadas / fecho** (ponderado por bytes): sobe a cada sessão; roda em ms dentro de `test:sim`. `port_status.py report`
+  dá também **bytes executados no corpus já portados** (perfil `exec_profile.tsv`): é a cobertura que importa primeiro.
 - **% de tiques exatos** (estado inteiro) e **mediana do 1º tique divergente sem ressincronização** por episódio (hoje provavelmente
   < 80; meta 960): uma linha nova no `npm run golden`, ~2 s. Não satura como "% de janelas limpas".
 - **1º campo divergente** mais frequente = próxima tarefa (automático).

@@ -66,3 +66,5 @@ e oráculo por retomada da imagem do processo no Unicorn; critério = estado id�
 `port_status.tsv`: `init`/`report`/`next`/`show`/`set`), briefing da etapa 1 em `docs/briefings/ETAPA1-ORACULO-RETOMADA.md`.
 Economia: etapa 1 e piloto com modelo forte; lotes de porta com Sonnet em sessões frescas lendo a skill; escalada ao modelo forte só
 para `review`. Decisões pendentes do usuário: proveniência do código portado, aceitar a troca do núcleo do sim por partes.
+Estado 2026-10-27: etapas 1–4 prontas (oráculo por retomada, inventário de campos, `npm run tickcmp`, piloto com 12 funções a 100 %
+dos pares; seção 7.1 do documento). Perfil de execução `tools/re/exec_profile.tsv`. Próximo: `docs/briefings/ETAPA5-ANDAR.md`.

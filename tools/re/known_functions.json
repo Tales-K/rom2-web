@@ -1516,7 +1516,7 @@
   {
    "va": "0x554bf8",
    "name": "Unit_WalkTick",
-   "desc": "Aplica a formula do andar por tique de 16/s",
+   "desc": "NAO EXECUTA em nenhum dos 3 episodios do corpus (tools/re/exec_profile.tsv, 2026-10-27) e nao tem chamador no callgraph nem call/jmp relativo no .text: nome vindo de nota, nao confirmado; nao usar como raiz do andar",
    "source": "notes/differential-fuzz.md"
   },
   {

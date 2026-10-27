@@ -14,13 +14,18 @@ original. Nunca inferir comportamento por observação; traduzir o código.
   Fora do repositório e do OneDrive; **nunca copiar o C para o repositório**, nem colar trechos longos no chat: leia do arquivo.
 - Lista de trabalho: `tools/re/port_status.tsv` (gerada e mantida por `tools/re/port_status.py`; ver "Fluxo").
 - Nomes conhecidos: `tools/re/known_functions.json` (VA, nome, frase). Função que você decifrar e nomear: acrescente lá.
-- Emulador: `tools/re/unicorn_call.py` (`A2Emu`: chama uma função do exe por endereço com memória preparada); oráculo de retomada
-  (quando existir): `tools/re/oracle/` (ver `docs/briefings/ETAPA1-ORACULO-RETOMADA.md`).
+- Emulador: `tools/re/unicorn_call.py` (`A2Emu`: chama uma função do exe por endereço com memória preparada).
+- Oráculo (`tools/re/oracle/README.md`): `fnprobe.py <ep> <addr...> --verify 20` grava os pares por função em
+  `refs/oracle/pairs/<ep>/<addr>.jsonl` (`this`, args, `eax`, rng, `reads`/`writes`, `objs` endereço → unidade/sub-objeto/offset);
+  `exec_profile.py` → `tools/re/exec_profile.tsv` (quantas vezes cada função roda no corpus; coluna `exec` do `show`/`next`).
+  Função com `exec=0` não é prioridade; nome de `known_functions.json` pode estar errado (0x554bf8 "Unit_WalkTick" nunca roda):
+  confira `exec` antes de tratar um nome como fato. Modelo de teste: `game/src/sim/test/exe_path.ts` (`Recon` remonta as entradas por `objs`).
+- Episódios com imagem no oráculo: `m10_start_s1`, `m10_mage_s102`, `m20_start_s203`.
 - Python: **sempre** `.venv/Scripts/python.exe` (tem `capstone`, `pefile`, `unicorn`); o `python` do sistema não tem.
 - Notas de comportamento (`notes/ai-original.md`, `notes/combat-formulas.md`, ...) servem para **conferir** a leitura do C, não para substituí-la.
 
 ## Fluxo de uma sessão de porta
-1. `python tools/re/port_status.py next --root <addr> --n 15` (ou `--field 0x<off>`): lote de funções pendentes, **folhas primeiro**
+1. `python tools/re/port_status.py next --root <addr> --executed --n 15` (ou `--field 0x<off>`): lote de funções pendentes, **folhas primeiro**
    (as chamadas antes de quem chama). Porte na ordem impressa.
 2. Para cada função: `python tools/re/port_status.py show <addr>` imprime o C, os chamados com estado e os chamadores. Leia o C inteiro.
 3. Traduza (regras abaixo) para o arquivo TS do subsistema (ver "Organização").
@@ -50,7 +55,11 @@ a sessão numa função.
 - **Não melhore nada** durante a porta: nada de early-return novo, nada de cache, nada de "isso é claramente um bug" (um bug do
   original é comportamento a reproduzir; anote em `docs/GAME_DIFFS.md` se quiser propor desvio depois).
 - **Cliente, rede, log, arquivo, save**: não portar; stub com comentário `// stub: cliente (0x504bb7 envio ao cliente local)` e estado
-  `out` com motivo. Em dúvida se é servidor: é servidor se escreve em estado de unidade/grupo/jogador/mapa.
+  `out` com motivo. Em dúvida se é servidor: é servidor se escreve em estado de unidade/grupo/jogador/mapa. Faixas típicas:
+  pacotes/envio 0x500000–0x505fff (`Server_SendStats` 0x50164f, 0x504bb7, 0x503672).
+- **Biblioteca (MFC `CList`/`CArray`/`CMap`, 0x53a000–0x544fff e 0x401000–0x44ffff; CRT 0x582000+)**: não portar método a método;
+  uma implementação espelhada por classe em `sim/exe/mfc.ts` (mesma ordem de iteração e retornos) e cada método `out` com nota
+  `MFC: exe/mfc.ts:CList.addTail`. Acessor trivial do jogo nessa faixa (`this+0x18b0`, lado da unidade) é jogo: porta-se.
 - Não use `notes/` nem o motor atual para "adivinhar" um trecho confuso: vá ao assembly (abaixo).
 
 ## Padrões do Ghidra e como traduzi-los (medidos nos arquivos do servidor)

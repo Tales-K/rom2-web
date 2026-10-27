@@ -3,6 +3,7 @@ addr	name	size	file	line	status	ts	note
 0x401780	FUN_00401780	23	game/g_400000.c	442	pending		
 0x401820	FUN_00401820	25	game/g_400000.c	472	pending		
 0x401840	FUN_00401840	25	game/g_400000.c	482	pending		
+0x401860	FUN_00401860	19	game/g_400000.c	491	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x401880	FUN_00401880	19	game/g_400000.c	501	pending		
 0x4018a0	FUN_004018a0	16	game/g_400000.c	511	pending		
 0x401900	FUN_00401900	23	game/g_400000.c	545	pending		
@@ -11,12 +12,16 @@ addr	name	size	file	line	status	ts	note
 0x401c60	FUN_00401c60	53	game/g_400000.c	718	pending		
 0x401db0	FUN_00401db0	25	game/g_400000.c	799	pending		
 0x401f20	FUN_00401f20	8	game/g_400000.c	894	pending		
+0x402850	Add	43	game/g_400000.c	1359	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x402880	FUN_00402880	25	game/g_400000.c	1382	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x4028a0	FUN_004028a0	25	game/g_400000.c	1392	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x402970	Add	43	game/g_400000.c	1462	pending		
 0x4029a0	FUN_004029a0	22	game/g_400000.c	1485	pending		
 0x4029c0	FUN_004029c0	19	game/g_400000.c	1497	pending		
 0x4029e0	FUN_004029e0	24	game/g_400000.c	1506	pending		
 0x402a00	FUN_00402a00	29	game/g_400000.c	1515	pending		
 0x402a20	FUN_00402a20	31	game/g_400000.c	1529	pending		
+0x41e1d0	FUN_0041e1d0	17	game/g_410000.c	4538	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x41e430	FUN_0041e430	17	game/g_410000.c	4732	pending		
 0x41e450	FUN_0041e450	17	game/g_410000.c	4741	pending		
 0x41e470	FUN_0041e470	25	game/g_410000.c	4750	pending		
@@ -240,6 +245,7 @@ addr	name	size	file	line	status	ts	note
 0x4fff08	FUN_004fff08	201	game/g_4f0000.c	8359	pending		
 0x4fffd1	FUN_004fffd1	143	game/g_4f0000.c	8391	pending		
 0x500060	FUN_00500060	65	game/g_500000.c	3	pending		
+0x5000a1	FUN_005000a1	169	game/g_500000.c	14	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x50014a	FUN_0050014a	241	game/g_500000.c	34	pending		
 0x50023b	FUN_0050023b	303	game/g_500000.c	69	pending		
 0x50036a	FUN_0050036a	551	game/g_500000.c	113	pending		
@@ -277,6 +283,7 @@ addr	name	size	file	line	status	ts	note
 0x5041d6	FUN_005041d6	228	game/g_500000.c	3263	pending		
 0x5042ba	FUN_005042ba	215	game/g_500000.c	3299	pending		
 0x504391	FUN_00504391	263	game/g_500000.c	3331	pending		
+0x504498	FUN_00504498	34	game/g_500000.c	3372	pending		
 0x5044ba	FUN_005044ba	106	game/g_500000.c	3382	pending		
 0x5045a5	FUN_005045a5	616	game/g_500000.c	3418	pending		
 0x50480d	FUN_0050480d	488	game/g_500000.c	3486	pending		
@@ -328,15 +335,21 @@ addr	name	size	file	line	status	ts	note
 0x50b8dc	FUN_0050b8dc	203	game/g_500000.c	7979	pending		
 0x50b9a7	FUN_0050b9a7	214	game/g_500000.c	8013	pending		
 0x50ba7d	FUN_0050ba7d	55	game/g_500000.c	8058	pending		
+0x50bae5	FUN_0050bae5	48	game/g_500000.c	8083	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x50bb15	FUN_0050bb15	69	game/g_500000.c	8096	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x50bbf8	FUN_0050bbf8	41	game/g_500000.c	8151	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x50bc21	FUN_0050bc21	68	game/g_500000.c	8161	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x50bed8	FUN_0050bed8	62	game/g_500000.c	8318	pending		
 0x50c019	FUN_0050c019	154	game/g_500000.c	8380	pending		
 0x50c10d	FUN_0050c10d	28	game/g_500000.c	8430	pending		
 0x50c7f5	FUN_0050c7f5	65	game/g_500000.c	8860	pending		
 0x50c836	FUN_0050c836	28	game/g_500000.c	8875	pending		
 0x50c9ca	FUN_0050c9ca	13	game/g_500000.c	8958	pending		
+0x50cda6	FUN_0050cda6	149	game/g_500000.c	9143	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x50cf04	FUN_0050cf04	59	game/g_500000.c	9199	pending		
 0x50cf3f	FUN_0050cf3f	61	game/g_500000.c	9211	pending		
 0x50cf7c	FUN_0050cf7c	59	game/g_500000.c	9223	pending		
+0x50cfb7	FUN_0050cfb7	99	game/g_500000.c	9235	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x50d1cc	FUN_0050d1cc	90	game/g_500000.c	9362	pending		
 0x50d493	FUN_0050d493	182	game/g_500000.c	9553	pending		
 0x50d549	FUN_0050d549	179	game/g_500000.c	9591	pending		
@@ -353,6 +366,7 @@ addr	name	size	file	line	status	ts	note
 0x50dd41	Monster_CreateByName	249	game/g_500000.c	10110	pending		
 0x50e173	FUN_0050e173	795	game/g_500000.c	10274	pending		
 0x50ec60	FUN_0050ec60	283	game/g_500000.c	10576	pending		
+0x50f048	FUN_0050f048	29	game/g_500000.c	10695	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x50f065	FUN_0050f065	199	game/g_500000.c	10707	pending		
 0x50f12c	Unit_ActionMachine	2795	game/g_500000.c	10734	pending		
 0x50fc3e	FUN_0050fc3e	28	game/g_500000.c	11161	pending		
@@ -366,6 +380,7 @@ addr	name	size	file	line	status	ts	note
 0x510534	Unit_Revive	178	game/g_510000.c	159	pending		
 0x5105e6	FUN_005105e6	236	game/g_510000.c	188	pending		
 0x5106d2	FUN_005106d2	34	game/g_510000.c	216	pending		
+0x5106f4	FUN_005106f4	81	game/g_510000.c	225	pending		
 0x510745	FUN_00510745	271	game/g_510000.c	246	pending		
 0x5108fa	Sack_PickupAll	251	game/g_510000.c	320	pending		
 0x5109f5	Unit_DeathLoot	49	game/g_510000.c	355	pending		
@@ -379,10 +394,19 @@ addr	name	size	file	line	status	ts	note
 0x511959	Human_Create	1646	game/g_510000.c	815	pending		
 0x512133	FUN_00512133	84	game/g_510000.c	1147	pending		
 0x5121e1	FUN_005121e1	271	game/g_510000.c	1193	pending		
+0x5127d2	FUN_005127d2	32	game/g_510000.c	1465	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x5127f2	FUN_005127f2	50	game/g_510000.c	1476	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x512870	FUN_00512870	60	game/g_510000.c	1508	pending		
 0x5128ac	FUN_005128ac	31	game/g_510000.c	1526	pending		
+0x5128cb	FUN_005128cb	1657	game/g_510000.c	1538	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x512f44	FUN_00512f44	135	game/g_510000.c	1686	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x512fcb	FUN_00512fcb	349	game/g_510000.c	1716	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x513128	Unit_XPOnHit	199	game/g_510000.c	1772	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x5131ef	FUN_005131ef	140	game/g_510000.c	1808	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x51327b	FUN_0051327b	71	game/g_510000.c	1844	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5132c2	FUN_005132c2	469	game/g_510000.c	1866	pending		
 0x513497	FUN_00513497	175	game/g_510000.c	1931	pending		
+0x51366b	FUN_0051366b	3157	game/g_510000.c	1982	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5143e4	Human_CreateByName	114	game/g_510000.c	2402	pending		
 0x5145d1	FUN_005145d1	1825	game/g_510000.c	2527	pending		
 0x514cf2	FUN_00514cf2	615	game/g_510000.c	2789	pending		
@@ -414,14 +438,20 @@ addr	name	size	file	line	status	ts	note
 0x516c1f	Unit_StrikeBegin	204	game/g_510000.c	4133	pending		
 0x516ceb	Unit_StrikeHit	437	game/g_510000.c	4181	pending		
 0x516ea0	FUN_00516ea0	207	game/g_510000.c	4242	pending		
+0x516f6f	Unit_PhysicalDamage	1482	game/g_510000.c	4268	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5175fc	FUN_005175fc	105	game/g_510000.c	4483	pending		
 0x5176fd	FUN_005176fd	28	game/g_510000.c	4559	pending		
 0x517719	FUN_00517719	91	game/g_510000.c	4572	pending		
 0x517774	FUN_00517774	97	game/g_510000.c	4590	pending		
 0x5178d4	Spell_AttachToTarget	117	game/g_510000.c	4710	pending		
+0x517949	FUN_00517949	343	game/g_510000.c	4737	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x517aa0	FUN_00517aa0	140	game/g_510000.c	4784	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x517c1a	SpellArea_Construct	88	game/g_510000.c	4897	pending		
 0x518ba3	FUN_00518ba3	109	game/g_510000.c	5545	pending		
+0x518ca1	FUN_00518ca1	16	game/g_510000.c	5616	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x518d1e	FUN_00518d1e	137	game/g_510000.c	5671	pending		
+0x518e30	FUN_00518e30	205	game/g_510000.c	5731	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x518efd	FUN_00518efd	133	game/g_510000.c	5765	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x51906d	FUN_0051906d	119	game/g_510000.c	5873	pending		
 0x51922e	FUN_0051922e	333	game/g_510000.c	5963	pending		
 0x519408	FUN_00519408	18	game/g_510000.c	6045	pending		
@@ -436,14 +466,21 @@ addr	name	size	file	line	status	ts	note
 0x519db8	Spell_Apply	8448	game/g_510000.c	6551	pending		
 0x51c29e	Unit_AddSpellToBook	150	game/g_510000.c	7617	pending		
 0x51c391	Unit_GetBookSpell	83	game/g_510000.c	7665	pending		
+0x51c3e4	FUN_0051c3e4	97	game/g_510000.c	7696	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x51c4a4	FUN_0051c4a4	97	game/g_510000.c	7747	pending		
 0x51ca4d	Spell_WallObject	83	game/g_510000.c	8063	pending		
 0x51caa0	FUN_0051caa0	248	game/g_510000.c	8082	pending		
 0x51cb98	FUN_0051cb98	99	game/g_510000.c	8123	pending		
 0x51cbfb	FUN_0051cbfb	88	game/g_510000.c	8139	pending		
 0x51cc53	FUN_0051cc53	76	game/g_510000.c	8158	pending		
+0x51cc9f	FUN_0051cc9f	371	game/g_510000.c	8176	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x51ce12	FUN_0051ce12	867	game/g_510000.c	8210	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x51d175	FUN_0051d175	450	game/g_510000.c	8324	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x51d337	FUN_0051d337	255	game/g_510000.c	8377	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x51d436	FUN_0051d436	3610	game/g_510000.c	8406	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x51e318	FUN_0051e318	258	game/g_510000.c	8815	pending		
 0x51e505	Spell_DamageObject	97	game/g_510000.c	8946	pending		
+0x51e65b	FUN_0051e65b	307	game/g_510000.c	9032	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x51e78e	FUN_0051e78e	364	game/g_510000.c	9077	pending		
 0x51e8fa	FUN_0051e8fa	1912	game/g_510000.c	9139	pending		
 0x51f072	FUN_0051f072	223	game/g_510000.c	9401	pending		
@@ -456,6 +493,7 @@ addr	name	size	file	line	status	ts	note
 0x51fa25	Rand_Inclusive	41	game/g_510000.c	9891	pending		
 0x51fa4e	Rand_One	23	game/g_510000.c	9913	pending		
 0x51fb4d	FUN_0051fb4d	28	game/g_510000.c	10003	pending		
+0x520137	FUN_00520137	123	game/g_520000.c	31	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5201b2	FUN_005201b2	234	game/g_520000.c	50	pending		
 0x521083	Shop_RegenerateMsg3f	22	game/g_520000.c	806	pending		
 0x521099	FUN_00521099	48	game/g_520000.c	818	pending		
@@ -821,6 +859,7 @@ addr	name	size	file	line	status	ts	note
 0x53f0a0	FUN_0053f0a0	71	game/g_530000.c	10266	pending		
 0x53f0f0	FUN_0053f0f0	17	game/g_530000.c	10281	pending		
 0x53f110	FUN_0053f110	39	game/g_530000.c	10290	pending		
+0x53f140	FUN_0053f140	27	game/g_530000.c	10303	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x53f160	FUN_0053f160	91	game/g_530000.c	10312	pending		
 0x53f1c0	FUN_0053f1c0	79	game/g_530000.c	10334	pending		
 0x53f210	FUN_0053f210	29	game/g_530000.c	10350	pending		
@@ -875,6 +914,12 @@ addr	name	size	file	line	status	ts	note
 0x540eb0	FUN_00540eb0	21	game/g_540000.c	958	pending		
 0x540ed0	FUN_00540ed0	22	game/g_540000.c	968	pending		
 0x540ef0	FUN_00540ef0	50	game/g_540000.c	978	pending		
+0x541150	FUN_00541150	16	game/g_540000.c	1155	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x541210	FUN_00541210	16	game/g_540000.c	1206	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x5413a0	FUN_005413a0	16	game/g_540000.c	1308	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x541520	FUN_00541520	16	game/g_540000.c	1410	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x541cd0	FUN_00541cd0	16	game/g_540000.c	1911	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x541d90	FUN_00541d90	27	game/g_540000.c	1962	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x541de0	FUN_00541de0	24	game/g_540000.c	1984	pending		
 0x541e00	FUN_00541e00	92	game/g_540000.c	1994	pending		
 0x541f30	FUN_00541f30	81	game/g_540000.c	2056	pending		
@@ -882,7 +927,14 @@ addr	name	size	file	line	status	ts	note
 0x5420f0	FUN_005420f0	92	game/g_540000.c	2210	pending		
 0x542150	FUN_00542150	81	game/g_540000.c	2227	pending		
 0x5421b0	FUN_005421b0	115	game/g_540000.c	2250	pending		
+0x5422d0	FUN_005422d0	43	game/g_540000.c	2303	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x542300	FUN_00542300	89	game/g_540000.c	2316	pending		
+0x542360	FUN_00542360	17	game/g_540000.c	2336	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x542380	FUN_00542380	17	game/g_540000.c	2345	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x5423a0	FUN_005423a0	11	game/g_540000.c	2354	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x5423f0	FUN_005423f0	13	game/g_540000.c	2390	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x542410	FUN_00542410	16	game/g_540000.c	2408	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x542420	FUN_00542420	13	game/g_540000.c	2417	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x542430	FUN_00542430	211	game/g_540000.c	2426	pending		
 0x542540	FUN_00542540	31	game/g_540000.c	2470	pending		
 0x542560	FUN_00542560	25	game/g_540000.c	2479	pending		
@@ -893,6 +945,8 @@ addr	name	size	file	line	status	ts	note
 0x542660	FUN_00542660	72	game/g_540000.c	2545	pending		
 0x5426b0	FUN_005426b0	73	game/g_540000.c	2563	pending		
 0x542700	FUN_00542700	25	game/g_540000.c	2581	pending		
+0x542720	FUN_00542720	16	game/g_540000.c	2590	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x542730	FUN_00542730	16	game/g_540000.c	2599	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x542770	FUN_00542770	28	game/g_540000.c	2621	pending		
 0x542810	FUN_00542810	55	game/g_540000.c	2666	pending		
 0x542850	FUN_00542850	46	game/g_540000.c	2682	pending		
@@ -903,7 +957,13 @@ addr	name	size	file	line	status	ts	note
 0x542c50	FUN_00542c50	19	game/g_540000.c	2898	pending		
 0x542c70	FUN_00542c70	25	game/g_540000.c	2908	pending		
 0x542c90	AI_InBattle	29	game/g_540000.c	2918	pending		
+0x542ce0	FUN_00542ce0	19	game/g_540000.c	2942	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x542d00	FUN_00542d00	19	game/g_540000.c	2952	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x542d20	FUN_00542d20	43	game/g_540000.c	2962	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x542dc0	FUN_00542dc0	43	game/g_540000.c	3006	pending		
+0x542df0	FUN_00542df0	19	game/g_540000.c	3015	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x542e10	FUN_00542e10	19	game/g_540000.c	3025	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x542e30	FUN_00542e30	43	game/g_540000.c	3035	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x542e60	FUN_00542e60	25	game/g_540000.c	3048	pending		
 0x542e80	FUN_00542e80	87	game/g_540000.c	3058	pending		
 0x542ee0	FUN_00542ee0	211	game/g_540000.c	3078	pending		
@@ -920,6 +980,8 @@ addr	name	size	file	line	status	ts	note
 0x543260	FUN_00543260	17	game/g_540000.c	3286	pending		
 0x543280	FUN_00543280	25	game/g_540000.c	3295	pending		
 0x5432a0	FUN_005432a0	25	game/g_540000.c	3305	pending		
+0x543300	FUN_00543300	43	game/g_540000.c	3334	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x543330	FUN_00543330	43	game/g_540000.c	3347	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5434b0	FUN_005434b0	14	game/g_540000.c	3457	pending		
 0x5434c0	FUN_005434c0	67	game/g_540000.c	3466	pending		
 0x543510	FUN_00543510	41	game/g_540000.c	3486	pending		
@@ -1752,9 +1814,13 @@ addr	name	size	file	line	status	ts	note
 0x57c570	FUN_0057c570	17	game/g_570000.c	8076	pending		
 0x57c590	FUN_0057c590	17	game/g_570000.c	8085	pending		
 0x57c5b0	FUN_0057c5b0	39	game/g_570000.c	8094	pending		
+0x57c5e0	FUN_0057c5e0	81	game/g_570000.c	8107	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x57c9a0	List_Construct	92	game/g_570000.c	8317	pending		
 0x57ca00	FUN_0057ca00	17	game/g_570000.c	8337	pending		
 0x57ca20	FUN_0057ca20	87	game/g_570000.c	8346	pending		
 0x57ca80	FUN_0057ca80	17	game/g_570000.c	8366	pending		
 0x57caa0	FUN_0057caa0	39	game/g_570000.c	8375	pending		
 0x57cad0	FUN_0057cad0	81	game/g_570000.c	8388	pending		
+0x57ce90	FUN_0057ce90	43	game/g_570000.c	8619	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x57cec0	FUN_0057cec0	81	game/g_570000.c	8632	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x57cf20	FUN_0057cf20	43	game/g_570000.c	8655	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
