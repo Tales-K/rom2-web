@@ -248,6 +248,13 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   episódios × 960 tiques; 70 delas no servidor **não são alcançadas pelo callgraph** (vtable/ponteiro) e hoje entram como raízes
   extras no `port_status.py init` (lista: 1825 funções). Também revelou que `0x554bf8` "Unit_WalkTick" nunca executa (nome errado de
   nota). Métrica nova: bytes executados no corpus já portados (2,2 %).
+- **Etapa 5, andar** (commits 1ca9b96, e777d62, 48f3c26; `exe/walk.ts`, `wave.ts`, `mfc.ts`, `walk_action.ts`): 95 funções
+  portadas em 3 lotes (folhas com Sonnet; ondas/caminho e o andar em si com Opus), todas a 100 % dos pares nos 3 episódios, mais
+  varreduras no Unicorn (`fuzz_wave.py`, `fuzz_walk.py`); 0 em `review`; 2 stubs `NotPorted` (`Unit_TeleportTo`, 0x4f0832, nunca
+  executados). Cobertura por bytes executados no corpus: 2,2 % -> 22,0 %. Achados: o avanço de posição por tique é `0x554fd2`
+  (chamado de `Path_ClearDynamic` quando a sub-tarefa da IA é 3), não um caso da máquina de ação; nenhuma função do andar sorteia;
+  as 8 ondas são 2 códigos com constantes diferentes; o backtrace do original lê lixo de pilha num ramo que o corpus não atinge
+  (a porta lança erro nele). Briefing da integração: `docs/briefings/ETAPA6-INTEGRACAO-ANDAR.md`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
