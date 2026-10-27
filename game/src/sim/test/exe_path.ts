@@ -17,71 +17,7 @@ import {
 } from "../exe/path";
 import { MapObjRec, PATH_COST_OFF, PATH_RING_STEP_OFF, PATH_RING_STEP_N, UnitRec, type PathRec } from "../exe/types";
 
-interface NodeProc { exitCode?: number; getBuiltinModule(name: string): unknown; }
-const proc = (globalThis as unknown as { process: NodeProc }).process;
-const { existsSync, readFileSync, readdirSync } = proc.getBuiltinModule("node:fs") as {
-  existsSync(p: string): boolean; readFileSync(p: string, enc: "utf8"): string; readdirSync(p: string): string[];
-};
-const { dirname, join } = proc.getBuiltinModule("node:path") as { dirname(p: string): string; join(...p: string[]): string };
-const { fileURLToPath } = proc.getBuiltinModule("node:url") as { fileURLToPath(u: string): string };
-
-const PAIRS = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "refs", "oracle", "pairs");
-
-interface Obj { unit: number; sub?: string; off: number; }
-interface Pair {
-  t: number; seq: number; fn: string; this: number; args: number[]; eax: number; rng0: number; rng1: number; nrand: number;
-  reads: [number, number, number][]; writes: unknown[]; objs: Record<string, Obj>;
-}
-
-/** Unidades e objetos de mapa reconstruídos pelas leituras da chamada, via `objs`. */
-class Recon {
-  units = new Map<number, UnitRec>();
-  constructor(readonly d: Pair) {
-    for (const [a, s, v] of d.reads) {
-      const o = d.objs[String(a)];
-      if (!o) continue;
-      const u = this.unit(o.unit);
-      if (o.sub === undefined) {
-        if (o.off === 0x0 && s === 4) u.vtbl = v >>> 0;
-        else if (o.off === 0x49 && s === 1) u.size = v;
-      } else if (o.sub === "+0x10" && s === 1) {
-        if (o.off === 0) u.mapObj.x = v;
-        else if (o.off === 1) u.mapObj.y = v;
-        else if (o.off === 4) u.mapObj.fx = v;
-        else if (o.off === 5) u.mapObj.fy = v;
-      }
-    }
-  }
-  unit(id: number): UnitRec {
-    let u = this.units.get(id);
-    if (!u) { u = new UnitRec(); u.mapObj = new MapObjRec(); this.units.set(id, u); }
-    return u;
-  }
-  /** Unidade cujo endereço-base (off 0, sem sub-objeto) é `addr`. */
-  unitAt(addr: number): UnitRec {
-    const o = this.d.objs[String(addr)];
-    if (!o || o.sub !== undefined || o.off !== 0) throw new Error(`0x${addr.toString(16)} não é base de unidade em objs`);
-    return this.unit(o.unit);
-  }
-  /**
-   * Objeto de mapa cujo endereço-base é `addr`. Os acessores 0x54ff5b..0x54ffc0 também servem objetos de mapa que não são de
-   * unidade (sem entrada em `objs`): esses são remontados pelas leituras relativas a `addr`.
-   */
-  mapObjAt(addr: number): MapObjRec {
-    const o = this.d.objs[String(addr)];
-    if (o) {
-      if (o.sub !== "+0x10" || o.off !== 0) throw new Error(`0x${addr.toString(16)} não é objeto de mapa em objs`);
-      return this.unit(o.unit).mapObj;
-    }
-    const m = new MapObjRec();
-    for (const [a, s, v] of this.d.reads) {
-      if (s !== 1) continue;
-      const r = a - addr;
-      if (r === 0) m.x = v; else if (r === 1) m.y = v; else if (r === 4) m.fx = v; else if (r === 5) m.fy = v;
-    }
-    return m;
-  }
-}
+import { PAIRS, Recon, existsSync, join, proc, readFileSync, readdirSync, type Pair } from "./exe_recon";
 
 /** Objeto de busca a partir das leituras relativas a `this`; `costReads` registra os índices de custo lidos pela porta. */
 function pathFrom(d: Pair, costReads: number[]): { p: PathRec; origCost: number[] } {
