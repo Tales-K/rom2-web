@@ -214,8 +214,10 @@ Padrão estrangulador, subsistema a subsistema, atrás da interface que `mission
 | 5 ✅ | Andar/perseguir (`docs/briefings/ETAPA5-ANDAR.md`) e integração na `World` (`ETAPA6-INTEGRACAO-ANDAR.md`) | `pos` e caminho exatos com reancoragem por tique (feito: 100 % na m10_start, 1 tique residual nos outros dois, causa em combate); `hp` fica para a etapa 8 | 3–4 sessões |
 | 6 | Alvo (Stand ground, guarda de unidade e de grupo, sub-tarefas) | `target` exato; grupos 0x12 e 1 | 3–4 sessões |
 | 7 ✅ | Despachante inteiro (`docs/briefings/ETAPA7-DESPACHANTE.md`): olhar em volta, golpe/magia como sub-ação, fim de caminho | Nenhum `NotPorted` do fecho de `0x56dca2` alcançado no corpus (feito; estado inteiro 82 % nos 3 episódios) | 1 sessão |
-| 8 | 8a: máquina de ação `0x50f12c` por `case`, golpe físico, dano e morte (`docs/briefings/ETAPA8-MAQUINA-DE-ACAO.md`); 8b: magias (`Spell_Apply`), efeitos, invocações, saque | `act`, `hp`, `alive` exatos; golden `--ci` verde; GAME_DIFFS seção I zerada | 6–8 sessões |
-| 9 | Pensamento de jogador de IA e comandos de grupo; carregador (4.4) | Tique 0 e pensamento exatos nas 46 missões a partir da carga | 5–8 sessões |
+| 8a ✅ | Máquina de ação `0x50f12c` por `case`, golpe físico, dano e morte (`docs/briefings/ETAPA8-MAQUINA-DE-ACAO.md`) | `act`, `hp`, `alive` exatos fora de magia/pensamento (feito; golden `--ci` verde, 61,6 % limpas) | 1 sessão |
+| 9 | Pensamento da IA (jogador, grupo, tarefas da unidade, visão), regeneração, tratador de ordens do cliente (`docs/briefings/ETAPA9-PENSAMENTO.md`); magos em gancho | `task`, `target`, `rng` exatos nos tiques de pensamento; estado inteiro ≥ 92 % | 3–4 sessões |
+| 8b | Magias (`Spell_Apply`), efeitos, magos da IA, invocações, saque | Área de efeitos e vida exatas; GAME_DIFFS seção I zerada | 4–6 sessões |
+| 9b | Carregador (4.4): tique 0 exato a partir da carga | Tique 0 exato nas 46 missões | 3–5 sessões |
 | 10 | Varredura do fecho restante por frequência de execução; `port_status.tsv` sem pendentes | Cobertura 100 % (portado ou fora do escopo justificado) | 5–10 sessões |
 
 Total da ordem de **35–45 sessões** curtas e mecânicas (estimativas independentes dos dois analistas: 35–50 e 35–45; o 2º conta
@@ -226,7 +228,7 @@ oráculo, commit, relatório de 10 linhas; 2 em paralelo quando não compartilha
 sessões (emulador + aproximação + andar) o resíduo `pos` 508 deve cair pela metade. O original real só volta a rodar para **despejar
 imagens** (uma por missão e uma por episódio de interesse), nunca para traçar.
 
-### 7.1 Resultado das etapas 1–7 (2026-10-27)
+### 7.1 Resultado das etapas 1–8a (2026-10-27)
 
 - **Etapa 1, oráculo** (commits 61d920b, 64b8b4b; `tools/re/oracle/`, `notes/oracle-resume.md`): portão passou nos 3 episódios
   (traço de 960 tiques + `rand` a cada 16 tiques idênticos ao golden), ~430–530 tiques/s por instância, HLE de ~12 APIs. Dois
@@ -274,8 +276,19 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   Nomes errados corrigidos: `0x56dba1`/`0x56dc24` são parar + Stand ground, não visão. Resíduo nomeado: `act` 6–10 % = máquina de
   ação `0x50f12c` não portada e pensamento (`0x569321`/`0x56acc8`); `task`/`target` ~5 % = pensamento da IA (`0x570087`, `0x57240b`,
   `0x5728fa`); `rng` = sorteios do pensamento e do dano; `hp`/`alive` 1–3 % = combate do motor antigo. Cobertura executada: 25,3 %.
-- **Próximo**: etapa 8a (`docs/briefings/ETAPA8-MAQUINA-DE-ACAO.md`): máquina de ação `0x50f12c` por `case`, golpe físico, dano
-  (`Unit_PhysicalDamage`) e morte (`Unit_Die`); magia em gancho até a 8b. É o que destrava o golden `--ci`. Depois: pensamento da IA (9).
+- **Etapa 8a, máquina de ação, dano e morte** (commit 7b466f8; `exe/action.ts` (`unitActionMachine`), `combat.ts`, `death.ts`,
+  `vtables.ts`; `notes/maquina-de-acao.md`): `0x50f12c` por `case` (93 533 pares), `Unit_PhysicalDamage` e o golpe (`0x516c1f`/
+  `0x516ceb`/`0x516b2f`), `Unit_Die`/`0x5110b8`, 20 funções a 100 % dos pares; `hp`, `hpmax`, relógio de golpe e ponto de fuga viram
+  vistas sobre o registro; a vida é o short +0x94 do exe. Magia, efeitos, experiência, mochila/saque e HUD ficam em ganchos
+  (`MachineHooks`) chamados no ponto exato. Apagados `strikeBegin`/`castBegin`/`progressAttack`/`noteAttacked` e o cálculo antigo
+  de acerto/dano. Comparador, estado inteiro: 82,0 / 82,4 / 82,0 % → **86,9 / 85,1 / 85,5 %**; sorteios iguais 93,6 / 92,8 / 99,5 %.
+  Golden 56,9 % → **61,6 %**, **`--ci` verde** pela primeira vez desde a integração. Resíduo nomeado: `task`/`target` ~5 % e `rng` 6 %
+  = pensamento da IA (`0x569321`, `0x57240b`, `0x56acc8`, `0x5728fa`) e tratador de ordens do cliente; `hp` 1–3 % = regeneração
+  (`0x50fc5a`) e magias; `act` = golpe que o pensamento troca por magia (`0x56b059`).
+- **Próximo**: etapa 9 (`docs/briefings/ETAPA9-PENSAMENTO.md`): pensamento do jogador de IA (`0x56fe4d` → `AI_PlayerThink 0x570087`,
+  grupo `0x5700f3`/`0x5728fa`/`AI_GroupAssignTargets`), tarefas da unidade (`AI_TaskDispatcher 0x569321`: parada, Stand ground, ataque,
+  guarda, patrulha, fuga), visão (`Vision_Compute 0x552c28`), regeneração e os `case` executados do tratador de ordens
+  (`Server_PacketDispatcher 0x4f515d`); magos da IA em gancho até a 8b (magias), que passa para depois.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).

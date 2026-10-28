@@ -72,3 +72,5 @@ Estado 2026-10-27 (noite): etapas 5–6 prontas (andar portado, 95 funções a 1
 como fonte de verdade; campos do andar 80/82/76 % de tiques idênticos, golden 54,6 % limpas). Próximo: `docs/briefings/ETAPA7-DESPACHANTE.md`.
 Estado 2026-10-27 (etapa 7): despachante 0x56dca2 inteiro (30 funções; nenhum NotPorted alcançado no corpus); estado inteiro idêntico
 82 % nos 3 episódios, golden 56,9 % limpas (--ci cai só em vida/morte). Próximo: `docs/briefings/ETAPA8-MAQUINA-DE-ACAO.md`.
+Estado 2026-10-27 (etapa 8a): máquina de ação 0x50f12c, dano e morte portados; estado inteiro idêntico 87/85/86 %, golden 61,6 % limpas
+com --ci verde. Próximo: `docs/briefings/ETAPA9-PENSAMENTO.md` (pensamento da IA); magias (8b) depois.
