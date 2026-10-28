@@ -2322,6 +2322,60 @@
    "name": "Unit_FreeId",
    "desc": "Libera o id da unidade no mapa de bits DAT_006c9628",
    "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x4a1120",
+   "name": "HashKey_UInt",
+   "desc": "MFC HashKey<uint>: key >> 4 (CMap<uint,uint> de 0x52bbb7)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x545780",
+   "name": "CMapUInt_Ctor",
+   "desc": "MFC CMap<uint,uint>::CMap(nBlockSize): 0x11 baldes",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x5457e0",
+   "name": "CMapUInt_Lookup",
+   "desc": "MFC CMap<uint,uint>::Lookup",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x5459d0",
+   "name": "CMapUInt_Index",
+   "desc": "MFC CMap<uint,uint>::operator[] (nova associacao na cabeca do balde)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x545a60",
+   "name": "CMapUInt_GetAssocAt",
+   "desc": "MFC CMap<uint,uint>::GetAssocAt",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x545ad0",
+   "name": "CMapUInt_InitHashTable",
+   "desc": "MFC CMap<uint,uint>::InitHashTable",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x545b50",
+   "name": "CMapUInt_NewAssoc",
+   "desc": "MFC CMap<uint,uint>::NewAssoc (m_nCount++)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x53d920",
+   "name": "CMap_GetStartPosition",
+   "desc": "MFC CMap::GetStartPosition: -1 se ha elementos",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x53d940",
+   "name": "CMap_GetNextAssoc",
+   "desc": "MFC CMap::GetNextAssoc: ordem dos baldes (hash % tamanho), dentro do balde do mais novo ao mais velho",
+   "source": "notes/pensamento.md"
   }
  ]
 }

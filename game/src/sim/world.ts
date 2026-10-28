@@ -38,10 +38,17 @@
  *
  * MORTE (etapa 8a, lote 3): a máquina chama Unit_Die 0x510a70 portada (sim/exe/death.ts): sai das células, ouro/item do modelo
  * (`tpl.arr[0x26..0x2c]` de `stats.treasure`, sorteios 0x510cbc/0x510cf3/0x510d19), saco, herói do dono (vida −50) e o 1º desgaste
- * (0x5110b8, depois 1×/s em `stepCorpses`); mochila, loja de itens, saco, efeitos e equipamento ficam no motor antigo pelos ganchos
+ * (0x5110b8, depois 1×/s em `worldSecondTick`); mochila, loja de itens, saco, efeitos e equipamento ficam no motor antigo pelos ganchos
  * `DieHooks` (`packDrop`, `lootItem`, `packCount`, `sackDrop`, `effectsOnDie`, `onDieHuman`) e a apresentação em `died` (`consumeDeath`).
  * O dano de magia (Spell_Release/Spell_Apply → vtable +0x54) também é o de 0x516f6f, com a struct da magia (dano B = min + rand(max − min)
  * contra a proteção do elemento; sorteios 0x5170f8 e 0x5172b7).
+ *
+ * LAÇO DE 1/s (etapa 9, lote 1, notes/pensamento.md): World_SecondTick 0x52bbb7 portado (sim/exe/regen.ts) roda no tique de servidor em
+ * que o relógio de 16/s PRÉ-incremento ≡ 0xc (= `absClock16() % 16 == 13` aqui, com `EXE_GLOBALS.clock16` recuado de 1 durante a chamada),
+ * ANTES das máquinas das unidades: Unit_Regen 0x50fc5a em cada unidade da lista `lists.all` (vida/mana +0x94/+0x9a com os restos +0xa2/+0xa3
+ * e os períodos +0x98/+0x9e do registro — `mana`/`maxMana` são vistas; sangria de quem caiu), Corpse_Decay 0x5110b8 em `lists.corpses` e o
+ * desgaste das invocações em `lists.magic` (Rand_One 0x51fa4e, CMap<uint,uint>). O contador de 1/s do exe ([[0x6044c4]+0]) é
+ * `secClock()` = ⌊relógio de 16/s ÷ 16⌋ (vira no fim do tique ≡ 0xf). O veneno (efeito do motor antigo) continua em `poisonTick`.
  */
 import { BLOCK_BORDER, BLOCK_SPELL, BLOCK_STRUCTURE, Grid, MAP_BORDER } from "./grid";
 import { skillExp, skillFromExp } from "./stats";
@@ -53,6 +60,7 @@ import { mapRecFromGrid, exeMaskOf } from "./exe/mapbuild";
 import { unitActionMachine, type MachineHooks } from "./exe/action";
 import { unitPhysicalDamage, unitStrikeBegin } from "./exe/combat";
 import { corpseDecay, unitDie } from "./exe/death";
+import { worldSecondTick } from "./exe/regen";
 import { DmgRec, ItemRec, TemplateRec } from "./exe/types";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
@@ -61,7 +69,7 @@ import { EXE_GLOBALS } from "./exe/types";
 import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
 import { aiThink, heroThink } from "./ai";
-import { canRevive, healDying, onFell, raiseDead, stepCorpses, stepSummons, summonCreature, CORPSE } from "./necro";
+import { canRevive, healDying, onFell, raiseDead, summonCreature, CORPSE } from "./necro";
 import { selectedSpellRange, spellAttack } from "./spellattack";
 import {
   EXE_TPS, SPELL, isOffensive, prismaticRays, spellKey, spellLayer, stoneCurseTicksMax, type BuffKind, type SpellDef, type SpellEffect, type SpellTable,
@@ -204,7 +212,6 @@ function initUnitRec(u: Unit): void {
   r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
   r.walk.f09 = 0xff;
   r.speed = Math.round(u.stats.speed * 16);
-  r.mana = u.mana;
   r.type.stats.f45 = 1;
   r.tpl = new TemplateRec();
   r.tpl.arr[0x21] = u.timing.dyingTicks;   // duração da queda (vtable +0x74 → modelo[0x21] / [0x17]): a da animação do motor
@@ -230,8 +237,11 @@ export class Unit {
   set hp(v: number) { this.rec.f94 = Math.max(-32768, Math.min(32767, Math.round(v) | 0)); }
   get maxHp(): number { return (this.rec.f96 << 16) >> 16; }
   set maxHp(v: number) { this.rec.f96 = Math.max(-32768, Math.min(32767, Math.round(v) | 0)); }
-  mana: number;
-  maxMana: number;
+  /** mana (+0x9a) e mana máxima (+0x9c) do registro do exe (shorts; a regeneração 0x50fc5a as escreve). */
+  get mana(): number { return (this.rec.mana << 16) >> 16; }
+  set mana(v: number) { this.rec.mana = Math.max(-32768, Math.min(32767, Math.round(v) | 0)); }
+  get maxMana(): number { return (this.rec.f9c << 16) >> 16; }
+  set maxMana(v: number) { this.rec.f9c = Math.max(-32768, Math.min(32767, Math.round(v) | 0)); }
   /** registro espelhado do servidor do exe (sim/exe/types.ts): FONTE DE VERDADE da posição, da direção e do andar (caminhos,
    *  passo em curso, tarefa IA+8/+9). Os campos abaixo são vistas sobre ele. */
   readonly rec = new UnitRec();
@@ -265,7 +275,7 @@ export class Unit {
   orderTick = 0;
   /** último alvo de ataque (espelho de +0x1c4+0xc do exe): sobrevive ao Stop; o Stand ground volta a ele se ainda estiver ao alcance */
   lastTarget = 0;
-  /** id usado na trava `segundo % 4 == id % 4` da regeneração de vida (padrão: o próprio id; estado importado: o id do original) */
+  /** id do original nos estados importados (ordem do servidor em `serverOrder`); a trava `segundo % 4 == id % 4` da regeneração lê +4 do registro */
   regenSlot?: number;
   /** tiques seguidos no fim do caminho estático sem chegar (andar+0x90): a ordem desiste (adaptador `walkTo`/`chaseUnit`) */
   waitTicks = 0;
@@ -319,10 +329,6 @@ export class Unit {
   procSpells: ProcSpell[] = [];
   gold = 0;
   items: string[] = [];
-  regenAcc = 0;
-  manaAcc = 0;
-  /** último tique em que a unidade agiu (andou/atacou/lançou) — regeneração ×3 quando descansa */
-  lastActionTick = 0;
   /** efeitos temporários (Shield, Bless, Haste, Slow, Curse, Stone Curse, Invisibility, proteções, veneno...) */
   buffs: Buff[] = [];
   /** só o herói: alinhamento e experiência acumulada por habilidade (arma/escola) */
@@ -484,10 +490,6 @@ export class World {
   /** fase do relógio (tiques nossos) somada a `tick` no teste do pensamento 1×/s da IA: 0 = missão recém-criada; um estado
    *  importado do original (tools/refcap/diff) acerta a fase pelo relógio de 16/s do save (`thinkPhaseFor`) */
   clockPhase = 0;
-  /** relógio de 1/s da regeneração ([[0x6044c4]+0]): fase (tiques nossos somados a `tick`) e valor no tique 0 — o estado importado do
-   *  original acerta os dois (o segundo do exe vira com o relógio de 16/s ≡ 13 nos saves medidos) */
-  secPhase = 0;
-  secBase = 0;
   /** jogador humano (o do herói): suas unidades usam autocast/Retreat Mode em vez da IA de conjurador */
   humanPlayer = 1;
   private nextId = 1;
@@ -555,6 +557,7 @@ export class World {
     // listas do exe: unidades vivas do mundo (+4, ordem de criação) e as do mesmo tipo (tipo+0: a lista é partilhada por modelo
     // [est]; o resto do registro do tipo — +0x45 grupo dormindo, +0x44, +0x20 — fica por unidade, como o despejo o traz)
     this.exeWorld.liveUnits.addTail(u.rec.addr);
+    this.exeWorld.lists.all.addTail(u.rec.addr);
     u.rec.type.members = this.typeList(u.typeId);
     u.rec.type.members.addTail(u.rec.addr);
     u.rec.ai.f71 = (u.stats.seeInvisible ?? 0) & 0xff;
@@ -643,11 +646,18 @@ export class World {
     if (this.exeExact) return;
     w.liveUnits.removeAll();
     for (const u of this.units) if (u.state !== "dead" && u.state !== "dying") w.liveUnits.addTail(u.rec.addr);
+    // contentor [0x68d2dc] (World_SecondTick): todas as não consumadas (ordem de criação, caídas incluídas), as criadas por magia e os
+    // cadáveres [est: ordem de criação; no exe é a da morte — sem efeito no estado, cada cadáver decompõe-se sozinho]
+    w.lists.all.removeAll(); w.lists.magic.removeAll(); w.lists.corpses.removeAll();
+    for (const u of this.units) {
+      if (u.bodyDead) w.lists.corpses.addTail(u.rec.addr); else w.lists.all.addTail(u.rec.addr);
+      if (u.dynamic || u.summoner) w.lists.magic.addTail(u.rec.addr);
+    }
   }
 
   /** Refaz as listas do mundo do exe a partir das unidades: vivas (mundo+4, na ordem dada ou na das unidades, só as de pé), as de
    *  cada tipo (tipo+0, por modelo [est]), a diplomacia e os donos. Estado importado/restaurado: os endereços dos registros mudaram. */
-  exeRebuildLists(live?: number[]): void {
+  exeRebuildLists(live?: number[], lists?: { all: number[]; magic: number[]; corpses: number[] }): void {
     const w = this.exeWorld;
     this.typeLists.clear();
     for (const u of this.units) {
@@ -657,6 +667,9 @@ export class World {
     }
     this.exeSyncWorld();
     if (live) { w.liveUnits.removeAll(); for (const a of live) w.liveUnits.addTail(a >>> 0); }
+    if (lists) {
+      for (const k of ["all", "magic", "corpses"] as const) { w.lists[k].removeAll(); for (const a of lists[k]) w.lists[k].addTail(a >>> 0); }
+    }
   }
 
   /** As estruturas do mapa (alvo dos ponteiros OccRec+0xc) de volta (o estado importado do oráculo usa as do original). */
@@ -849,8 +862,9 @@ export class World {
     return [...this.units].sort((a, b) => a.player - b.player || (a.regenSlot ?? a.id) - (b.regenSlot ?? b.id));
   }
 
-  /** contador de 1/s do exe (`[[0x6044c4]+0]`) no nosso relógio: o mesmo da regeneração */
-  secClock(): number { return this.secBase + Math.floor((this.tick + this.secPhase) / TICKS_PER_SEC); }
+  /** contador de 1/s do exe (`[[0x6044c4]+0]`): ⌊relógio de 16/s absoluto ÷ 16⌋ — Server_Tick o incrementa no fim do tique cujo relógio
+   *  (já incrementado) ≡ 0xf; medido nos pares de 0x50fc5a contra o despejo (`tick` = ⌊(t16 + 1) ÷ 16⌋ com t16 pré-incremento) */
+  secClock(): number { return Math.floor(this.absClock16() / 16); }
   /** relógio de 16/s do exe (`[[0x6044c4]+4]`) no nosso tique: o tique de servidor k cai no nosso tique round(1,25·k) (a mesma conversão
    *  do pensamento calibrada em `thinkPhaseFor`), ou seja, k ≤ t ⇔ 1,25·k + 0,5 < t + 1 */
   clock16(t = this.tick): number { return Math.ceil(((2 * t + 1) * SERVER_TICKS_PER_SEC) / (2 * TICKS_PER_SEC)) - 1; }
@@ -879,11 +893,14 @@ export class World {
     const rp = s.resistPhysical;
     for (let i = 0; i < WTYPE_KEYS.length; i++) r.resist[i] = rp ? Math.min(100, rp[WTYPE_KEYS[i]!] ?? 0) & 0xff : 0;
     r.f4c = (r.f4c & ~0x10) | (s.alwaysHit ? 0x10 : 0);
-    r.f04 = u.id >>> 0; r.f0e = u.typeId & 0xffff;
+    r.f04 = (u.regenSlot ?? u.id) >>> 0; r.f0e = u.typeId & 0xffff;   // +4 = id do original nos estados importados (trava % 4 da regeneração)
     r.vtbl = u.isHero || (u.typeId > 0 && u.typeId < 0x40) ? 0x5d0fb8 : 0x5d0eb0;   // humanos/herói × monstros (os testes mudam `isHero` depois do spawn)
     { const mv = s.movement ?? (u.flying ? 3 : 1); r.kind = u.flying && mv < 2 ? 3 : mv; }   // +0x4a (> 1: some ao morrer); os testes mudam `flying` depois do spawn
     r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (0x516ceb: distância ≤ alcance; AI_AttackRange 0x56ac5b sem magia escolhida)
     r.f1a0 = u.dynamic ? 1 : 0; r.f148 = u.summoner ? unitAddr(u.summoner) : 0;
+    // regeneração (0x50fc5a): períodos +0x98/+0x9e dos dados (0 = não regenera), bônus +0xde/+0xe2 (não há nos `stats`); os restos
+    // +0xa2/+0xa3 são do registro. No estado importado do oráculo vêm do despejo.
+    if (!this.exeExact) { r.f98 = ((s.healthRegen ?? 0) << 16) >> 16; r.f9e = ((s.manaRegen ?? 0) << 16) >> 16; r.fde = 0; r.fe2 = 0; }
     // modelo (+0x3c): nome (0x510a70 procura "NPC": `noDrop`) e o saque [0x26] chance de ouro, [0x27] mín., [0x28] faixa, [0x29] chance
     // de item, [0x2a]/[0x2b] preço mín./máx., [0x2c] máscara (−1 sem tesouro, como nos modelos do oráculo)
     const tpl = r.tpl!, tr = s.treasure;
@@ -1043,9 +1060,15 @@ export class World {
     this.exeSyncWorld();
     EXE_GLOBALS.clock16 = this.absClock16();
     for (const u of this.units) this.syncCombat(u);
-    // o passo de 1/s do exe (World_SecondTick: regeneração/sangria 0x50fc5a, decomposição 0x5110b8) vem ANTES das máquinas das unidades:
-    // a vida que chega a −10 na sangria morre (Unit_Die) no mesmo tique
-    stepCorpses(this);
+    // World_SecondTick 0x52bbb7 (regeneração/sangria 0x50fc5a, decomposição 0x5110b8, desgaste das invocações): Server_Tick a chama no
+    // tique em que o relógio de 16/s ainda ≡ 0xc, ANTES de Server_ClockTick o incrementar e rodar as máquinas (pares: a regeneração lê
+    // o relógio 28, a máquina do mesmo tique 29) — a vida que chega a −10 na sangria morre (Unit_Die) no mesmo tique
+    if (serverTick && ((this.absClock16() % 16) + 16) % 16 === 13) {
+      EXE_GLOBALS.clock16 = this.absClock16() - 1;
+      EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff;
+      worldSecondTick(this.exeWorld, this.exeHooks);
+      EXE_GLOBALS.clock16 = this.absClock16();
+    }
     // ordem do servidor: jogadores em ordem e, em cada um, as unidades por id (sonda rngprobe: a posição dos sorteios do olhar em volta
     // bate 9/9 com (jogador, id)); `regenSlot` = id do original nos estados importados
     const order = this.serverOrder();
@@ -1068,7 +1091,7 @@ export class World {
         if (u.rec.act !== 0x10) this.machine(u);
         continue;
       }
-      this.regen(u);
+      this.poisonTick(u);
       if (!u.active) continue;
       if (u.cooldown > 0) u.cooldown--;
       if (this.stunned(u)) { if (u.state === "move" || u.state === "attack" || u.state === "cast") this.setState(u, "idle"); continue; }
@@ -1086,7 +1109,6 @@ export class World {
     this.stepProjectiles();
     if (this.areas.length) this.stepAreas();
     if (this.traps.length) this.stepTraps();
-    stepSummons(this);   // desgaste das invocações [exe 0x52bbb7]
   }
 
   /** Levanta quem estava morrendo (Heal que passa a vida de 0) [exe 0x510534]: volta ao estado normal com `hp`. */
@@ -1121,41 +1143,14 @@ export class World {
     this.setState(u, "dead");
   }
 
-  /** Regeneração [exe 0x50fc5a]: chamada 1× por segundo do jogo (contador [[0x6044c4]+0], 1/s — medido no original, refs/trace/d_hp.jsonl)
-   *  e só age no segundo em que `segundo % 4 == id % 4`, ou seja, **uma vez a cada 4 s por unidade**: vida += 2 × vidaMax × k / healthRegen
-   *  (healthRegen = PERÍODO; k = 3 se a unidade não age há > 80 tiques de 16/s = 5 s), resto fracionário acumulado; idem mana. Também em
-   *  combate (o exe não tem trava de combate). Medido: herói 142 PV descansando +8/+9 a cada 4 s (40 → 142 em 46,6 s); cobra (30 PV,
-   *  período 60) +1 a cada 4 s e +3 depois de 5 s parada. O veneno (Poison Cloud) continua 1×/s. */
-  private regen(u: Unit): void {
-    if ((this.tick + u.id) % TICKS_PER_SEC === 0) {
-      const poison = u.buffs.find(b => b.kind === "poison");
-      if (poison) {
-        const dmg = Math.max(1, Math.floor(poison.amount * (100 - this.resistOf(u, "water")) / 100 + 0.75));
-        this.damage(poison.from ? this.get(poison.from) : undefined, u, dmg, "water", true);
-        if (!u.alive) return;
-      }
-    }
-    const t = this.tick + this.secPhase;
-    if (t % TICKS_PER_SEC !== 0) return;
-    if (u.helpless) return; // inconsciente (vida 0 do script): sem regeneração até acordar
-    const k = this.tick - u.lastActionTick > 5 * TICKS_PER_SEC ? 3 : 1;
-    // vida: só no segundo em que `segundo % 4 == id % 4` [exe 0x50fcd8]
-    const hr = u.stats.healthRegen ?? 0;
-    if ((this.secBase + Math.floor(t / TICKS_PER_SEC)) % 4 === (u.regenSlot ?? u.id) % 4) {
-      if (hr > 0 && u.hp < u.maxHp) {
-        u.regenAcc += 2 * u.maxHp * k / hr;
-        const add = Math.floor(u.regenAcc);
-        if (add > 0) { u.regenAcc -= add; u.hp = Math.min(u.maxHp, u.hp + add); }
-      } else u.regenAcc = 0;
-    }
-    // mana: TODO segundo, sem a trava de id % 4 e sem o ×2 da vida [exe 0x50fdd5: mana×100 + resto += manaMax × (100 + bônus) × k /
-    // período; medido no diferencial: maga com 99 de mana máx. e período 50 ganha +2 por segundo]
-    const mr = u.stats.manaRegen ?? 0;
-    if (mr > 0 && u.mana < u.maxMana) {
-      u.manaAcc += u.maxMana * k / mr;
-      const add = Math.floor(u.manaAcc);
-      if (add > 0) { u.manaAcc -= add; u.mana = Math.min(u.maxMana, u.mana + add); }
-    } else u.manaAcc = 0;
+  /** Veneno (Poison Cloud, efeito do motor antigo): 1 dano por segundo, na fase `(tique + id) % 16`. A regeneração de vida/mana é a porta
+   *  de Unit_Regen 0x50fc5a em `worldSecondTick` (medido antes: herói 142 PV descansando +8/+9 a cada 4 s; cobra +1 a cada 4 s e +3 parada). */
+  private poisonTick(u: Unit): void {
+    if ((this.tick + u.id) % TICKS_PER_SEC !== 0) return;
+    const poison = u.buffs.find(b => b.kind === "poison");
+    if (!poison) return;
+    const dmg = Math.max(1, Math.floor(poison.amount * (100 - this.resistOf(u, "water")) / 100 + 0.75));
+    this.damage(poison.from ? this.get(poison.from) : undefined, u, dmg, "water", true);
   }
 
   private expireBuffs(u: Unit): void {
@@ -1430,7 +1425,6 @@ export class World {
     u.castX = tx; u.castY = ty;
     if (tx !== u.cx || ty !== u.cy) u.dir = dirFromDelta(tx - u.cx, ty - u.cy);
     this.setState(u, "cast");
-    u.lastActionTick = this.tick;
     if (spell.kind !== "buff" && spell.kind !== "shield" && spell.kind !== "heal") this.breakInvisibility(u);
     this.events.push({ type: "cast", unit: u.id, spell: spell.id });
     this.events.push({ type: "spell", unit: u.id, spell: spell.id, target: t?.id, x: tx, y: ty, auto });
@@ -1538,7 +1532,8 @@ export class World {
     },
     effectsOnDie: r => { const u = this.unitByAddr(r.addr); if (u) u.buffs = []; },
     onDieHuman: () => { /* 0x512697: o equipamento já está na mochila do motor antigo */ },
-    died: r => { const u = this.unitByAddr(r.addr); if (u) this.consumeDeath(u); },
+    // Unit_Die de quem ainda estava de pé (desgaste das invocações em World_SecondTick): a queda da apresentação antes da morte consumada
+    died: r => { const u = this.unitByAddr(r.addr); if (u) { if (u.alive) this.fall(u); this.consumeDeath(u); } },
   };
 
   /** Ponto seguinte da patrulha (adaptador do pensamento 0x569b62: a mesma volta pela lista IA+0xb4 que a cauda de 0x56dca2 faz —
@@ -1561,7 +1556,6 @@ export class World {
     if (!this.exeExact) {
       r.speed = Math.round(this.speedOf(u) * 16);
       r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
-      r.mana = u.mana;
       r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (AI_AttackRange 0x56ac5b sem magia escolhida no registro)
       r.owner.f04 = u.player;                         // o dono pode mudar (script: unidade passa a outro jogador)
       // grupo dormindo (tipo+0x45): quem dorme no motor antigo não recebe ordem de andar (a IA não pensa por ele); o teste do
@@ -1592,7 +1586,7 @@ export class World {
     // estado de animação pela ação do exe: 1 andar/girar (o giro do olhar em volta, tarefa 0xb, fica no estado ocioso: a IA antiga
     // decide sobre "idle"), 3 golpe, 0xd/0xe magia; o alvo do golpe/da magia (+0x5c) para a apresentação
     if (!u.alive) { /* caída/morta: o estado dying/dead é da apresentação (ganchos fell/die) */ }
-    else if (r.act === 1 && r.ai.task !== 0xb) { this.setState(u, "move"); u.lastActionTick = this.tick; if (moved) u.walkTime++; }
+    else if (r.act === 1 && r.ai.task !== 0xb) { this.setState(u, "move"); if (moved) u.walkTime++; }
     else if (r.act === 3) { if (u.state !== "attack") this.setState(u, "attack"); u.target = this.unitByAddr(r.f5c)?.id ?? 0; }
     else if (r.act === 0xd || r.act === 0xe) { if (u.state !== "cast") this.setState(u, "cast"); if (r.act === 0xd) u.target = this.unitByAddr(r.f5c)?.id ?? 0; }
     else if (u.state === "move" || u.state === "attack" || u.state === "cast") this.setState(u, "idle");
@@ -1645,7 +1639,6 @@ export class World {
     if (proc) { this.asCast(u, proc, t, t.cx, t.cy); return; }
     if (u.weaponSpell && t.active) { this.asCast(u, u.weaponSpell, t, t.cx, t.cy); return; }
     u.castSpell = null;
-    u.lastActionTick = this.tick;
     this.breakInvisibility(u);
     this.events.push({ type: "attack", unit: u.id, target: t.id });
   }
@@ -2152,7 +2145,7 @@ export class World {
     this.events.push({ type: "owner", unit: u.id, player });
   }
 
-  /** Summon [exe 0x51a595]: Squirrel/Turtle/Foot_Animated do nível Astral÷25+1, sem duração (desgaste em `stepSummons`) — sim/necro.ts. */
+  /** Summon [exe 0x51a595]: Squirrel/Turtle/Foot_Animated do nível Astral÷25+1, sem duração (desgaste em World_SecondTick 0x52bbb7) — sim/necro.ts. */
   private summon(u: Unit, s: SpellDef, _x: number, _y: number): void { summonCreature(this, u, s); }
 
   /** Um golpe físico de `a` em `t` fora da máquina de ação (testes, console): o mesmo caminho da fase 5 da máquina (0x516c1f →
@@ -2272,7 +2265,7 @@ export class World {
 
   /** Morte decretada (console `#kill`, desgaste das invocações, pilotos/testes): a vida vai a ≤ −10, a unidade cai (a animação toca) e a morte
    *  é consumada NA HORA (saque, abate, `death`), sem a espera do fim da animação nem a janela de Heal. A morte por golpe passa pelo caminho
-   *  completo: queda (`fall`) → sangria → `consumeDeath` em sim/necro.ts `stepCorpses`. */
+   *  completo: queda (`fall`) → sangria (Unit_Regen) → `consumeDeath` (gancho `died` de Unit_Die). */
   kill(t: Unit, killer?: Unit): void {
     const r = t.rec;
     this.syncCombat(t);   // modelo/saque/dono no registro (Unit_Die lê +0x0e, +0x3c, +0x1a0, dono+0x38)
@@ -2329,6 +2322,7 @@ export class World {
     const i = this.grid.idx(t.cx, t.cy);
     if (this.grid.occ[i] === t.id) this.grid.occ[i] = 0;
     t.bodyDead = true;
+    this.exeWorld.lists.all.remove(t.rec.addr); this.exeWorld.lists.corpses.addTail(t.rec.addr);   // contentor [0x68d2dc] (0x52bbb7)
     const killer = t.felledBy ? this.get(t.felledBy) : undefined;
     if (t.silentFall) { t.silentFall = false; this.onDeath?.(t, killer); }   // caiu por "vida 0" do script (knockOut): as regras de falha só agora
     this.events.push({ type: "death", unit: t.id, killer: t.felledBy });

@@ -368,3 +368,105 @@ export class CMapShortOcc {
     return 0;
   }
 }
+
+/** Associação de CMap<uint,uint> (0x10 bytes: +0 pNext, +4 nHashValue, +8 chave, +0xc valor). */
+export class CMapU32Assoc {
+  next: CMapU32Assoc | null = null;
+  hash = 0;
+  key = 0;
+  value = 0;
+}
+
+/** 0x4a1120 HashKey<uint>: key >> 4. */
+export function hashKeyU32(key: number): number {
+  return (key >>> 4) >>> 0;
+}
+
+/** POSITION de antes do começo (BEFORE_START_POSITION = −1 no MFC). */
+export const CMAP_BEFORE_START = Symbol("BEFORE_START_POSITION");
+export type CMapU32Pos = CMapU32Assoc | typeof CMAP_BEFORE_START | null;
+
+/** CMap<uint,uint,uint,uint> (construtor 0x545780: tabela nula, 0x11 baldes, contagem 0, bloco de `blockSize`). Instância: a contagem
+ *  de invocações por invocador em World_SecondTick 0x52bbb7 (local, 10). */
+export class CMapU32 {
+  table: (CMapU32Assoc | null)[] | null = null; // +0x04 m_pHashTable
+  tableSize = 0x11;                             // +0x08 m_nHashTableSize
+  count = 0;                                    // +0x0c m_nCount
+  constructor(readonly blockSize = 10) {}        // +0x18
+
+  /** 0x545ad0 InitHashTable (thiscall): descarta a tabela; se `alloc`, aloca `size` baldes vazios. */
+  initHashTable(size: number, alloc: number): void {
+    this.table = null;
+    if (alloc !== 0) this.table = new Array<CMapU32Assoc | null>(size >>> 0).fill(null);
+    this.tableSize = size >>> 0;
+  }
+
+  /** 0x545a60 GetAssocAt (thiscall): associação da chave (ou null); o balde sai em `out.hash` (sempre calculado). 0x422cb0 compara as chaves. */
+  getAssocAt(key: number, out: { hash: number }): CMapU32Assoc | null {
+    out.hash = (hashKeyU32(key) % this.tableSize) >>> 0;
+    if (this.table !== null) {
+      for (let a: CMapU32Assoc | null = this.table[out.hash] ?? null; a !== null; a = a.next) {
+        if ((a.key >>> 0) === (key >>> 0)) return a;
+      }
+    }
+    return null;
+  }
+
+  /** 0x5457e0 Lookup (thiscall): valor da chave em `out.v`; verdadeiro se existe. */
+  lookup(key: number, out: { v: number }): boolean {
+    const puVar1 = this.getAssocAt(key, { hash: 0 });
+    if (puVar1 !== null) out.v = puVar1.value;
+    return puVar1 !== null;
+  }
+
+  /** 0x5459d0 operator[] (thiscall): a associação da chave, criada na cabeça do balde se não existe (NewAssoc 0x545b50: m_nCount++). */
+  index(key: number): CMapU32Assoc {
+    const local_c = { hash: 0 };
+    let local_8 = this.getAssocAt(key, local_c);
+    if (local_8 === null) {
+      if (this.table === null) this.initHashTable(this.tableSize, 1);
+      local_8 = new CMapU32Assoc();
+      this.count = (this.count + 1) | 0;
+      local_8.hash = local_c.hash;
+      local_8.key = key >>> 0;
+      local_8.next = this.table![local_c.hash] ?? null;
+      this.table![local_c.hash] = local_8;
+    }
+    return local_8;
+  }
+
+  /** 0x545820 SetAt (thiscall): (*this)[key] = value. */
+  setAt(key: number, value: number): void {
+    this.index(key).value = value >>> 0;
+  }
+
+  /** 0x53d920 GetStartPosition (fastcall): −1 (antes do começo) se há elementos, senão 0 (nula). */
+  getStartPosition(): CMapU32Pos {
+    return this.count !== 0 ? CMAP_BEFORE_START : null;
+  }
+
+  /** 0x53d940 GetNextAssoc (thiscall): elemento da POSITION (a partir de −1: o 1.º balde não vazio) em `key`/`val`; devolve a POSITION
+   *  seguinte (o próximo do balde, senão o 1.º dos baldes seguintes; 0 = acabou). */
+  getNextAssoc(pos: CMapU32Pos, key: { v: number }, val: { v: number }): CMapU32Pos {
+    let local_8 = pos as CMapU32Assoc | null;
+    if (pos === CMAP_BEFORE_START) {
+      local_8 = null;
+      for (let local_10 = 0; local_10 < this.tableSize; local_10++) {
+        local_8 = this.table![local_10] ?? null;
+        if (local_8 !== null) break;
+      }
+    }
+    let local_c: CMapU32Assoc | null = local_8!.next;
+    if (local_c === null) {
+      let local_14 = local_8!.hash;
+      do {
+        local_14 = local_14 + 1;
+        if (this.tableSize <= local_14) break;
+        local_c = this.table![local_14] ?? null;
+      } while (local_c === null);
+    }
+    key.v = local_8!.key;
+    val.v = local_8!.value;
+    return local_c;
+  }
+}

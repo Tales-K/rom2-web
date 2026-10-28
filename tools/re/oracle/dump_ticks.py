@@ -33,6 +33,16 @@ WORLD_PTR = 0x66832C    # [ ] = mundo/IA (`this` de 0x56dca2/0x56e4ac; +0xa50 = 
 MAPREC_SIZE = 0xA4570
 OCC_HDR = 0x54084       # CMap<short,OccRec> (vtbl, tabela +4, tamanho +8, contagem +0xc); nó: próximo +0, hash +4, chave +8, valor +0xc
 REC_N = 0xB4            # bytes de andar (+0x1c0) e de IA (+0x1c4) despejados (WalkRec vai até +0xb1, AiRec até +0xb1)
+UNITS_PTR = 0x68D2DC    # [ ] = contentor das listas de unidades (0x52bbb7): +4 todas, +0x24 criadas por magia, +0x44 cadáveres
+
+
+def _ids(o, hdr: int) -> list:
+    """Ids (+4 da unidade) de um CList<void*> de unidades em `hdr` (cabeçalho: +4 cabeça; nó: +0 próximo, +8 dado), na ordem da lista."""
+    out, p, n = [], o.u32(hdr + 4), 0
+    while p and n < 4096:
+        out.append(o.u32(o.u32(p + 8) + 4))
+        p, n = o.u32(p), n + 1
+    return out
 
 
 def _runs(old: bytes, new: bytes, gap: int = 8) -> list:
@@ -99,7 +109,11 @@ class ExeTracker:
         if new:
             ex["structs"] = new
         wd = o.u32(WORLD_PTR)
-        ex["world"] = {"bbe8": o.u32(wd + 0xBBE8)}
+        # etapa 9: as 3 listas do contentor de unidades [0x68d2dc] que World_SecondTick 0x52bbb7 percorre (ids na ordem da lista):
+        # +4 todas (ordem de criação, caídas incluídas), +0x24 criadas por magia ([0x672f64]+4), +0x44 cadáveres ([[0x6044c4]+0x7c]+0xc+4)
+        ul = o.u32(UNITS_PTR)
+        ex["world"] = {"bbe8": o.u32(wd + 0xBBE8),
+                       "lists": {"all": _ids(o, ul + 4), "magic": _ids(o, ul + 0x24), "corpses": _ids(o, ul + 0x44)}}
         units = {}
         for a in addrs:
             b = bytes(o.read(a, 0x1D0))
@@ -114,7 +128,13 @@ class ExeTracker:
                           "hp": struct.unpack_from("<h", b, 0x94)[0], "mana": struct.unpack_from("<h", b, 0x9A)[0], "f12c": b[0x12C],
                           "f20": o.read(st + 0x20, 1)[0] if st else 0, "f44": o.read(st + 0x44, 1)[0] if st else 0,
                           "f45": o.read(st + 0x45, 1)[0] if st else 0, "p2c": o.u32(pl + 0x2C) if pl else 0,
-                          "mv": bytes(o.read(mv, REC_N)).hex() if mv else "", "ai": bytes(o.read(ai, REC_N)).hex() if ai else ""}
+                          "mv": bytes(o.read(mv, REC_N)).hex() if mv else "", "ai": bytes(o.read(ai, REC_N)).hex() if ai else "",
+                          # etapa 9 (regeneração 0x50fc5a): períodos +0x98/+0x9e, mana máx. +0x9c, restos +0xa2/+0xa3, bônus +0xde/+0xe2,
+                          # relógio de ocupação +0x138 (0x50fc3e: k = 3 depois de 80 tiques parada)
+                          "f98": struct.unpack_from("<h", b, 0x98)[0], "f9c": struct.unpack_from("<h", b, 0x9C)[0],
+                          "f9e": struct.unpack_from("<h", b, 0x9E)[0], "fa2": b[0xA2], "fa3": b[0xA3],
+                          "fde": struct.unpack_from("<h", b, 0xDE)[0], "fe2": struct.unpack_from("<h", b, 0xE2)[0],
+                          "f138": struct.unpack_from("<I", b, 0x138)[0]}
         return ex, units
 
 

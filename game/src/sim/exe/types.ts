@@ -15,6 +15,8 @@
  * golpe recebido 0x56e6b8 (IA +0x54..+0x5a, +0x94..+0x9c, +0xac; relógio de 16/s [[0x6044c4]+4]), diplomacia 0x57977a (dono +0x04 como
  * byte, +0x2c); máquina de ação 0x50f12c (+0x3c modelo, +0x58 fase, +0x6c contador, +0x68/+0x74 itens, +0x86, +0x96, +0x134..+0x13c);
  * morte 0x510a70 (+0x0e, +0x148, +0x1a0, dono +0x38/+0x40/+0xa54).
+ * Etapa 9, lote 1 (sim/exe/regen.ts): regeneração 0x50fc5a (+0x98/+0x9e períodos, +0x9c mana máx., +0xa2/+0xa3 restos, +0xde/+0xe2 bônus)
+ * e o contentor das listas de unidades [0x68d2dc] (`UnitListsRec`: todas, criadas por magia, cadáveres) de World_SecondTick 0x52bbb7.
  */
 import { CListEvent, CListPtr, CListWord, CMapShortOcc } from "./mfc";
 import { Rng } from "../rng";
@@ -238,7 +240,12 @@ export class UnitRec {
   speed = 0;                   // +0x08c i16 velocidade da unidade (0x55915a)
   f94 = 0;                     // +0x094 i16 vida (0x516ceb subtrai o dano; < 1 → queda em 0x50f12c; 0x56fc69)
   f96 = 0;                     // +0x096 i16 vida máxima (0x57977a)
-  mana = 0;                    // +0x09a i16 comparado ao custo da magia em 0x56ac5b
+  f98 = 0;                     // +0x098 i16 período da regeneração de vida (0 = não regenera; 0x50fc5a)
+  mana = 0;                    // +0x09a i16 mana (comparada ao custo da magia em 0x56ac5b; 0x50fc5a regenera)
+  f9c = 0;                     // +0x09c i16 mana máxima (0x50fc5a)
+  f9e = 0;                     // +0x09e i16 período da regeneração de mana (0x50fc5a divide por ele sem testar 0)
+  fa2 = 0;                     // +0x0a2 u8  resto (centésimos) da regeneração de vida (0x50fc5a)
+  fa3 = 0;                     // +0x0a3 u8  resto (centésimos) da regeneração de mana (0x50fc5a)
   dmg: DmgRec = new DmgRec();  // +0x0a6 atributos do golpe (ponteiro passado a 0x516f6f)
   fbe = 0;                     // +0x0be i16 defesa (0x516f6f; ÷ 2 na queda, 0x50f12c)
   fc0 = 0;                     // +0x0c0 i16 absorção (0x516f6f)
@@ -246,6 +253,8 @@ export class UnitRec {
   prot = new Int16Array(6);
   /** +0x0ce u8[6] resistências físicas por tipo de arma (índice DmgRec.wtype; 0x516f6f) */
   resist = new Uint8Array(6);
+  fde = 0;                     // +0x0de i16 bônus % da regeneração de vida (0x50fc5a: × (bônus + 100))
+  fe2 = 0;                     // +0x0e2 i16 bônus % da regeneração de mana (0x50fc5a)
   attackRange = 0;             // +0x12c u8  alcance sem magia (0x56ac5b, 0x516ceb)
   f134 = 0;                    // +0x134 u8  charge: tiques da fase 5 (0x50f12c)
   f135 = 0;                    // +0x135 u8  relax: tiques da fase 7 (0x50f12c)
@@ -263,8 +272,9 @@ export class UnitRec {
   pathDynamic = new CListWord();           // +0x1e4 CList<WORD> caminho dinâmico (0x54e886)
 }
 
-/** Objeto global [0x6044c4] (jogo/servidor): +0 contador de 1/s (short; 0x54d76e, 0x5110b8), +4 relógio de 16/s (0x56e6b8, 0x50fc3e,
- *  0x5040c4), +0x74 ≠ 0 = jogo local (0x50f12c, 0x510a70). A World escreve antes de cada chamada da máquina; o teste lê da memória. */
+/** Objeto global [0x6044c4] (jogo/servidor): +0 contador de 1/s (lido como int em 0x50fc5a/0x5110b8, short em 0x54d76e; vira no fim do
+ *  tique com relógio ≡ 0xf), +4 relógio de 16/s (0x56e6b8, 0x50fc3e, 0x5040c4), +0x74 ≠ 0 = jogo local (0x50f12c, 0x510a70). A World
+ *  escreve antes de cada chamada da máquina; o teste lê da memória. */
 export const EXE_GLOBALS = { w6044c4: 0, clock16: 0, f74: 1 };
 
 /** Objeto de busca de caminho (o `this` de 0x557f08 / 0x55f970). */
@@ -380,6 +390,18 @@ export class MapRec implements PathRec, FlagGridRec, ByteGridRec {
  *  +0x34 alvo. Os bytes não escritos ficam como estavam (o exe copia o rascunho inteiro). */
 export const EVENT_SIZE = 0x54;
 
+/** Contentor das listas de unidades do servidor ([0x68d2dc]; o `this` de World_SecondTick 0x52bbb7): três CList<void*> de endereços de
+ *  unidade. Uma unidade morta (Unit_Die, ação 0x10) sai de `all` e entra em `corpses`; `magic` guarda as criadas por magia
+ *  (Summon/Animate Dead; [0x672f64] aponta para +0x20). */
+export class UnitListsRec {
+  /** +0x04 todas as unidades do mapa, na ordem de criação, caídas incluídas (0x52bbb7: vtable+0x14 = Unit_Regen em cada uma). */
+  all = new CListPtr();
+  /** +0x24 unidades criadas por magia ([0x672f64]+4): o desgaste das invocações conta as com +0x148 ≠ 0 (0x52bbb7). */
+  magic = new CListPtr();
+  /** +0x44 cadáveres ([[0x6044c4]+0x7c]+0xc+4), na ordem da morte (0x52bbb7: Corpse_Decay 0x5110b8 em cada um). */
+  corpses = new CListPtr();
+}
+
 /** Mundo/servidor (o `this` de 0x56dca2, 0x56e4ac, 0x56fc69 e dos sorteios 0x57afc0/0x57afd0). */
 export class WorldRec {
   divisor = 0x8000;                  // +0x0000 u32 divisor do objeto de sorteio uniforme (0x57afd0: rand() × n / divisor)
@@ -401,5 +423,7 @@ export class WorldRec {
   evtU32(off: number): number { return this.evtDv.getUint32(off, true); }
   /** o rand() do CRT (_tiddata+0x14) que 0x583290 usa: o `Rng` do motor (a World põe o seu aqui) */
   rng: Rng = new Rng();
+  /** as listas de unidades do servidor ([0x68d2dc]: não é parte do objeto mundo; fica aqui por ser o estado que 0x52bbb7 percorre) */
+  lists = new UnitListsRec();
   constructor(public map: MapRec) {} // +0xa50 ptr objeto de mapa/caminho
 }

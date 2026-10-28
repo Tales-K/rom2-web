@@ -1,6 +1,6 @@
 /**
  * Porta literal do servidor do allods2.exe: o objeto de sorteio uniforme do mundo (mundo+0 = divisor, 0x8000 no jogo).
- * Portadas: 0x57afc0 Rand_UniformObject, 0x57afd0, 0x51fa25 Rand_Inclusive.
+ * Portadas: 0x57afc0 Rand_UniformObject, 0x57afd0, 0x51fa25 Rand_Inclusive, 0x51fa4e Rand_One.
  * `site` = endereço de retorno no chamador do exe (rotulagem dos sorteios do `Rng`, sim/rng.ts; não é estado do exe).
  */
 import type { RandSite } from "../rng";
@@ -27,4 +27,10 @@ export function randInclusive(wd: WorldRec, n: number, site: RandSite): number {
   let iVar1 = Math.imul(uVar2, (n + 1) | 0);
   iVar1 = (iVar1 + ((iVar1 >> 31) & 0x7fff)) >> 15;
   return iVar1;
+}
+
+/** 0x51fa4e Rand_One (cdecl): 1 + Rand_Inclusive(n − 1), ou seja, 1..n (n = 1 → 1 sem sorteio). */
+export function randOne(wd: WorldRec, n: number, site: RandSite): number {
+  const iVar1 = randInclusive(wd, (n - 1) | 0, site);
+  return (iVar1 + 1) | 0;
 }

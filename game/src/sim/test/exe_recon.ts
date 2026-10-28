@@ -9,7 +9,7 @@
 import { CListEvent, CListEventNode, CListNode, CListPtr, CListPtrNode, CListWord, CMapAssoc, CMapShortOcc } from "../exe/mfc";
 import {
   BookSpellRec, CellStructRec, DmgRec, EVENT_SIZE, EXE_GLOBALS, ItemRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MAP_WORLD_OFF, MapObjRec, MapRec,
-  OccRec, SpellBookRec, TemplateRec, UnitRec, WorldRec,
+  OccRec, SpellBookRec, TemplateRec, UnitListsRec, UnitRec, WorldRec,
 } from "../exe/types";
 import { Rng } from "../rng";
 
@@ -406,8 +406,10 @@ export type Field = [off: number, size: 1 | 2 | 4, key: string, signed?: boolean
 export const UNIT_FIELDS: Field[] = [
   [0x00, 4, "vtbl"], [0x04, 4, "f04"], [0x0e, 2, "f0e"], [0x40, 4, "f40"], [0x43, 1, "f43"], [0x48, 1, "f48"], [0x49, 1, "size"], [0x4a, 1, "kind"],
   [0x4c, 1, "f4c"], [0x50, 4, "task"], [0x54, 4, "act"], [0x58, 4, "f58"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x64, 4, "f64"],
-  [0x6c, 1, "f6c"], [0x86, 2, "f86", true], [0x8c, 2, "speed", true], [0x94, 2, "f94", true], [0x96, 2, "f96", true], [0x9a, 2, "mana"],
-  [0xbe, 2, "fbe", true], [0xc0, 2, "fc0", true], [0x12c, 1, "attackRange"], [0x134, 1, "f134"], [0x135, 1, "f135"], [0x136, 1, "ready"],
+  [0x6c, 1, "f6c"], [0x86, 2, "f86", true], [0x8c, 2, "speed", true], [0x94, 2, "f94", true], [0x96, 2, "f96", true], [0x98, 2, "f98", true],
+  [0x9a, 2, "mana", true], [0x9c, 2, "f9c", true], [0x9e, 2, "f9e", true], [0xa2, 1, "fa2"], [0xa3, 1, "fa3"],
+  [0xbe, 2, "fbe", true], [0xc0, 2, "fc0", true], [0xde, 2, "fde", true], [0xe2, 2, "fe2", true],
+  [0x12c, 1, "attackRange"], [0x134, 1, "f134"], [0x135, 1, "f135"], [0x136, 1, "ready"],
   [0x138, 4, "f138"], [0x13c, 1, "f13c"], [0x144, 4, "effects"], [0x148, 4, "f148"], [0x14c, 2, "f14c"], [0x1a0, 4, "f1a0"],
 ];
 /** Ponteiros da unidade espelhados como objetos (o valor conferido é o endereço). */
@@ -696,6 +698,12 @@ export function checkWorld(c: Ctx): string | null {
     ?? checkPtrList(cm, w + WORLD_CAND_OFF, c.world.cand, "mundo+0xa68") ?? checkPtrList(cm, w + WORLD_DEAD_OFF, c.world.dead, "mundo+0xa88");
 }
 export const U = (c: Ctx, a: number): UnitRec => unitFrom(c.cm, a, c.memo);
+/** As três listas do contentor de unidades [0x68d2dc] em `base` (+4 todas, +0x24 criadas por magia, +0x44 cadáveres), pelos nós lidos. */
+export function listsFrom(cm: CallMem, base: number): UnitListsRec {
+  const l = new UnitListsRec();
+  l.all = ptrListFrom(cm, base + 4); l.magic = ptrListFrom(cm, base + 0x24); l.corpses = ptrListFrom(cm, base + 0x44);
+  return l;
+}
 export function M(c: Ctx, base: number): TestMap {
   const m = mapFrom(c.cm, base, (a) => unitFrom(c.cm, a, c.memo));
   m.world = new WorldRec(m);

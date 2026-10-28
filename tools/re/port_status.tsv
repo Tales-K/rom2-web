@@ -123,7 +123,7 @@ addr	name	size	file	line	status	ts	note
 0x4a1050	FUN_004a1050	32	game/g_4a0000.c	747	pending		
 0x4a1070	FUN_004a1070	60	game/g_4a0000.c	757	pending		
 0x4a10b0	FUN_004a10b0	112	game/g_4a0000.c	773	pending		
-0x4a1120	FUN_004a1120	13	game/g_4a0000.c	798	pending		
+0x4a1120	FUN_004a1120	13	game/g_4a0000.c	798	out		MFC: exe/mfc.ts:hashKeyU32
 0x4a6430	FUN_004a6430	46	game/g_4a0000.c	3501	pending		
 0x4a6460	FUN_004a6460	23	game/g_4a0000.c	3514	pending		
 0x4a6480	Add	43	game/g_4a0000.c	3524	pending		
@@ -370,7 +370,7 @@ addr	name	size	file	line	status	ts	note
 0x50f065	FUN_0050f065	199	game/g_500000.c	10707	pending		
 0x50f12c	Unit_ActionMachine	2795	game/g_500000.c	10734	ported	action.ts:unitActionMachine	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2): 96413 chamadas, 100% fora dos ganchos (laço dos efeitos 0x50ee14 com lista não vazia, magia 0x519998/0x519db8/0x519d7f, 0x510a70 lote 3); case 2 (0x553ab3) e 0xf (0x52c129) exec 0 = NotPorted
 0x50fc3e	FUN_0050fc3e	28	game/g_500000.c	11161	ported	combat.ts:fn_0x50fc3e	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (884 amostradas, stride 8); relógio de 16/s = EXE_GLOBALS.clock16
-0x50fc5a	Unit_Regen	723	game/g_500000.c	11170	pending		
+0x50fc5a	Unit_Regen	723	game/g_500000.c	11170	ported	unitRegen	pares 0x50fc5a.jsonl 100% - 6026 chamadas, 3 episodios; exe/regen.ts
 0x50ff2d	FUN_0050ff2d	348	game/g_500000.c	11240	ported	combat.ts:fn_0x50ff2d	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (2064 amostradas, stride 4)
 0x510089	FUN_00510089	538	game/g_510000.c	3	pending		
 0x5102a3	FUN_005102a3	117	game/g_510000.c	60	pending		
@@ -491,7 +491,7 @@ addr	name	size	file	line	status	ts	note
 0x51f7d3	FUN_0051f7d3	549	game/g_510000.c	9771	pending		
 0x51fa0c	FUN_0051fa0c	25	game/g_510000.c	9877	pending		
 0x51fa25	Rand_Inclusive	41	game/g_510000.c	9891	ported	rand.ts:randInclusive	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 1) (346)
-0x51fa4e	Rand_One	23	game/g_510000.c	9913	pending		
+0x51fa4e	Rand_One	23	game/g_510000.c	9913	ported	randOne	pares 0x51fa4e.jsonl 100% - 3; exe/rand.ts
 0x51fb4d	FUN_0051fb4d	28	game/g_510000.c	10003	pending		
 0x520137	FUN_00520137	123	game/g_520000.c	31	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5201b2	FUN_005201b2	234	game/g_520000.c	50	pending		
@@ -609,7 +609,7 @@ addr	name	size	file	line	status	ts	note
 0x52b2bd	FUN_0052b2bd	100	game/g_520000.c	8193	pending		
 0x52b321	FUN_0052b321	312	game/g_520000.c	8221	pending		
 0x52b459	FUN_0052b459	1886	game/g_520000.c	8260	pending		
-0x52bbb7	World_SecondTick	586	game/g_520000.c	8458	pending		
+0x52bbb7	World_SecondTick	586	game/g_520000.c	8458	ported	worldSecondTick	pares 0x52bbb7.jsonl 100% - 180 chamadas, listas do contentor [0x68d2dc]; exe/regen.ts
 0x52be01	FUN_0052be01	109	game/g_520000.c	8563	pending		
 0x52be6e	FUN_0052be6e	215	game/g_520000.c	8588	pending		
 0x52bf45	FUN_0052bf45	22	game/g_520000.c	8621	pending		
@@ -798,8 +798,8 @@ addr	name	size	file	line	status	ts	note
 0x53d7f0	FUN_0053d7f0	71	game/g_530000.c	8547	pending		
 0x53d840	FUN_0053d840	25	game/g_530000.c	8562	out		MFC: exe/mfc.ts:CListPtr.addTail; provada por exe_walkaction.ts (0x52b22a, 0x54ec6a)
 0x53d860	FUN_0053d860	186	game/g_530000.c	8572	pending		
-0x53d920	FUN_0053d920	21	game/g_530000.c	8599	pending		
-0x53d940	FUN_0053d940	186	game/g_530000.c	8608	pending		
+0x53d920	FUN_0053d920	21	game/g_530000.c	8599	out		MFC: exe/mfc.ts:CMapU32.getStartPosition
+0x53d940	FUN_0053d940	186	game/g_530000.c	8608	out		MFC: exe/mfc.ts:CMapU32.getNextAssoc
 0x53da00	FUN_0053da00	17	game/g_530000.c	8642	pending		
 0x53da20	FUN_0053da20	27	game/g_530000.c	8651	pending		
 0x53da40	FUN_0053da40	78	game/g_530000.c	8661	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)
@@ -1050,14 +1050,14 @@ addr	name	size	file	line	status	ts	note
 0x545710	FUN_00545710	46	game/g_540000.c	5522	pending		
 0x545740	FUN_00545740	19	game/g_540000.c	5535	pending		
 0x545760	FUN_00545760	27	game/g_540000.c	5545	pending		
-0x545780	FUN_00545780	92	game/g_540000.c	5555	pending		
-0x5457e0	FUN_005457e0	60	game/g_540000.c	5572	pending		
-0x545820	SetAt	30	game/g_540000.c	5588	pending		
+0x545780	FUN_00545780	92	game/g_540000.c	5555	out		MFC: exe/mfc.ts:CMapU32.constructor
+0x5457e0	FUN_005457e0	60	game/g_540000.c	5572	out		MFC: exe/mfc.ts:CMapU32.lookup
+0x545820	SetAt	30	game/g_540000.c	5588	out		MFC: exe/mfc.ts:CMapU32.setAt
 0x545840	FUN_00545840	81	game/g_540000.c	5612	pending		
-0x5459d0	FUN_005459d0	133	game/g_540000.c	5688	pending		
-0x545a60	FUN_00545a60	112	game/g_540000.c	5711	pending		
-0x545ad0	FUN_00545ad0	115	game/g_540000.c	5736	pending		
-0x545b50	FUN_00545b50	206	game/g_540000.c	5757	pending		
+0x5459d0	FUN_005459d0	133	game/g_540000.c	5688	out		MFC: exe/mfc.ts:CMapU32.index
+0x545a60	FUN_00545a60	112	game/g_540000.c	5711	out		MFC: exe/mfc.ts:CMapU32.getAssocAt
+0x545ad0	FUN_00545ad0	115	game/g_540000.c	5736	out		MFC: exe/mfc.ts:CMapU32.initHashTable
+0x545b50	FUN_00545b50	206	game/g_540000.c	5757	out		MFC: exe/mfc.ts:CMapU32.index
 0x545c20	scanset_storage<2>	24	game/g_540000.c	5786	pending		
 0x545c40	FUN_00545c40	92	game/g_540000.c	5802	pending		
 0x545dd0	FUN_00545dd0	87	game/g_540000.c	5887	pending		

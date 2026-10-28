@@ -2,14 +2,15 @@
  * Testes headless de IA e magias (sem navegador). Rodar em game/:  npx tsx src/sim/test/ai.ts   (faz parte de npm run test:sim)
  * Mundo sintético (grade aberta 48×48) com templates reais de data/unit-templates.json e magias de data/spells.json.
  */
-import { Grid } from "../grid";
-import { World, type Unit, type UnitInit } from "../world";
+import { BLOCK_STRUCTURE, Grid } from "../grid";
+import { AI_THINK_PHASE, World, type Unit, type UnitInit } from "../world";
 import { fromTemplate, genericStats, heroDerived, heroStartSkillExp, skillFromExp, type HeroItem, type TemplateJson } from "../stats";
 import { buildSpell, SPELL, type SpellTable } from "../spells";
-import { applyAiSettings, attachFollowers, autocastLevel, cycleAutocast, installMissionAi, setAutocastLevel } from "../behaviors";
+import { applyAiSettings, attachFollowers, autocastBits, autocastLevel, cycleAutocast, installMissionAi, setAutocastLevel } from "../behaviors";
 import { restoreWorld, snapshotWorld } from "../snapshot";
 import type { SimEvent } from "../types";
 
+import { TICKS_PER_SEC } from "../types";
 interface NodeProc { exitCode?: number; getBuiltinModule(name: string): unknown; }
 const proc = (globalThis as unknown as { process: NodeProc }).process;
 const { existsSync, readFileSync } = proc.getBuiltinModule("node:fs") as { existsSync(p: string): boolean; readFileSync(p: string, enc: "utf8"): string };
@@ -77,7 +78,7 @@ function run(w: World, ticks: number, each?: (ev: SimEvent[]) => boolean | void)
   }
   return ticks;
 }
-const sec = (s: number) => Math.round(s * 20);
+const sec = (s: number) => Math.round(s * TICKS_PER_SEC);
 const dist = (a: Unit, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
 // ------------------------------------------------------------------------------------------------ herói inicial (exe)
@@ -104,7 +105,7 @@ console.log("\n[magias] montagem a partir de spells.json");
   const all = Object.keys(spells).map(Number).map(id => buildSpell(id, spells[String(id)], 40));
   check(all.length === 29 && all.every(s => s.kind && s.target), "29 magias montadas, todas com tipo e alvo");
   const bless = buildSpell(20, spells["20"], 50);
-  check(bless.effects?.[0]?.kind === "bless" && bless.effects[0].amount === 50, "Bless: chance = poder (50%)");
+  check(bless.effects?.[0]?.kind === "bless" && bless.effects[0].amount === 60, "Bless: chance = 20 + 4×poder div 5 (poder 50 → 60%) [exe 0x51b894]");
 }
 
 // ------------------------------------------------------------------------------------------------ IA de monstros
@@ -120,7 +121,7 @@ console.log("\n[IA] ogro vigia o posto, persegue dentro do raio e volta");
   check(attacked, "ogro ataca quem entra no raio de guarda do posto");
   w.teleport(h, 40, 40);
   const t = run(w, sec(30), () => ogre.cx === 20 && ogre.cy === 20 && ogre.order.type === "none");
-  check(ogre.cx === 20 && ogre.cy === 20, `ogro voltou ao posto (${ogre.cx},${ogre.cy}) em ${(t / 20).toFixed(1)} s`);
+  check(ogre.cx === 20 && ogre.cy === 20, `ogro voltou ao posto (${ogre.cx},${ogre.cy}) em ${(t / TICKS_PER_SEC).toFixed(1)} s`);
   // fora do raio não é visto como alvo
   const w2 = makeWorld();
   const o2 = mon(w2, 616, 2, 20, 20);
@@ -169,7 +170,7 @@ console.log("\n[magia de chance] Troll.4 (Hydun): Stone Curse 10% no lugar do go
   const troll = mon(w, 623, 2, 20, 20);
   const h = heroFighter(w, 21, 20);
   installMissionAi(w, { spells });
-  h.hp = h.maxHp = 100000;
+  h.hp = h.maxHp = 100000; h.stats = { ...h.stats, healthRegen: 0 };
   check(troll.procSpells.length === 1 && troll.procSpells[0]!.chance === 10, "Troll.4 tem Stone Curse com 10%");
   let stoned = false;
   run(w, sec(90), ev => { if (ev.some(e => e.type === "effect" && e.unit === h.id && e.kind === "stone" && e.on)) stoned = true; return stoned; });
@@ -283,7 +284,8 @@ console.log("\n[autocast] herói mago (CTRL+U)");
   const h = heroMage(w, 20, 20, 30);
   const m = mon(w, 608, 1, 22, 20);
   installMissionAi(w, { spells, heroSpellIds: [24, 27, 20, 21] });
-  check(autocastLevel(w) === 1, "nível padrão 1 (Heal/Shield)");
+  check(autocastLevel(w) === 2 && w.playerAi[1]!.autocast === 0x19, "padrão do New Game = 0x19: Average, só Own (medido no original)");
+  setAutocastLevel(w, 1);
   h.hp = Math.floor(h.maxHp / 2);
   const casts: string[] = [];
   run(w, sec(6), ev => { for (const e of ev) if (e.type === "spell" && e.unit === h.id) casts.push(`${spells[e.spell]?.name}${e.target === h.id ? "@self" : "@" + e.target}`); });
@@ -302,6 +304,29 @@ console.log("\n[autocast] herói mago (CTRL+U)");
   check(c3.length === 0, "autocast desligado: nada");
 }
 
+console.log("\n[autocast] opções Game Options → byte AutoCasting (medido no original: Own 1, Allies 2, Neutral 4; Min 8, Avg 0x18, Max 0x38)");
+{
+  check(autocastBits({}) === 0x19, "padrão (sem opções) = 0x19");
+  check(autocastBits({ autoCastOwn: false, autoCastMode: "min" }) === 8 && autocastBits({ autoCastOwn: true, autoCastAllies: true, autoCastNeutral: true, autoCastMode: "max" }) === 0x3f,
+    "Minimum sem alvos = 8; Maximum com os três = 0x3f");
+  const mk = (s: Parameters<typeof applyAiSettings>[1]) => {
+    const w = makeWorld(21);
+    const h = heroMage(w, 20, 20, 30);
+    const m = mon(w, 608, 1, 22, 20);
+    installMissionAi(w, { spells, heroSpellIds: [24, 27], settings: s });
+    h.mana = h.maxMana = 400; m.hp = Math.floor(m.maxHp / 3);
+    const healed: number[] = [];
+    run(w, sec(6), ev => { for (const e of ev) if (e.type === "spell" && e.unit === h.id && spells[e.spell]?.name === "Heal") healed.push(e.target ?? 0); });
+    return { w, h, m, healed };
+  };
+  const a = mk({ autoCastOwn: false, autoCastAllies: false, autoCastNeutral: false, autoCastMode: "min" });
+  check(a.w.playerAi[1]!.autocast === 8 && !a.healed.includes(a.m.id), "Own/Allies/Neutral desligados: o mago não cura o mercenário ferido");
+  const b = mk({ autoCastOwn: true, autoCastAllies: false, autoCastNeutral: false, autoCastMode: "min" });
+  check(b.healed.includes(b.m.id), "Own ligado (Minimum): cura o mercenário ferido");
+  const c = mk({});
+  check(c.healed.includes(c.m.id), "padrão do original (Own): cura o mercenário ferido");
+}
+
 // ------------------------------------------------------------------------------------------------ efeitos das magias
 console.log("\n[magias] efeitos");
 {
@@ -312,24 +337,35 @@ console.log("\n[magias] efeitos");
   skel.ai = { type: "hold" };
   installMissionAi(w, { spells, heroSpellIds: [2, 3, 6, 9, 11, 12, 14, 15, 17, 18, 21, 22, 23, 26, 28, 29] });
   for (const u of [a, b, far]) { u.ai = { type: "hold" }; u.hp = u.maxHp = 10000; }
+  // a regeneração do exe (1×/4 s, também em combate; LAB) com vida 10000 devolve 600 PV por chamada e esconde o dano: os testes
+  // contam o dano aplicado (World.damage) em vez de olhar a vida
+  const dealt = new Map<number, number>();
+  const realDamage = w.damage.bind(w);
+  w.damage = (src, t, dmg, el, quiet) => { dealt.set(t.id, (dealt.get(t.id) ?? 0) + dmg); realDamage(src, t, dmg, el, quiet); };
+  const took = (u: Unit) => dealt.get(u.id) ?? 0;
   w.dip[2]![1] = 0;
   setAutocastLevel(w, 0);
   const cast = (id: number, target?: Unit, x?: number, y?: number) => {
     h.mana = h.maxMana = 5000;
     h.cooldown = 0;
     w.command(h, { type: "cast", spell: String(id), target: target?.id, x, y });
-    run(w, sec(3), () => h.order.type === "none" && h.state === "idle");
+    // até 8 s: o andar segue o passo do exe por trecho (diagonal = trunc(passo×0,707) por eixo), um pouco mais lento; a magia em
+    // unidade para onde o exe para (0x56ebc0: de frente e a AI_UnitDistance ≤ alcance), então o Teleport seguinte parte de mais longe
+    run(w, sec(8), () => h.order.type === "none" && h.state === "idle");
   };
   const hpA = a.hp, hpB = b.hp, hpF = far.hp;
   h.x = 14.5; w.teleport(h, 14, 20);
   cast(SPELL.Fireball, a);
   run(w, sec(2));
-  check(a.hp < hpA && b.hp < hpB && far.hp === hpF, `Fireball explode em raio (A ${hpA - a.hp}, B ${hpB - b.hp}, longe 0)`);
+  void hpA; void hpB; void hpF;
+  check(took(a) > 0 && took(b) > 0 && took(far) === 0, `Fireball explode em raio (A ${took(a)}, B ${took(b)}, longe 0)`);
   const before = a.hp;
   cast(SPELL.WallOfFire, undefined, 20, 20);
   check(w.areas.some(x => x.spell === String(SPELL.WallOfFire)), "Wall of Fire cria área no chão");
+  const tookBefore = took(a);
+  void before;
   run(w, sec(4));
-  check(a.hp < before, `Wall of Fire queima com o tempo (${before - a.hp})`);
+  check(took(a) > tookBefore, `Wall of Fire queima com o tempo (${took(a) - tookBefore})`);
   cast(SPELL.PoisonCloud, undefined, 21, 20);
   run(w, sec(3));
   check(b.hasBuff("poison"), "Poison Cloud envenena");
@@ -340,12 +376,21 @@ console.log("\n[magias] efeitos");
   check(w.speedOf(a) < a.stats.speed, "Slow reduz a velocidade do alvo");
   cast(SPELL.Curse, a);
   check(a.hasBuff("curse"), "Curse no alvo");
-  cast(SPELL.StoneCurse, far);
-  check(far.hasBuff("stone") && w.stunned(far), "Stone Curse petrifica");
+  // a pedra pode acabar antes do fim da espera do lançamento (duração curta com este poder): vale ter petrificado durante o lançamento
+  let stoned = false;
+  { h.mana = h.maxMana = 5000; h.cooldown = 0; w.command(h, { type: "cast", spell: String(SPELL.StoneCurse), target: far.id });
+    run(w, sec(6), () => { if (far.hasBuff("stone") && w.stunned(far)) stoned = true; return h.order.type === "none" && h.state === "idle"; }); }
+  check(stoned, "Stone Curse petrifica");
   const aHp = a.hp; h.hp = 1;
+  // com 1 PV a Retreat Mode (fuga do exe, LAB) faria o herói se teletransportar em vez de lançar: aqui só o Drain Life importa
+  h.wimpyHp = 0; h.withdrawHp = 0;
+  const tookA = took(a);
+  void aHp;
+  // a Stone Curse do exe tem duração sorteada (pode sair 0 = "sem efeito" e o herói ainda estar no fim da animação): espera ficar livre
+  run(w, sec(3), () => h.state === "idle" && h.order.type === "none");
   cast(SPELL.DrainLife, a);
   run(w, sec(2));
-  check(a.hp < aHp && h.hp > 1, `Drain Life tira e devolve vida (alvo −${aHp - a.hp}, herói ${h.hp})`);
+  check(took(a) > tookA && h.hp > 1, `Drain Life tira e devolve vida (alvo −${took(a) - tookA}, herói ${h.hp})`);
   cast(SPELL.Invisibility, h);
   check(h.hasBuff("invisible") && !w.canSee(a, h), `Invisibility: inimigo comum não vê o herói (${JSON.stringify(h.buffs.map(b => [b.kind, b.amount]))}, mana ${h.mana}, ${h.spells.find(s => s.id === "12")?.name})`);
   cast(SPELL.Light, undefined, 20, 20);
@@ -356,9 +401,15 @@ console.log("\n[magias] efeitos");
   check(h.cx !== hx && Math.abs(h.cx - 30) <= 1 && Math.abs(h.cy - 30) <= 1, `Teleport leva o herói ao ponto (${h.cx},${h.cy})`);
   cast(SPELL.WallOfEarth, undefined, 34, 30);
   check(w.areas.some(x => x.kind === "wall") && !w.grid.walkable(34, 30), "Wall of Earth bloqueia a passagem");
-  // Control Spirit em esqueleto
+  // Animate Dead NÃO é "Control Spirit": levanta corpos (sim/test/necro.ts); esqueleto vivo não muda de dono e o corpo de um morto-vivo
+  // (tipo 82..98) não se levanta [exe 0x51a91f/0x51a9a4]
   cast(SPELL.AnimateDead, skel);
-  check(skel.player === 1, `Animate Dead (Control Spirit) toma o esqueleto (dono ${skel.player})`);
+  check(skel.player === 2, `Animate Dead num esqueleto vivo não o toma (dono ${skel.player})`);
+  w.damage(undefined, skel, skel.hp + 1);
+  skel.corpseHp = -25; skel.bodyDead = true; skel.state = "dead";   // já em "ossos" (estado 3)
+  const n0 = w.units.length;
+  cast(SPELL.AnimateDead, undefined, skel.cx, skel.cy);
+  check(w.units.length === n0, "corpo de esqueleto não se levanta");
   // snapshot com áreas/efeitos ativos → mesmo estado depois
   const snap = snapshotWorld(w);
   run(w, sec(5));
@@ -376,6 +427,64 @@ console.log("\n[magias] efeitos");
   check(JSON.stringify(snapshotWorld(w2)) === after, "snapshot com áreas/efeitos: continuação idêntica (determinístico)");
   run(w, sec(40));
   check(w.grid.walkable(34, 30) && !w.areas.length, "áreas expiram e a parede some");
+}
+
+// ------------------------------------------------------------------------------------------------ guarda do grupo, cadência, giro, tiro
+console.log("\n[IA do exe] guarda do grupo (0x57275f), pensamento 1×/s (0x570087), giro antes de lançar (0x556454), tiro sem projétil (0x516c1f)");
+{
+  // dois orcs do mesmo grupo: o raio é do GRUPO em volta do centroide (max(Chebyshev + scanRange, 8) + 4 ± 1) e o alvo vem de quem o
+  // grupo vê; o orc de trás (a 12 do herói, fora da guarda individual de 8) avança junto
+  const w = makeWorld(3);
+  const a = mon(w, 608, 2, 10, 20), b = mon(w, 608, 2, 16, 20);
+  const h = heroFighter(w, 22, 20); h.hp = h.maxHp = 50000; h.stats = { ...h.stats, healthRegen: 0 }; h.cooldown = 9999;
+  w.initGroupGuard(5, [a, b]);
+  check(a.group === 5 && b.group === 5 && a.groupRadius === b.groupRadius && a.groupRadius === 9,
+    `raio do grupo fora de combate = base 9 (3 do centroide + visão 6) = ${a.groupRadius}`);
+  let firstTick = -1;
+  run(w, sec(4), () => { h.cooldown = 9999; if (firstTick < 0 && a.order.type !== "none") firstTick = w.tick; });
+  check(a.groupRadius >= 12 && a.groupRadius <= 14, `em combate o raio sobe para base + 4 ± 1 (0x5726f7) = ${a.groupRadius}`);
+  check(firstTick > 0 && firstTick % TICKS_PER_SEC === AI_THINK_PHASE, `a decisão sai no pensamento de 1×/s (tique ${firstTick} ≡ ${AI_THINK_PHASE} mod ${TICKS_PER_SEC})`);
+  check(a.cx >= 13 && a.groupTarget === h.id, `o orc de trás avança no alvo do grupo (${a.cx},${a.cy}; alvo ${a.groupTarget})`);
+  const w2 = makeWorld(3);
+  const a2 = mon(w2, 608, 2, 10, 20);
+  const h2 = heroFighter(w2, 22, 20); h2.hp = h2.maxHp = 50000; h2.stats = { ...h2.stats, healthRegen: 0 };
+  run(w2, sec(4), () => { h2.cooldown = 9999; });
+  check(a2.cx === 10 && a2.order.type === "none", "sem grupo, o mesmo orc (guarda 8 em volta do posto) fica parado");
+}
+{
+  // giro: o lich de costas para o alvo (oeste → leste = 180°) leva ceil(128/16) = 8 tiques de 16/s a mais para lançar
+  const delay = (dir0: number): number => {
+    const w = makeWorld(4);
+    const lich = mon(w, 672, 2, 10, 30), h = heroFighter(w, 14, 30);
+    installMissionAi(w, { spells });
+    h.hp = h.maxHp = 50000; h.stats = { ...h.stats, healthRegen: 0 }; lich.suspended = true; lich.dir = dir0; lich.mana = 1000;
+    const l = lich.spells.find(s => Number(s.id) === SPELL.Lightning)!;
+    w.command(lich, { type: "cast", spell: l.id, target: h.id });
+    const t0 = w.tick;
+    let at = -1;
+    run(w, sec(3), ev => { if (ev.some(e => e.type === "spell" && e.unit === lich.id)) { at = w.tick - t0; return true; } });
+    return at;
+  };
+  const back = delay(4), front = delay(12);
+  check(back - front === 8, `giro de 180° antes de lançar: ${back} × ${front} tiques (diferença = 8 tiques de 16/s)`);
+}
+{
+  // golpe à distância: resolve o dano na hora em que sai, através de uma estrutura (sem linha de visão; a flecha é só desenho)
+  const w = makeWorld(6);
+  const archer = mon(w, 14, 2, 10, 40), h = heroFighter(w, 14, 40);
+  h.hp = h.maxHp = 50000; h.stats = { ...h.stats, healthRegen: 0 };
+  w.grid.block[40 * 48 + 12]! |= BLOCK_STRUCTURE;
+  // (o 1º tiro pode errar: o rand() também é gasto pelo olhar em volta das unidades ociosas, 0x56e5bc — vale o tique do tiro que acertou)
+  let hitTick = -1, shotTick = -1;
+  run(w, sec(6), ev => {
+    h.cooldown = 9999;
+    for (const e of ev) {
+      if (e.type === "projectile") shotTick = w.tick;
+      if (e.type === "hit" && e.unit === archer.id && hitTick < 0) hitTick = w.tick;
+    }
+    return hitTick >= 0;
+  });
+  check(hitTick > 0 && hitTick === shotTick && w.projectiles.every(p => p.visual), `arqueiro atira por cima da estrutura e o dano sai junto com a flecha (tique ${shotTick}/${hitTick})`);
 }
 
 console.log(`\n${passes} ok, ${failures} falha(s)`);

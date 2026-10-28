@@ -256,7 +256,7 @@ async function m92(): Promise<void> {
   check(has(r, 12) && sub(r, 3) === 1 && trapper.ai?.type === "follow", `armadilheiro concorda: msg 12, sub 3 e ele passa a seguir o herói (ai ${trapper.ai?.type})`);
   check(!has(r, 15), "fantasmas ainda parados (msg 15 só quando o armadilheiro os alcança)");
   // escolta de verdade: o armadilheiro (jogador 3) segue o herói até os fantasmas e depois até o falante, com os fantasmas atrás dele
-  for (const u of [trapper, ...all3(r)]) u.maxHp = u.hp = 100000; // grupo "imortal" só na escolta (as abelhas matam a Dina de 26 PV de um golpe)
+  for (const u of [trapper, ...all3(r)]) { u.maxHp = u.hp = 100000; u.stats = { ...u.stats, healthRegen: 0 }; } // grupo "imortal" (sem regeneração: 0x50fc5a estouraria o short) só na escolta (as abelhas matam a Dina de 26 PV de um golpe)
   at(r, h, 44, 27);
   // o herói fica (Stand ground): quem atira de longe nele (a guarda dos grupos alcança mais longe, exe 0x57275f) não o tira do lugar
   w.command(h, { type: "hold" });
@@ -564,7 +564,7 @@ async function shrine(s: Shrine): Promise<void> {
     const q = startRun(data, hero, undefined, { companions: BOTH });
     hold(q, unit(q, 10002)); hold(q, unit(q, 10003)); // ficam no ponto de partida (Igles/Dina não participam dos enigmas)
     // os dragões que guardam as pirâmides matam um herói de 55-142 PV de um golpe: o grupo é "imortal" nestes pilotos (companionsFail ainda o mata com kill)
-    for (const id of [10001, 10002, 10003]) { const u = unit(q, id); u.maxHp = u.hp = 100000; }
+    for (const id of [10001, 10002, 10003]) { const u = unit(q, id); u.maxHp = u.hp = 100000; u.stats = { ...u.stats, healthRegen: 0 }; }
     // morcegos e feras soltas (jogador 7) arrastariam o herói "hold" para dentro dos teleportes; só os dragões guardiões ficam
     for (const u of ofPlayer(q, 7)) if (u.name !== "Dragon") q.b.world.kill(u);
     return q;
@@ -849,7 +849,7 @@ async function m103(): Promise<void> {
   check(has(r, 11) && !h.items.includes(HEAD) && !h.items.includes(STONE), "herói com a pedra e a cabeça junto do xamã: msg 11 e as duas relíquias são entregues");
   check(orc.ai?.type === "move" && orc.ai.x === 80 && orc.ai.y === 77, `o xamã parte para o 1º ponto (80,77) (${JSON.stringify(orc.ai)})`);
   hold(r, unit(r, 10002)); hold(r, unit(r, 10003));
-  orc.maxHp = orc.hp = 100000;
+  orc.maxHp = orc.hp = 100000; orc.stats = { ...orc.stats, healthRegen: 0 };   // imortal de verdade: a regeneração 0x50fc5a estoura o short (32767) ao 1.º golpe
   let t = run(r, TICKS_PER_SEC * 200, () => { keep(r); return orc.ai?.type === "move" && orc.ai.x === 127; });
   console.log(`  info: o xamã andou de (${orcStart.x},${orcStart.y}) até perto de (80,77) em ${(t / TICKS_PER_SEC).toFixed(0)} s; está em ${orc.cx},${orc.cy}`);
   check(orc.ai?.type === "move" && orc.ai.x === 127 && orc.ai.y === 69, `no 1º ponto (80,77) o xamã segue para o 2º (127,69) (${JSON.stringify(orc.ai)})`);
@@ -916,7 +916,10 @@ async function m103(): Promise<void> {
     const o = q.b.world.units.find(u => u.items.includes(HEAD))!;
     q.b.world.kill(o, q.b.hero); settle(q, 5);
     const s = q.b.world.loot.find(l => l.items.includes(HEAD))!;
-    at(q, stone, s.x - 2, s.y + 1); pickupAt(q, stone, s.x, s.y);
+    // uma súcubo pode ter começado Stone Curse no portador antes do teleporte: a magia pousa onde ele está (máquina 0x50f12c);
+    // o cenário tira a pedra e manda de novo
+    at(q, stone, s.x - 2, s.y + 1);
+    for (let k = 0; k < 6 && !pickupAt(q, stone, s.x, s.y, TICKS_PER_SEC * 20); k++) unstone(q);
     beside(q, stone, 30); settle(q, 25);
     q.b.world.teleport(unit(q, 30), 128, 72); at(q, q.b.hero, 126, 71); settle(q, 25);
     return q;

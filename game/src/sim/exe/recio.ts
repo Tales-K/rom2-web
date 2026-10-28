@@ -57,7 +57,7 @@ export function listVals(l: CListWord): number[] {
 
 /** Campos escalares da unidade, do tipo e do dono (o motor antigo os sincroniza em `World.dispatch`; vão no save para o estado
  *  carregado ser idêntico). */
-const UNIT_KEYS = ["addr", "vtbl", "f40", "size", "kind", "f4c", "speed", "f94", "f96", "mana", "attackRange", "effects", "ready", "f58", "f5c", "f60", "f64", "f6c", "f138", "f13c"] as const;
+const UNIT_KEYS = ["addr", "vtbl", "f40", "size", "kind", "f4c", "speed", "f94", "f96", "f98", "mana", "f9c", "f9e", "fa2", "fa3", "fde", "fe2", "attackRange", "effects", "ready", "f58", "f5c", "f60", "f64", "f6c", "f138", "f13c"] as const;
 
 export interface UnitRecJson {
   m: [number, number, number, number]; act: number; task: number;

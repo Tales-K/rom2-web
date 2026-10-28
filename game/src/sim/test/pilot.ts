@@ -6,13 +6,15 @@
  */
 import type { HeroState } from "../../core/state";
 import type { Unit } from "../world";
-import { buildSpell } from "../spells";
-import { defaultHero } from "../../mission/setup";
+import { buildSpell, spellKey } from "../spells";
+import { defaultHero, spawnFromTemplate } from "../../mission/setup";
+import { execConsoleLine, findTemplate, type ConsoleHost, type ConsoleResult } from "../../mission/console";
 import { pickLines } from "../../mission/messages";
 import { loadData, json, run, type Run } from "./loader";
 import { availableMissions, availableTowns, enterLocation, innPatrons, isDone, newCampaign, onMissionResult, talkTo } from "../../campaign/engine";
 import type { CampaignData, CampaignState } from "../../campaign/types";
 
+import { TICKS_PER_SEC } from "../types";
 // ------------------------------------------------------------------------------------------- verificações
 let passes = 0, failures = 0;
 export function check(cond: unknown, msg: string): void {
@@ -56,7 +58,7 @@ export function at(r: Run, who: Unit, x: number, y: number): void { r.b.world.te
 /** o grupo do jogador (herói, Igles, Dina e quem virar do jogador) é mantido vivo */
 export const keep = (r: Run): void => { for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp; };
 /** deixa o script rodar (o runtime avalia a cada 0,5 s = 10 tiques) mantendo o grupo vivo */
-export const settle = (r: Run, ticks = 25): number => run(r, ticks, () => keep(r));
+export const settle = (r: Run, ticks = Math.round(1.25 * TICKS_PER_SEC)): number => run(r, ticks, () => keep(r));
 /** o jogador manda a unidade ficar onde está (stand ground, sem seguir o herói) */
 export function hold(r: Run, u: Unit): void { u.ai = { type: "hold" }; r.b.world.command(u, { type: "none" }); }
 export function killAll(r: Run, us: Unit[]): void { for (const u of us) if (u.alive) r.b.world.kill(u, r.b.hero); }
@@ -68,7 +70,7 @@ export const has = (r: Run, m: number): boolean => r.messages.includes(m);
 export const count = (r: Run, m: number): number => r.messages.filter(x => x === m).length;
 
 /** O grupo (herói, Igles, Dina) com vida enorme: inimigos fortes (dragões, lanceiros) matam de um golpe o herói de 55-142 PV e a Dina de 26 PV; `kill` ainda os mata. */
-export function immortal(r: Run): void { for (const id of [10001, 10002, 10003]) { const u = r.b.host.units.get(id); if (u) u.maxHp = u.hp = 100000; } }
+export function immortal(r: Run): void { for (const id of [10001, 10002, 10003]) { const u = r.b.host.units.get(id); if (u) { u.maxHp = u.hp = 100000; u.stats = { ...u.stats, healthRegen: 0 }; } } }   // sem regeneração: 0x50fc5a estouraria o short de 32767
 
 /** Dragões e súcubos petrificam quem se aproxima (Stone Curse de chance, poder alto = pedra por muito tempo): tira a pedra do grupo para o piloto seguir. */
 export function unstone(r: Run): void { for (const id of [10001, 10002, 10003]) { const u = r.b.host.units.get(id); if (u) u.buffs = u.buffs.filter(b => b.kind !== "stone"); } }
@@ -136,7 +138,7 @@ export function castOn(r: Run, who: Unit, spell: number, power: number, target: 
 }
 
 /** O jogador manda `who` pegar o saco da célula (x, y) (clique no saco = ordem "pickup" da MissionScene); roda até o item/ouro estar com ele. */
-export function pickupAt(r: Run, who: Unit, x: number, y: number, maxTicks = 20 * 120): boolean {
+export function pickupAt(r: Run, who: Unit, x: number, y: number, maxTicks = TICKS_PER_SEC * 120): boolean {
   const w = r.b.world;
   const had = who.items.length + who.gold;
   const susp = who.suspended; who.suspended = true; // a IA do aliado não desfaz a ordem do jogador (na cena, PartyControl.order troca a IA)
@@ -149,6 +151,56 @@ export function pickupAt(r: Run, who: Unit, x: number, y: number, maxTicks = 20 
   who.suspended = susp;
   return ok;
 }
+
+// ------------------------------------------------------------------------------------------- trapaças do console (mission/console.ts)
+const cheatHosts = new WeakMap<Run, ConsoleHost & { log: string[]; mapShown: boolean }>();
+/**
+ * Console headless com as trapaças do original já ligadas (como depois de `##Coward`): mensagens em `log`; `#victory` = vitória do
+ * motor, `#event n` = fala n (0xff = falha), `#summon` cria pelo template, magias com poder 50. Diferença da cena: qualquer herói tem
+ * "livro" (o original exige livro de magias para `+spell(s)`).
+ */
+export function cheatHost(r: Run): ConsoleHost & { log: string[]; mapShown: boolean } {
+  let h = cheatHosts.get(r);
+  if (h) return h;
+  let on = true;
+  const host: ConsoleHost & { log: string[]; mapShown: boolean } = {
+    world: r.b.world, hero: r.b.hero, playerName: r.b.hero.name, log: [], mapShown: false,
+    cheats: () => on, setCheats: v => { on = v; },
+    message: t => { host.log.push(t); },
+    items: r.data.items as ConsoleHost["items"],
+    addGold: n => { r.b.hero.gold += n; r.gold += n; },
+    hasSpellbook: () => true,
+    learnSpell: id => {
+      const u = r.b.hero;
+      if (u.spells.some(s => spellKey(s) === String(id))) return;
+      const sp = buildSpell(id, r.data.spells?.[String(id)], 50);
+      if (sp.kind) u.spells.push(sp);
+    },
+    summon: (name, n) => {
+      const tid = findTemplate(r.data.templates as Record<string, unknown> | undefined, name);
+      let made = 0;
+      for (let i = 0; tid && i < n; i++) { const u = spawnFromTemplate(r.b, r.data, Number(tid)); if (!u) break; u.dynamic = true; made++; }
+      return made;
+    },
+    showMap: v => { host.mapShown = v; },
+    victory: () => { r.outcome ??= { ok: true, cause: 0 }; },
+    event: n => { if (n === 0xff) r.outcome ??= { ok: false, cause: 0 }; else r.messages.push(n); },
+  };
+  cheatHosts.set(r, h = host);
+  return h;
+}
+/** Executa uma linha do console (com as trapaças ligadas) — ex.: `cheat(r, "#create 1000 Gold")`. */
+export const cheat = (r: Run, line: string): ConsoleResult => execConsoleLine(cheatHost(r), line);
+/** `#modify self|army +god`: proteções e resistências físicas 100 (sem dano) */
+export const godMode = (r: Run, army = false): ConsoleResult => cheat(r, `#modify ${army ? "army" : "self"} +god`);
+/** `#victory`: encerra a missão com vitória */
+export const victory = (r: Run): ConsoleResult => cheat(r, "#victory");
+/** `#show map` */
+export const showMap = (r: Run): ConsoleResult => cheat(r, "#show map");
+/** `#create <n> Gold` */
+export const giveGold = (r: Run, n: number): ConsoleResult => cheat(r, `#create ${n} Gold`);
+/** `#modify self +spells` (magias 1..29) */
+export const giveSpells = (r: Run): ConsoleResult => cheat(r, "#modify self +spells");
 
 // ------------------------------------------------------------------------------------------- contrato com o motor de campanha
 export const campaignData = json<CampaignData>("data/campaign.json")!;

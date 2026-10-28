@@ -48,7 +48,7 @@ export const NAO_MODELADO: Record<string, string> = {
   prot: "proteções por elemento (formato diferente do nosso resist)", resist: "resistências", see_invis: "ver invisível", kind: "rótulo",
   sx: "derivado de fx", sy: "derivado de fy", cell: "derivado de x,y", dir: "derivado de angle",
   angle: "rumo fino 0..255 (o nosso tem 16 direções; ver dir16)", speed: "o speed_eff é o comparado", plane1: "plano de terreno", plane2: "plano de terreno",
-  tick: "contador de 1/s do original: vira 2 tiques depois do relógio de regeneração (secClock) que a importação ancora; não é um estado à parte",
+  tick: "contador de 1/s do original: ⌊(t16 + 1) ÷ 16⌋, derivado do relógio de 16/s (World.secClock); não é um estado à parte",
   g_center: "centro do grupo (cálculo do exe)", g_count: "contagem do grupo", g_members: "pertinência ao grupo",
 };
 
