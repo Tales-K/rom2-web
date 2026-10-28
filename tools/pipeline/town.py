@@ -8,7 +8,7 @@ Saida (relativa a game/public/assets/ui/):
   town/     main.webp (640x480 de Plagat), mask.png (ids das regioes), hili_<id>.webp (realce ao passar o mouse),
             anim/<nome>.webp (faixa horizontal com todos os quadros; fw/fh/frames em town.json), town.json (regioes + animacoes)
   inn/      center, left_picture, left_stats, buttons_area, btn<1..3>_<off|on>, card_man, card_quest (.webp),
-            anim/<nome>.webp (faixas), units/unit<N>_0.webp (so o quadro 0), inn.json, voices.json (lista de vozes existentes)
+            anim/<nome>.webp (faixas), units/<unitN|herofighter|heromage>.webp (faixas de 8 quadros), inn.json, voices.json (lista de vozes existentes)
   shop/     scene, frame, inv, menu, table, cell_shop, cell_mine, money (.webp), anim/<letra>.webp (faixas),
             icons/<arquivo>.webp (icones de itens 80x80, sem perda), shop.json
   globalmap/ uimoir.webp, yases.webp, missionflag.webp / yourflag.webp (faixas; meta em globalmap.json), cross_0.webp (cruz completa),
@@ -229,164 +229,6 @@ def border_black(im, thr=18):
 # 192 escola em Plagat); os demais valores marcam moradores (clicar = fala da cidade, secoes kaarg*/druid* de town.json).
 # Conferido pelos realces originais (shop_l/tavern_l/trener_l; hili_shop/hili_tavern de Kaarg e do acampamento) e pelas
 # animacoes que caem dentro de cada regiao (maingates no 160 de Kaarg; dervixe, guarda e mocas nos moradores).
-TOWNS = {
-    "plagat": {"dir": "town", "out": "town", "regions": {128: "inn", 144: "shop", 160: "gate", 176: "statue", 192: "trainer"},
-               "anims": {k: (v[0], v[1], v[2]) for k, v in TOWN_ANIMS.items()}},
-    "kaarg": {"dir": "town_kaarg", "out": "town/kaarg",
-              "regions": {128: "inn", 144: "shop", 160: "gate", 176: "statue", 32: "person:kaargman", 64: "person:kaargguard",
-                          96: "person:kaargwoman", 192: "person:kaargwoman"},
-              "anims": {"gate": ("town_kaarg/maingates", None, None), "dervish": ("town_kaarg/dervish", None, None),
-                        "girl1": ("town_kaarg/girl1", None, None), "girl2": ("town_kaarg/girl2", None, None),
-                        "guard": ("town_kaarg/guard", None, None)}},
-    "druids": {"dir": "town_druid", "out": "town/druids",
-               "regions": {128: "inn", 144: "shop", 160: "gate", 96: "person:druidinnkeeper", 80: "person:druidshopkeeper"},
-               "anims": {"man": ("town_druid/man", None, 96), "woman": ("town_druid/woman", None, 80),
-                         "lizard": ("town_druid/lizard", None, None)}},
-}
-
-
-# Posicoes (x, y) por sequencia achadas por correlacao COM AS CAPTURAS DO ORIGINAL (refs/original/town_{kaarg,druids}*.png; o fundo
-# townmain.bmp nao tem os figurantes, entao a correlacao com ele erra). Erro medio 2..4 (0..255) exceto o lagarto (alfa parcial).
-FIXED_POS = {
-    ("druids", "man"): [(164, 200), (164, 200), (152, 184)],
-    ("druids", "lizard"): [(0, 300)],
-    ("kaarg", "guard"): [(184, 156), (140, 152), (184, 156)],
-}
-
-
-def largest_component(mask):
-    """Mantem so o maior componente conexo (4-vizinhos): a mascara original tem pixels isolados de ruido."""
-    h, w = mask.shape
-    lab = np.zeros((h, w), np.int32)
-    best, best_n, cur = 0, 0, 0
-    for y0 in range(h):
-        for x0 in range(w):
-            if not mask[y0, x0] or lab[y0, x0]:
-                continue
-            cur += 1
-            lab[y0, x0] = cur
-            stack, n = [(y0, x0)], 0
-            while stack:
-                y, x = stack.pop()
-                n += 1
-                for yy, xx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
-                    if 0 <= yy < h and 0 <= xx < w and mask[yy, xx] and not lab[yy, xx]:
-                        lab[yy, xx] = cur
-                        stack.append((yy, xx))
-            if n > best_n:
-                best, best_n = cur, n
-    return lab == best
-
-
-# ---------------------------------------------------------------- localizacao de quadros na imagem de fundo (posicoes nao gravadas no exe)
-def _gray(im):
-    return np.asarray(im.convert("RGB"), np.float64).mean(axis=2)
-
-
-def _corr(a, k):
-    """Correlacao valida (sem inverter) de a (H,W) com k (h,w) via FFT -> (H-h+1, W-w+1)."""
-    H, W = a.shape
-    h, w = k.shape
-    fa = np.fft.rfft2(a, (H, W))
-    fk = np.fft.rfft2(k[::-1, ::-1], (H, W))
-    c = np.fft.irfft2(fa * fk, (H, W))
-    return c[h - 1:H, w - 1:W]
-
-
-def locate(bg, frame, key_black=False, near=None):
-    """Posicao (x, y) do quadro no fundo por menor soma de quadrados ponderada (pixels pretos-chave ignorados se key_black;
-    quadros RGBA usam o proprio alfa). Devolve (x, y, erro medio por pixel)."""
-    B, F = _gray(bg), _gray(frame)
-    M = np.ones_like(F)
-    if frame.mode == "RGBA":
-        M = (np.asarray(frame)[:, :, 3] > 0).astype(np.float64)
-    elif key_black:
-        M = (np.asarray(frame.convert("RGB")).sum(axis=2) > 18).astype(np.float64)
-    ssd = _corr(B * B, M) - 2 * _corr(B, M * F) + (M * F * F).sum()
-    if near:
-        h, w = F.shape
-        yy, xx = np.mgrid[0:ssd.shape[0], 0:ssd.shape[1]]
-        ok = (xx + w > near[0]) & (xx < near[2]) & (yy + h > near[1]) & (yy < near[3])
-        ssd = np.where(ok, ssd, np.inf)
-    y, x = np.unravel_index(int(np.argmin(ssd)), ssd.shape)
-    return int(x), int(y), float(max(ssd[y, x], 0) / max(M.sum(), 1)) ** 0.5
-
-
-def locate_ncc(bg, frame):
-    """Posicao por correlacao normalizada (invariante a brilho): para os realces hili_* (versao clareada do fundo)."""
-    B, F = _gray(bg), _gray(frame)
-    h, w = F.shape
-    n = h * w
-    Fz = F - F.mean()
-    s1 = _corr(B, np.ones_like(F))
-    s2 = _corr(B * B, np.ones_like(F))
-    var = np.maximum(s2 - s1 * s1 / n, 1e-6)
-    ncc = _corr(B, Fz) / (np.sqrt(var) * np.sqrt((Fz * Fz).sum()) + 1e-9)
-    y, x = np.unravel_index(int(np.argmax(ncc)), ncc.shape)
-    return int(x), int(y), float(ncc[y, x])
-
-
-def frames_of(src, rel):
-    """Quadros BMP de uma pasta (ordem natural) ou de um sprites.16a."""
-    p = os.path.join(src, "graphics/interface", rel)
-    if os.path.isfile(p):
-        return sprite_frames(p)
-    files = sorted(glob.glob(os.path.join(p, "*.bmp")))
-    return [Image.open(f).convert("RGB") for f in files]
-
-
-def frame_groups(src, rel):
-    """Quadros agrupados em sequencias: prefixo do nome (a1xxxx, a2xxxx, g1xxx...) + tamanho. Cada sequencia tem posicao propria
-    (o original desenha uma de cada vez sobre o fundo: parado, gestos, piscar...). palette.bmp e ignorado."""
-    p = os.path.join(src, "graphics/interface", rel)
-    if os.path.isfile(p):
-        return [("", sprite_frames(p))]
-    import re
-    groups = []
-    for f in sorted(glob.glob(os.path.join(p, "*.bmp"))):
-        nm = os.path.basename(f).lower()
-        if nm == "palette.bmp" or nm.startswith("a_"):
-            continue
-        im = Image.open(f).convert("RGB")
-        am = os.path.join(p, "a_" + os.path.basename(f))     # a_<quadro>.bmp = mascara de opacidade (lagarto do acampamento)
-        if os.path.exists(am):
-            a = np.asarray(Image.open(am).convert("L"))
-            im = Image.fromarray(np.dstack([np.asarray(im), np.where(a > 8, 255, 0).astype(np.uint8)]), "RGBA")
-        m = re.match(r"([a-z]+\d)", nm)
-        label = (m.group(1) if m else "") + "_%dx%d" % im.size
-        if groups and groups[-1][0] == label:
-            groups[-1][1].append(im)
-        else:
-            groups.append((label, [im]))
-    return groups
-
-
-def export_groups(src, rel, bg, d, name, meta_anims, log, near=None, fixed=None):
-    """Exporta cada sequencia como anims[name] (a 1a) e anims[name + i] (as demais), todas com "group": name e "seq": i.
-    `near` = (x0, y0, x1, y1): so aceita posicoes em que o quadro cruza essa caixa (regiao da mascara do morador)."""
-    for i, (label, fr) in enumerate(frame_groups(src, rel)):
-        keyed = fr[0].mode != "RGBA" and border_black(fr[0])
-        x, y, err = locate(bg, fr[0], keyed, near)
-        if fixed and i < len(fixed) and fixed[i]:
-            x, y = fixed[i]                  # posicao conferida nas capturas do original (ver FIXED_POS)
-        nm = name if i == 0 else "%s%d" % (name, i)
-        print("  %s %s [%s] %d quadros em (%d,%d) erro %.1f%s" % (log, nm, label, len(fr), x, y, err, " [preto = transparente]" if keyed else ""))
-        if keyed:
-            fr = [black_key(f, 18) for f in fr]
-        meta_anims[nm] = {"x": x, "y": y, "group": name, "seq": i, **strip(fr, os.path.join(d, "anim", nm))}
-
-
-def border_black(im, thr=18):
-    a = np.asarray(im.convert("RGB")).astype(int).sum(axis=2)
-    edge = np.concatenate([a[0], a[-1], a[:, 0], a[:, -1]])
-    return (edge <= thr).mean() > 0.6
-
-
-# ---------------------------------------------------------------- cidades
-# Valor da mascara -> funcao: o mesmo nas 3 cidades (128 taverna, 144 loja, 160 portao/saida, 176 estatua = menu do jogo,
-# 192 escola em Plagat); os demais valores marcam moradores (clicar = fala da cidade, secoes kaarg*/druid* de town.json).
-# Conferido pelos realces originais (shop_l/tavern_l/trener_l; hili_shop/hili_tavern de Kaarg e do acampamento) e pelas
-# animacoes que caem dentro de cada regiao (maingates no 160 de Kaarg; dervixe, guarda e mocas nos moradores).
 # [exe] (frente MAGIA-RE, notes/magic-original.md): teste de clique 0x4cd8b7 (valor-0x20 -> bit: 0x20 0x400, 0x40 0x800, 0x50 0x1000,
 # 0x60 0x200, 0x80 2 taverna, 0x90 1 loja, 0xa0 8 portao, 0xb0 0x10 estatua, 0xc0 4); cliques: Plagat 0x4cace7 (bit 4 = escola NAO tratado:
 # o clique nao faz nada, so a etiqueta 234 e o realce Trener_l), Kaarg 0x4d2fa3 (4 e 0x200 = kaargwoman, 0x400 kaargman, 0x800 kaargguard),
@@ -416,30 +258,6 @@ FIXED_POS = {
 }
 
 
-def largest_component(mask):
-    """(ys, xs) do maior componente conexo (vizinhanca 8) de uma mascara booleana; sem scipy (busca em largura sobre os pixels)."""
-    h, w = mask.shape
-    seen = np.zeros_like(mask, dtype=bool)
-    best = ([], [])
-    ys0, xs0 = np.where(mask)
-    for sy, sx in zip(ys0.tolist(), xs0.tolist()):
-        if seen[sy, sx]:
-            continue
-        stack, comp = [(sy, sx)], []
-        seen[sy, sx] = True
-        while stack:
-            y, x = stack.pop()
-            comp.append((y, x))
-            for ny in (y - 1, y, y + 1):
-                for nx in (x - 1, x, x + 1):
-                    if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not seen[ny, nx]:
-                        seen[ny, nx] = True
-                        stack.append((ny, nx))
-        if len(comp) > len(best[0]):
-            best = ([c[0] for c in comp], [c[1] for c in comp])
-    return np.array(best[0]), np.array(best[1])
-
-
 def build_town(src, out, key="plagat"):
     cfg = TOWNS[key]
     d = os.path.join(out, cfg["out"])
@@ -450,8 +268,9 @@ def build_town(src, out, key="plagat"):
     ids = np.zeros(raw.shape, np.uint8)
     keys = sorted(cfg["regions"])
     for i, k in enumerate(keys, start=1):
-        sel = largest_component(np.abs(raw - k) <= 6)
-        ids[sel] = i
+        # valor EXATO, com os pixels soltos: o exe compara o byte da mascara com o valor (0x4cd8b7, salto 0x4cd9f1); conferido pixel a
+        # pixel contra a memoria do original (tools/refcap/overlay, 19/10). Antes: tolerancia +-6 e so a maior componente.
+        ids[raw == k] = i
     save(Image.fromarray(ids, "L"), os.path.join(d, "mask.png"))
     meta = {"size": [640, 480], "town": key, "regions": {}, "anims": {}}
     base = np.array(main)
@@ -459,7 +278,7 @@ def build_town(src, out, key="plagat"):
         ys, xs = np.where(ids == i)
         # caixa da regiao = maior componente conexo (a mascara tem pixels soltos de ruido longe do objeto: 14 na taverna e 16 no
         # portao de Plagat, que esticariam a caixa e o realce ate 273x320); a mascara em si fica exata
-        cys, cxs = largest_component(ids == i)
+        cys, cxs = np.where(largest_component(ids == i))
         x0, x1, y0, y1 = int(cxs.min()), int(cxs.max()), int(cys.min()), int(cys.max())
         name = cfg["regions"][k]
         reg = {"name": name.split(":")[0], "mask": k, "x": x0, "y": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1,
@@ -632,12 +451,16 @@ def build_inn(src, out):
         files = sorted(glob.glob(os.path.join(src, "graphics/interface", rel, "*.bmp")))
         info = strip([Image.open(f).convert("RGB") for f in files], os.path.join(d, "anim", name))
         meta["anims"][name] = {"x": x, "y": y, **info}
-    # sprites dos frequentadores (48x64, 8 quadros): a taverna so usa o quadro 0
+    # sprites dos frequentadores (48x64, 8 quadros = a unidade girando): o cartao ESCOLHIDO gira pelos 8 quadros a cada 125 ms
+    # (exe 0x4980ad: `(i+1) % n` no indice do cartao +0x24c); os outros ficam parados no quadro em que estavam (notes/inn-npcs.md).
+    # Faixa units/<nome>.webp (8 quadros, sem perda); meta units[<nome>] = {strip, frames, fw, fh}.
     for f in sorted(glob.glob(os.path.join(src, base, "*", "sprites.16a"))):
-        nm = os.path.basename(os.path.dirname(f))
+        nm = os.path.basename(os.path.dirname(f)).lower()
         fr = sprite_frames(f, half_index=True)
-        save(fr[0], os.path.join(d, "units", "%s_0.webp" % nm), "lossless")
-        meta["units"][nm] = len(fr)
+        meta["units"][nm] = strip(fr, os.path.join(d, "units", nm), "lossless")
+        old = os.path.join(d, "units", "%s_0.webp" % nm)
+        if os.path.exists(old):
+            os.remove(old)   # formato antigo (so o quadro 0)
     json.dump(meta, open(os.path.join(d, "inn.json"), "w"), indent=1)
 
 
