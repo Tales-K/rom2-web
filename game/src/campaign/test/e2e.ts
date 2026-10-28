@@ -32,6 +32,7 @@ import {
 } from "./e2e_harness";
 import { buildMissionRun, pilotMission, walkToSkrakan, type PilotResult } from "./e2e_pilot";
 import { fxAuditor, visibleToPlayer, type FxSample } from "./fxaudit";
+import { auditUnits } from "./units_audit";
 import { ARROW_SPRITES, auraVisible, spellSpriteId } from "../../mission/fxrules";
 import type { Unit } from "../../sim/world";
 
@@ -543,6 +544,7 @@ async function drawingScenarios(): Promise<void> {
 }
 
 await drawingScenarios();
+await auditUnits();
 await midMissionResume();
 
 proc.exitCode = summary();

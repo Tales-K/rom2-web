@@ -32,6 +32,7 @@ import {
   type BuiltMission, type MissionData,
 } from "../mission/setup";
 import { skillFromExp } from "../sim/stats";
+import { portraitKeyFor, templateDoll } from "../mission/portraitrules";
 import { MapView, TILE } from "../mission/view";
 import { MissionAudio } from "../mission/sound";
 import { Fog } from "../mission/fog";
@@ -916,26 +917,8 @@ export default class MissionScene extends Scene {
     return u?.name ?? "";
   }
 
-  private portraitKey(u: Unit): string {
-    if (u.isHero) return "doll:hero";
-    // Igles (10002) e Dina (10003): humanos de corpo nu como o herói, sem InfoPicture: boneca pela face da classe
-    if (u.scriptId === 10002) return "doll:igles";
-    if (u.scriptId === 10003) return "doll:dina";
-    // humanos (Skrakan 2000, camponeses 2108, cavaleiros 2113...): boneca do template (corpo pela face + equipamento), como o painel
-    // oval do exe (0x494832: `flags & 0x11` → HumanBack + itens; só monstros usam o bitmap de infowindow) e a janela de conversa da
-    // taverna (refs/original/inn_messenger_talk.png). Antes caía no quadro parado do sprite ("mosquito" na fala do camponês da 20).
-    if (this.humanTemplate(u)) return `doll:tpl:${u.npc}`;
-    const am = this.data.anim[u.kind];
-    return !am?.InfoPicture ? `sprite:${u.kind}` : am.InfoPicture.toLowerCase();
-  }
-
-  /** Template (unit-templates.json) de uma unidade humana não-herói, para a boneca do retrato; undefined para monstros/sem template. */
-  private humanTemplate(u: Unit): { female: boolean; mage: boolean; face: number; items: number[] } | undefined {
-    const t = u.npc ? this.data.templates?.[String(u.npc)] : undefined;
-    if (!t || (t.kind !== "human" && t.kind !== "hero")) return undefined;
-    const eq = (t.equipment as { id: number }[] | undefined) ?? [];
-    return { female: !!t.female, mage: !!t.mage, face: Number(t.face ?? 0), items: eq.map(e => Number(e.id)).filter(n => Number.isFinite(n) && n > 0) };
-  }
+  /** Chave do retrato (regra pura em mission/portraitrules.ts: boneca do herói/do template, bitmap de infowindow + face, ou sprite). */
+  private portraitKey(u: Unit): string { return portraitKeyFor(u, this.data); }
 
   /** boneca montada → textura de retrato 160×240 */
   private renderDoll(doll: Container): Texture { return this.game.app.renderer.generateTexture({ target: doll, frame: new Rectangle(0, 0, 160, 240) }); }
@@ -971,18 +954,8 @@ export default class MissionScene extends Scene {
     };
     try {
       if (key === "doll:hero") return;
-      if (key === "doll:igles" || key === "doll:dina") {
-        const mage = key === "doll:dina";
-        const cls = (this.data.classes as { classes?: Record<string, { face?: number }> } | undefined)?.classes?.[mage ? "female_mage" : "male_fighter"];
-        const doll = await buildDoll(this.game, { female: mage, mage, face: cls?.face ?? 0, items: [], hero: false });
-        if (doll && !this.root.destroyed) {
-          this.portraits.set(key, this.renderDoll(doll));
-          doll.destroy({ children: true });
-          return;
-        }
-        await sprite();
-      } else if (key.startsWith("doll:tpl:")) {
-        const opts = this.humanTemplate(u);
+      if (key.startsWith("doll:tpl:")) {
+        const opts = templateDoll(u, this.data);
         const doll = opts ? await buildDoll(this.game, { ...opts, hero: false }) : undefined;
         if (doll && !this.root.destroyed) {
           this.portraits.set(key, this.renderDoll(doll));

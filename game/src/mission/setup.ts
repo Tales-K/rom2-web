@@ -338,6 +338,24 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   return { world, host, runtime, hero: h, mapUnits };
 }
 
+/**
+ * Sprite (chave de units.json) de uma unidade criada por template: template de HERÓI (unit-templates `kind: "hero"`: Igles 10220, Dina 10230,
+ * os heróis 1021x do multijogador) passa pelo ramo de herói do exe (0x5143e4, flag 1) e usa `graphics/units/heroes/<arma>` como o nosso
+ * herói (`heroSpriteKey` pelo equipamento do template: Igles com espada de duas mãos → hero_swordsman2h); os demais usam o modelo
+ * (typeId). Antes Igles saía como o "Human Two-Handed Swordsman" genérico (tipo 5; relato de 28/10, missão 30).
+ */
+export function templateSpriteKey(tpl: TemplateJson & { typeId?: number }, data: MissionData): string {
+  const kind = String(tpl.typeId);
+  if (tpl.kind !== "hero") return kind;
+  const eq = (tpl.equipment as { id: number }[] | undefined) ?? [];
+  const items = data.items as Record<string, ItemDef> | undefined;
+  const weapon = eq.map(e => String(e.id)).find(id => items?.[id]?.slot === "weapon");
+  const shield = eq.map(e => String(e.id)).find(id => items?.[id]?.slot === "shield");
+  const pseudo = { heroClass: tpl.mage ? "mage" : "fighter", sex: tpl.female ? "female" : "male", equipment: { ...(weapon ? { weapon } : {}), ...(shield ? { shield } : {}) } } as unknown as HeroState;
+  const key = heroSpriteKey(pseudo, data.anim, items);
+  return data.anim[key] ? key : kind;
+}
+
 /** Companheiros da campanha: id de script (10002 = Igles/"Knight", 10003 = Dina) -> template do data.bin (campaign.json npcs 22/23: 10220 Fighter_Hero, 10230 Mage_Hero). */
 export const COMPANION_TEMPLATE: Record<number, { template: number; name: string }> = {
   10002: { template: 10220, name: "Igles" },
@@ -348,9 +366,10 @@ export const COMPANION_TEMPLATE: Record<number, { template: number; name: string
 export function spawnFromTemplate(b: BuiltMission, data: MissionData, templateId: number, opts: { scriptId?: number; name?: string } = {}): Unit | undefined {
   const tpl = data.templates?.[String(templateId)] as (TemplateJson & { typeId?: number }) | undefined;
   if (!tpl?.typeId) return undefined;
-  const kind = String(tpl.typeId);
+  const kind = templateSpriteKey(tpl, data);
   const stats = statsFor(tpl.typeId, String(tpl.name ?? kind), tpl, data.stats, !!data.anim[kind]?.Z);
-  const u = b.world.spawn({ kind, typeId: tpl.typeId, player: b.hero.player, x: b.hero.cx, y: b.hero.cy + 1, stats,
+  // `npc` = id do template: retrato pela boneca do template (mission/portraitrules.ts) e auditoria (campaign/test/units_audit.ts)
+  const u = b.world.spawn({ kind, typeId: tpl.typeId, player: b.hero.player, x: b.hero.cx, y: b.hero.cy + 1, stats, npc: templateId,
     timing: timingFor(data.anim[kind], stats, tpl.dyingTime as number | undefined), scriptId: opts.scriptId ?? 0, name: opts.name ?? stats.name });
   if (opts.scriptId) b.host.bindUnit(opts.scriptId, u);
   return u;
