@@ -46,6 +46,35 @@ reaparecida ×1 `pos|t103|o:parado/n:anda` (m20_start_s106@880: a guarda do coma
 com limiares `< 10`/`< 30` afinados com o contador antigo (+1); com o contador exato a unidade 24610 foge e o original fica — resolve-se
 com a porta de 0x5728fa no lote 2, não com retoque do limiar).
 
-## Lote 2 — pensamento do jogador e do grupo (a fazer)
+## Lote 2 — pensamento do jogador e do grupo (EM CURSO; porta provada, integração na World não verde — NÃO commitado)
+Estado em 2026-10-28 (sessão cortada pelo limite de uso). Arquivos novos/alterados fora do commit d6de030 (lote 1): `exe/think.ts`,
+`exe/vision.ts` (novos), `exe/types.ts` (grupo = `UnitTypeRec` com `UnitStatsRec` = dados +0x3c; `PlayerRec.groups/f32`; `WorldRec.players/
+classTable/groupsByAddr/playersByAddr`, `liveUnits` = `lists.all`, `lists.structs`; IA +0x20/+0x24/+0x40/+0x44/+0x6c/+0x7c[3]/+0x88[3]/+0x9e/+0xa0;
+unidade +0x88/+0xa5/+0x1a4/`hasBook`; andar +0x08; `CellStructRec.f42`; offsets da visão/setores), `exe/mfc.ts` (`CListPtr.first/nextAfter/getCount`),
+`exe/rand.ts` (`randRange` 0x57aff0), `exe/mapbuild.ts` (tabelas da visão + área útil no MapRec), `test/exe_recon.ts` (grupos/jogadores
+memoizados em `CallMem`, `GROUP_FIELDS`, listas percorridas pela cabeça), `test/exe_think.ts` (novo), `test/import_state.ts`, `world.ts`,
+`ai.ts` (exports + `flee` desligável), `tools/re/oracle/dump_ticks.py` (+ `players`/`class_table` no despejo; episódios regravados).
+**Prova (test/exe_think.ts): 100 % em todas as funções gravadas** (pares `fnprobe.py <ep> <lista de 38 endereços> --stride …`, ver o cabeçalho
+do teste): 0x5728fa, 0x57240b, 0x571c4d, 0x5711ea, 0x5713f8, 0x5725a8, 0x57309d, 0x573198, 0x573159, 0x57377d, 0x573713, 0x56cb0c, 0x56cd11,
+0x56c9bc, 0x56f765, 0x558b92 (x87 reconstruído), 0x56acc8, 0x56afac, 0x56afd9, 0x56b025, 0x56c8af, 0x567e92, 0x56fa63, 0x56f850, 0x5726f7,
+0x57aff0, 0x552c28 (Vision_Compute, 189/189 na m20), 0x553681, 0x567988, 0x55b5f1, 0x55b879, 0x55aca2, 0x55b406, 0x570087, 0x5700f3 (os
+que caem no gancho do lote 3 — 0x5692d5/0x56a1fb — ou das magias — 0x56b059/0x56bc7b/0x56c592 — contam à parte). `port_status.tsv` e
+`known_functions.json` AINDA NÃO marcados para o lote 2.
+**Achados**: Vision_UnitMap 0x553329 chama Vision_Compute 0x552c28 (a visão do lote 4 já está portada aqui); o "tipo" unidade+0x70 É o grupo
+(0x5692d5 testa dono+0x2c; o comando da carga 0x12 em +0x20; +0x45 acordado; +0x48 sempre acordado); [mapa+0xa456c] = [0x68d2dc]; o jogador
+humano vive em grupos criados pelas ordens do cliente (parado → comando 3, andar → 4, atacar → 0; grupo vazio → −1); 0x57485b é o SCRIPT
+(0x574899/0x574ba1 → `out`, game/src/script); 0x57a307 (armadilhas) exec 0; 0x57a769 exec 0 (nenhum conjurador de IA ataca no corpus).
+**Integração na World (feita, não verde)**: `exeThink()` no tique do pensamento chama `fn_0x56fe4d` com relógio recuado de 1; `exeGroups`/
+`exePlayers` (`exeGroupSync` por unidade; comando por `exeGroupCmd`); `syncOrdersFromTasks` escreve a ordem a partir de IA+8 (sem passar por
+`command()`); `thinkHooks` (unitThink = aiThink/heroThink antigos com `flee=false`, standGround, autocast, casterSupport, pickOffensive,
+fuga por Teleport pelo `exeFlee` antigo); `thinkGroups`/`computeActiveGroups`/`activeGroups` apagados; `awake(u)` = +0x45 do grupo;
+`exeApplyPlayers` no estado exato; bit 4 de +0x4c = tem livro (`syncCombat`). tickcmp ANTES das 2 últimas correções (ordem sem `command`,
+tabelas da visão no mapbuild): 87,9 / 87,2 / 88,0 (`task` m10_start caiu para 93,0; `rng` diverge já em T=1 — sorteios do pensamento
+diferentes: suspeitos `casterSupport` (0x57aad9/0x57ac98) agora chamado pelo padrão do exe (IdleAlt com bit 4) e o sorteio das magias de chance
+0x56ad33 em 0x56acc8 duplicado com `rollProc` no golpe; ainda não medido depois das correções). Testes: mission10 2 falhas, mission20 10,
+ai.ts 7 (kiting/recuo, Shield/autocast, cura do mercenário, "decisão no pensamento", alvo do grupo — este último era a visão sem tabelas no
+mapbuild, já corrigido). **Próximo**: rodar `npm run tickcmp -- --all`, `--show` nas 1.ªs divergências (m10_start T=1 rng, T=97 herói), afinar
+ganchos (`rollProc` só num dos lados; `casterSupport` só quando o exe chama 0x56c592), `test:sim` e golden verdes, marcar `port_status`
+(ported: a lista acima; out: 0x574899, 0x574ba1, 0x574955, 0x55f220/0x55f240/0x57b140/0x57b160/0x57b120 MFC), commitar.
 ## Lote 3 — tarefas da unidade (a fazer)
 ## Lote 4 — visão e ordens do cliente (a fazer)
