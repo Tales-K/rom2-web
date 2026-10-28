@@ -8,8 +8,9 @@
 import { ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture, type Text } from "pixi.js";
 import type { Game } from "../core/game";
 import { makeText } from "../ui/text";
-import type { SimEvent } from "../sim/types";
-import type { Unit, World } from "../sim/world";
+import { TICK_MS, type SimEvent } from "../sim/types";
+import { sackFrame, type Unit, type World } from "../sim/world";
+import { corpseStage } from "../sim/necro";
 import { ANIM_BASE, ANIM_UNIT_MS, UnitSheet, attackSeq, dyingSeq, idleSeq, moveSeq, phaseAt, simTicksToAnim, type AnimMeta, type UnitFrame } from "./anim";
 import { daylight, gameMinutes, lightColor } from "./daynight";
 import { type BarKind, barFill, drawBar, hpKind } from "./bars";
@@ -22,8 +23,6 @@ import { SHADOW_ALPHA, WorldAnim, makeShadow } from "./worldanim";
 
 export const TILE = 32;
 const CHUNK = 16;
-/** tiques da simulação (50 ms) por fase dos ossos (corpo → esqueleto → ossos): 8 s, palpite (ver GAPS) */
-const BONE_PHASE_TICKS = 160;
 /** Ganho de brilho do mundo: as capturas do original (refs/original/mission10_idle_000) mostram terreno, objetos e sprites
  *  ≈1,55× mais claros que as cores das paletas (razão medida em blocos de terreno plano 1,4–1,7; placa 1,62); o HUD não.
  *  Provável iluminação do mapa (info.brightness/contrast + sol); ver GAPS. */
@@ -96,6 +95,11 @@ export class MapView {
   private visibleChunks = new Set<number>();
   private smoothing = true;
   selectedId = 0;
+  /** demais unidades do jogador selecionadas junto com `selectedId` (Shift+clique, grupos, E): também mostram a barra de seleção */
+  readonly selectedExtra = new Set<number>();
+  /** unidades PRÓPRIAS selecionadas (a ativa + as demais), mantida pela cena a cada quadro: são elas que mostram a barra de seleção,
+   *  mesmo enquanto `selectedId` aponta para o inimigo clicado (o painel mostra o alvo, mas a seleção do jogador continua — bug 11 de 28/10) */
+  readonly selectedOwn = new Set<number>();
   /** unidade visível para o jogador (névoa de guerra); padrão: todas */
   isVisible: (u: Unit) => boolean = () => true;
   /** célula visível para o jogador (névoa de guerra); padrão: todas — projéteis, impactos, áreas e auras não se desenham sobre a névoa */
@@ -189,6 +193,7 @@ export class MapView {
     try { animated = await this.worldAnim.load(this.smoothing); } catch (e) { console.warn("[view] objetos animados indisponíveis:", e); }
     if (!animated) { this.worldAnim = undefined; await this.loadStaticWorld(); }
     await this.effects.load().catch(() => undefined);
+    await this.loadSackFrames();
     // folhas de animação das unidades presentes
     onProgress?.("units");
     await this.loadUnitSheets();
@@ -270,6 +275,25 @@ export class MapView {
     }));
   }
 
+  private pendingSheets = new Set<string>();
+  /** Carrega sob demanda a folha de um tipo criado durante a missão; ao chegar, descarta as vistas sem folha desse tipo (são refeitas). */
+  private requestSheet(kind: string, level?: number): void {
+    const key = this.sheetKey(kind, level);
+    const m = this.data.anim[kind];
+    if (!m || this.sheets.has(key) || this.pendingSheets.has(key)) return;
+    this.pendingSheets.add(key);
+    const lv = key.split("#")[1] ?? "";
+    void loadPaletted(ANIM_BASE + m.image, lv ? m.palettes?.[lv] : undefined, lv).then(tex => {
+      this.sheets.set(key, new UnitSheet(m, tex));
+      for (const u of this.world.units) {
+        const v = this.views.get(u.id);
+        if (!v || v.sheet || u.kind !== kind) continue;
+        v.root.destroy({ children: true }); v.shadow.destroy(); v.bar.destroy({ children: true });
+        this.views.delete(u.id);
+      }
+    }).catch(() => { /* sem atlas: fica sem desenho, como antes */ });
+  }
+
   /** Tipo cujo sprite tem a animação de morte usada por `kind` quando o próprio sprite não tem (campo `Dying` de units.reg). */
   private dyingFallbackKey(kind: string): string | undefined {
     const m = this.data.anim[kind];
@@ -284,6 +308,9 @@ export class MapView {
     const key = this.sheetKey(u.kind, u.stats.level);
     const sheet = this.sheets.get(key) ?? this.sheets.get(u.kind);
     const sheetB = this.sheetsB.get(key) ?? this.sheetsB.get(u.kind);
+    // tipo que não estava no mapa (Summon: esquilo/tartaruga/pé; Animate Dead: zumbi/esqueleto/fantasma): carrega a folha agora e
+    // refaz a vista quando chegar
+    if (!sheet) this.requestSheet(u.kind, u.stats.level);
     const meta = sheet?.meta;
     const root = new Container();
     const sprite = new Sprite(Texture.EMPTY);
@@ -344,7 +371,7 @@ export class MapView {
       v.root.visible = !u.phased && onScreen && this.isVisible(u) && !(u.state === "dead" && !v.sheet?.meta.blocks.bones && !v.sheet?.meta.blocks.dying && !this.dyingFallbackKey(u.kind));
       // barra de vida/mana só na unidade PRÓPRIA selecionada (capturas do original m10: nenhum inimigo, nem selecionado, nem o herói sem seleção,
       // mostra barra; o exe 0x465... desenha as dos demais em modo "apagado" que não aparece)
-      v.bar.visible = v.root.visible && u.alive && u.state !== "dying" && u.id === this.selectedId && !this.world.hostile(u.player, 1);
+      v.bar.visible = v.root.visible && u.alive && u.state !== "dying" && (this.selectedOwn.has(u.id) || u.id === this.selectedId || this.selectedExtra.has(u.id)) && !this.world.hostile(u.player, 1);
       // sombra só de unidade não morta (o UnityAllods a esconde nos mortos)
       v.shadow.visible = v.root.visible && u.state !== "dead";
       if (!v.root.visible) continue;
@@ -393,7 +420,7 @@ export class MapView {
     if (this.relief.flat) return;
     const info = (this.data.map as unknown as { info?: { startTime?: number } }).info;
     const dayNight = this.game.state.settings.dayNight !== false && typeof info?.startTime === "number";
-    const min = dayNight ? gameMinutes(info!.startTime!, this.world.tick * 0.05) : 0;
+    const min = dayNight ? gameMinutes(info!.startTime!, this.world.tick * TICK_MS / 1000) : 0;
     const slot = dayNight ? Math.floor(min / 20) : -2;
     if (!force && slot === this.lightSlot) return;
     this.lightSlot = slot;
@@ -408,7 +435,7 @@ export class MapView {
   private updateLight(view: { x: number; y: number; w: number; h: number }): void {
     const info = (this.data.map as unknown as { info?: { startTime?: number } }).info;
     const on = this.game.state.settings.dayNight !== false && typeof info?.startTime === "number";
-    const d = on ? daylight(gameMinutes(info!.startTime!, this.world.tick * 0.05)) : 1;
+    const d = on ? daylight(gameMinutes(info!.startTime!, this.world.tick * TICK_MS / 1000)) : 1;
     this.light.visible = d < 0.999;
     if (!this.light.visible) return;
     this.light.tint = lightColor(d);
@@ -487,8 +514,11 @@ export class MapView {
         const dm = ds?.meta;
         const b = dm?.blocks.bones;
         if (fk) fromKey = fk;
-        // ossos: corpo → esqueleto → ossos, uma fase a cada BONE_PHASE_TICKS (aproximação)
-        if (ds && b) fr = ds.block("bones", u.dir, Math.min(b.phases - 1, Math.floor(u.stateTime / BONE_PHASE_TICKS)));
+        // ossos: corpo → esqueleto → pó pelo estado do corpo do servidor (+0x13c 2/3/4: sim/necro.ts `corpseStage`, tempos medidos no
+        // original); 5 = sumiu (consumido por Animate Dead, invocação morta, voador, decomposto)
+        const stage = corpseStage(u);
+        if (stage >= 5) { fr = sh.still(u.dir); v.sprite.alpha = 0; break; }
+        if (ds && b) fr = ds.block("bones", u.dir, Math.min(b.phases - 1, Math.max(0, stage - 2)));
         else if (ds && dm?.blocks.dying) fr = ds.block("dying", u.dir, dm.blocks.dying.phases - 1);
         else { fr = sh.still(u.dir); v.sprite.alpha = 0; }
         break;
@@ -508,18 +538,34 @@ export class MapView {
     }
   }
 
+  /** quadros do saco (graphics/backpack: 6 tamanhos 32×32) e da camada B; vazio = desenho de reserva */
+  private sackFrames: { a: Texture[]; b: Texture[] } = { a: [], b: [] };
+
+  private async loadSackFrames(): Promise<void> {
+    const cut = (t: Texture) => Array.from({ length: Math.floor(t.width / 32) }, (_, i) => new Texture({ source: t.source, frame: new Rectangle(i * 32, 0, 32, 32) }));
+    try { this.sackFrames.a = cut(await this.game.data.texture("assets/objects/sack.png")); } catch { /* sem sprite: reserva */ }
+    try { this.sackFrames.b = cut(await this.game.data.texture("assets/objects/sack_b.png")); } catch { /* opcional */ }
+  }
+
+  /** Sacos no chão: um por célula (o sim junta o que cai na mesma célula); o desenho cresce com a ordem de grandeza do valor. */
   private updateLoot(): void {
     const alive = new Set<number>();
     for (const l of this.world.loot) {
       alive.add(l.id);
-      if (this.lootGfx.has(l.id)) continue;
-      const c = new Container();
-      const g = new Graphics()
-        .ellipse(0, 6, 9, 4).fill({ color: 0x000000, alpha: 0.35 })
-        .roundRect(-7, -6, 14, 12, 4).fill(0x8a5a2a).stroke({ color: 0x3a2410, width: 1 })
-        .rect(-3, -9, 6, 4).fill(0x6a4018)
-        .circle(3, -2, 2).fill(0xffd84a);
-      c.addChild(g);
+      const n = this.sackFrames.a.length;
+      const fr = sackFrame(this.world.sackValue(l), n || 6);
+      let c = this.lootGfx.get(l.id);
+      if (c && (c as Container & { frame?: number }).frame === fr) continue;
+      c?.destroy({ children: true });
+      c = new Container();
+      if (n) {
+        // [est] quadro 32×32 alinhado à célula (canto superior esquerdo), como os objetos de 1 célula
+        if (this.smoothing && this.sackFrames.b[fr]) { const b = new Sprite(this.sackFrames.b[fr]); b.alpha = 0.5; b.position.set(-16, -16); c.addChild(b); }
+        const s = new Sprite(this.sackFrames.a[fr]!); s.position.set(-16, -16); c.addChild(s);
+      } else {
+        c.addChild(new Graphics().roundRect(-7, -6, 14, 12, 4).fill(0x8a5a2a).stroke({ color: 0x3a2410, width: 1 }));
+      }
+      (c as Container & { frame?: number }).frame = fr;
       c.position.set((l.x + 0.5) * TILE, (l.y + 0.5) * TILE - this.relief.heightAt(l.x + 0.5, l.y + 0.5));
       this.ground.addChild(c);
       this.lootGfx.set(l.id, c);
@@ -540,10 +586,15 @@ export class MapView {
   }
 
   /** Unidade sob o ponto (px do mundo), usando a caixa do sprite. */
-  pick(wx: number, wy: number, filter?: (u: Unit) => boolean): Unit | undefined {
+  pick(wx: number, wy: number, filter?: (u: Unit) => boolean, downed: "none" | "hostile" | "all" = "none"): Unit | undefined {
+    return this.pickAmong(wx, wy, filter, false) ?? (downed === "none" ? undefined : this.pickAmong(wx, wy, u => (downed === "all" || this.world.hostile(u.player, 1) || this.world.hostile(1, u.player)) && (!filter || filter(u)), true));
+  }
+
+  /** `down` = só os caídos (inconscientes/sangrando: continuam alvo de golpe e de Heal), que só entram se não houver ninguém em pé sob o cursor. */
+  private pickAmong(wx: number, wy: number, filter: ((u: Unit) => boolean) | undefined, down: boolean): Unit | undefined {
     let best: Unit | undefined, bd = Infinity;
     for (const u of this.world.units) {
-      if (!u.active || !this.isVisible(u)) continue;
+      if (!(down ? u.downed : u.active) || !this.isVisible(u)) continue;
       if (filter && !filter(u)) continue;
       const v = this.views.get(u.id);
       const cy = u.y * TILE - this.unitLift(u) - (v ? v.offY + v.lift : 0);

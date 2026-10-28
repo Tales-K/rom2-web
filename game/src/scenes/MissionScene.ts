@@ -1360,3 +1360,6 @@ function decodeRuns(s: string, into: Uint8Array): void {
     i += n; v ^= 1;
   }
 }
+      // seleção PRÓPRIA (ativa + demais) para as barras de seleção: não some quando o painel passa a mostrar o inimigo clicado (bug 11 de 28/10)
+      this.view.selectedOwn.clear();
+      for (const u of this.selectedOwn()) this.view.selectedOwn.add(u.id);
