@@ -106,6 +106,7 @@ export function aiEnemyFilter(wd: WorldRec, u: UnitRec, lst: CListPtr, want: num
     const cand = wd.map.unitAt(local_10);
     const bVar1 = fn_0x57994d(wd, u, cand) ? 1 : 0;
     if (bVar1 === (want | 0)) local_14 = local_10;
+    else if ((want | 0) === 0 && wd.helpless.has(cand.addr >>> 0)) local_14 = local_10;   // não é do exe: refém "vida 0" [est]
     else if ((cand.effects & 0x1000) !== 0) {
       const it2 = new CListPtrIter();
       let local_20 = it2.first(u.type.members);

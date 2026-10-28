@@ -300,7 +300,9 @@ async function m92(): Promise<void> {
   check(has(q, 4) && has(q, 8) && has(q, 14), "Dina conduz a cadeia: msgs 4, 8, 14");
   for (const v of VARIANTS) {
     const hero = heroOf(v.mage, v.female);
-    q = start(hero); chain(q);
+    // o herói é teletransportado pela cadeia e Igles/Dina ficam para trás: as abelhas (guarda de grupo do exe) matam a Dina de 26 PV
+    // das variantes de mago (falha 4) — aqui só a cadeia importa
+    q = start(hero); immortal(q); chain(q);
     killAll(q, ofPlayer(q, 2)); settle(q, 25);
     check(q.outcome?.ok === true && has(q, 12) && messagesHaveText(q, hero), `${v.label}: cadeia completa, Mission Complete e falas com texto`);
   }
@@ -473,7 +475,8 @@ async function m101(): Promise<void> {
     castOn(r, castHeal, 24, 50, dru); casts++; settle(r, 5);
   }
   settle(r, 25);
-  check(casts > 1 && casts < 10 && dru.hp >= dru.maxHp * 0.25, `Dina lança Heal (24) no druida chefe ${casts} vezes até ele passar de 25% (vida ${Math.ceil(dru.hp)}/${dru.maxHp})`);
+  // um Heal o levanta (vida > 0 para o script); de pé e ferido, os druidas do grupo dele o curam (AI_IdleCasterSupport 0x56c592)
+  check(casts >= 1 && casts < 10 && dru.hp >= dru.maxHp * 0.25, `Dina lança Heal (24) no druida chefe ${casts} vezes até ele passar de 25% (vida ${Math.ceil(dru.hp)}/${dru.maxHp})`);
   check(r.b.host.unitParameter(7, 6) > 0 && sub(r, 3) === 2 && !has(r, 5), "o druida deixa de estar caído para o script (sub 3, curar, cumprido); a conversa só vem quando alguém chega a <= 4");
   beside(r, r.b.hero, 7); settle(r);
   check(has(r, 5), "herói junto do druida curado: msg 5");
@@ -630,7 +633,7 @@ async function shrine(s: Shrine): Promise<void> {
   // enigma: antes de chegar ao ponto, sem msg 4; resolver errado não abre o teleporte
   check(!has(r, 4), "longe do enigma: sem a msg 4");
   // teleporte do mapa (bloco 9) do centro até a área do enigma
-  gotoCell(r, s.pad, 10);
+  gotoCell(r, s.pad, 45);   // a armadilha recarrega 2 s depois de disparar (outra unidade pode tê-la usado pouco antes)
   check(Math.abs(h.cx - s.padTo[0]) <= 2 && Math.abs(h.cy - s.padTo[1]) <= 2, `o herói pisa no teleporte do mapa em (${s.pad}) e chega a (${s.padTo}): ${h.cx},${h.cy}`);
   gotoCell(r, s.puzzle, 15);
   check(has(r, 4) && sub(r, 1) !== 2, "no ponto do enigma: msg 4 (a frase mágica)");

@@ -9,9 +9,10 @@
 import { CListEvent, CListEventNode, CListNode, CListPtr, CListPtrNode, CListWord, CMapAssoc, CMapShortOcc } from "../exe/mfc";
 import {
   BookSpellRec, CellStructRec, DmgRec, EVENT_SIZE, EXE_GLOBALS, ItemRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MAP_WORLD_OFF, MapObjRec, MapRec,
-  OccRec, SpellBookRec, TemplateRec, UnitListsRec, UnitRec, WorldRec,
+  OccRec, PlayerRec, SpellBookRec, TemplateRec, UnitListsRec, UnitRec, UnitTypeRec, WorldRec,
 } from "../exe/types";
 import { Rng } from "../rng";
+import { NotPorted } from "../exe/walk_action";
 
 interface NodeProc { exitCode?: number; getBuiltinModule(name: string): unknown; }
 export const proc = (globalThis as unknown as { process: NodeProc }).process;
@@ -92,6 +93,9 @@ export class CallMem {
   readonly init = new Map<number, number>();
   readonly fin = new Map<number, number>();
   readonly written = new Set<number>();
+  /** grupos ([unidade+0x70]) e jogadores ([unidade+0x14]) remontados, por endereço: partilhados entre as unidades e conferidos em `done` */
+  readonly groups = new Map<number, UnitTypeRec>();
+  readonly players = new Map<number, PlayerRec>();
   constructor(d: Pair) {
     for (const [a, s, v] of d.reads) for (let i = 0; i < s; i++) this.init.set(a + i, Math.floor(v / 2 ** (8 * i)) & 0xff);
     const seen = new Set<number>();
@@ -310,18 +314,22 @@ export function checkOccMap(cm: CallMem, hdr: number, map: CMapShortOcc): string
 /** CList<void*> em `hdr` pelos nós conhecidos (dado u32 em +8). */
 export function ptrListFrom(cm: CallMem, hdr: number): CListPtr {
   const l = new CListPtr();
-  if (!cm.has(hdr + 0xc)) return l;
-  l.count = cm.u32(hdr + 0xc) | 0;
-  if (!cm.has(hdr + 4) && cm.u32(hdr + 8) !== 0) {
-    // cabeça não lida (AddTail numa lista não vazia): só a cauda é conhecida; um nó a representa
-    const n = new CListPtrNode();
-    n.data = cm.u32(cm.u32(hdr + 8) + 8);
-    l.head = l.tail = n;
+  const hasCount = cm.has(hdr + 0xc);
+  if (hasCount) l.count = cm.u32(hdr + 0xc) | 0;
+  if (!cm.has(hdr + 4)) {
+    if (hasCount && cm.u32(hdr + 8) !== 0) {
+      // cabeça não lida (AddTail numa lista não vazia): só a cauda é conhecida; um nó a representa
+      const n = new CListPtrNode();
+      n.data = cm.u32(cm.u32(hdr + 8) + 8);
+      l.head = l.tail = n;
+    }
     return l;
   }
+  // percorrida pela cabeça (GetHeadPosition/GetNext não leem a contagem): a contagem, quando não lida, é a dos nós percorridos
   let p = cm.u32(hdr + 4);
   let prev: CListPtrNode | null = null;
   const seen = new Set<number>();
+  let walked = 0, complete = p === 0;
   while (p !== 0 && !seen.has(p)) {
     seen.add(p);
     const n = new CListPtrNode();
@@ -329,10 +337,13 @@ export function ptrListFrom(cm: CallMem, hdr: number): CListPtr {
     n.prev = prev;
     if (prev) prev.next = n; else l.head = n;
     prev = n;
+    walked++;
     if (!cm.has(p)) break;
     p = cm.u32(p);
+    if (p === 0) complete = true;
   }
-  if (cm.u32(hdr + 8) !== 0) l.tail = prev;
+  if (!hasCount) l.count = walked;
+  if (cm.u32(hdr + 8) !== 0 || complete) l.tail = prev;
   return l;
 }
 
@@ -370,7 +381,7 @@ export function bookFrom(cm: CallMem, b: number): SpellBookRec {
     const p = cm.u32(data + i * 4);
     if (p === 0) { book.spells.push(null); continue; }
     const s = new BookSpellRec();
-    s.addr = p; s.range = cm.u8(p + 9); s.cost = cm.u16(p + 0xc);
+    s.addr = p; s.id = cm.u8(p + 8); s.range = cm.u8(p + 9); s.f0a = cm.u8(p + 0xa); s.cost = (cm.u16(p + 0xc) << 16) >> 16;
     book.spells.push(s);
   }
   book.last = cm.u32(b + 0x18) | 0;
@@ -404,22 +415,27 @@ export function checkMap(cm: CallMem, m: TestMap, before: Uint8Array): string | 
 
 export type Field = [off: number, size: 1 | 2 | 4, key: string, signed?: boolean];
 export const UNIT_FIELDS: Field[] = [
-  [0x00, 4, "vtbl"], [0x04, 4, "f04"], [0x0e, 2, "f0e"], [0x40, 4, "f40"], [0x43, 1, "f43"], [0x48, 1, "f48"], [0x49, 1, "size"], [0x4a, 1, "kind"],
+  [0x00, 4, "vtbl"], [0x04, 4, "f04"], [0x0e, 2, "f0e"], [0x40, 4, "f40"], [0x43, 1, "f43"], [0x44, 4, "f44"], [0x48, 1, "f48"], [0x49, 1, "size"], [0x4a, 1, "kind"],
   [0x4c, 1, "f4c"], [0x50, 4, "task"], [0x54, 4, "act"], [0x58, 4, "f58"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x64, 4, "f64"],
-  [0x6c, 1, "f6c"], [0x86, 2, "f86", true], [0x8c, 2, "speed", true], [0x94, 2, "f94", true], [0x96, 2, "f96", true], [0x98, 2, "f98", true],
-  [0x9a, 2, "mana", true], [0x9c, 2, "f9c", true], [0x9e, 2, "f9e", true], [0xa2, 1, "fa2"], [0xa3, 1, "fa3"],
+  [0x6c, 1, "f6c"], [0x86, 2, "f86", true], [0x88, 2, "f88", true], [0x8c, 2, "speed", true], [0x94, 2, "f94", true], [0x96, 2, "f96", true],
+  [0x98, 2, "f98", true], [0x9a, 2, "mana", true], [0x9c, 2, "f9c", true], [0x9e, 2, "f9e", true], [0xa2, 1, "fa2"], [0xa3, 1, "fa3"], [0xa5, 1, "fa5"],
   [0xbe, 2, "fbe", true], [0xc0, 2, "fc0", true], [0xde, 2, "fde", true], [0xe2, 2, "fe2", true],
   [0x12c, 1, "attackRange"], [0x134, 1, "f134"], [0x135, 1, "f135"], [0x136, 1, "ready"],
-  [0x138, 4, "f138"], [0x13c, 1, "f13c"], [0x144, 4, "effects"], [0x148, 4, "f148"], [0x14c, 2, "f14c"], [0x1a0, 4, "f1a0"],
+  [0x138, 4, "f138"], [0x13c, 1, "f13c"], [0x144, 4, "effects"], [0x148, 4, "f148"], [0x14c, 2, "f14c"], [0x1a0, 4, "f1a0"], [0x1a4, 2, "f1a4"],
+];
+/** Dados do comando do grupo ([grupo+0x3c]): o pensamento (0x56fa63, 0x5726f7, 0x5728fa, 0x55b406…) os escreve. */
+export const GROUP_FIELDS: Field[] = [
+  [0x00, 2, "f00"], [0x0a, 2, "f0a", true], [0x15, 1, "f15"], [0x20, 1, "f20"], [0x24, 4, "f24"], [0x28, 2, "f28"], [0x2a, 1, "f2a"], [0x2b, 1, "f2b"], [0x2c, 1, "f2c"],
+  [0x2d, 1, "f2d"], [0x30, 4, "f30"], [0x34, 4, "f34"], [0x38, 1, "f38"], [0x39, 1, "f39"], [0x44, 1, "speedByte"], [0x45, 1, "f45"], [0x48, 4, "f48"],
 ];
 /** Ponteiros da unidade espelhados como objetos (o valor conferido é o endereço). */
 const UNIT_PTRS: [off: number, key: "tpl" | "f68" | "f74" | "f78"][] = [[0x3c, "tpl"], [0x68, "f68"], [0x74, "f74"], [0x78, "f78"]];
 /** Sub-registros da unidade conferidos byte a byte: atributos do golpe +0xa6 (0x16), proteções +0xc2 (6 × i16), resistências +0xce (6). */
 const DMG_OFF = 0xa6, DMG_SIZE = 0x16, PROT_OFF = 0xc2, RESIST_OFF = 0xce;
 /** Dono da unidade (+0x14): id, IA, herói, +0x40 e mortes. */
-export const PLAYER_FIELDS: Field[] = [[0x04, 2, "f04", true], [0x2c, 4, "f2c"], [0x38, 4, "f38"], [0x40, 1, "f40"], [0xa54, 4, "fa54"]];
+export const PLAYER_FIELDS: Field[] = [[0x04, 2, "f04", true], [0x2c, 4, "f2c"], [0x32, 2, "f32"], [0x38, 4, "f38"], [0x40, 1, "f40"], [0xa54, 4, "fa54"]];
 export const WALK_FIELDS: Field[] = [
-  [0x00, 1, "dir"], [0x01, 1, "dirTarget"], [0x05, 1, "passMask"], [0x06, 2, "nextCell"], [0x09, 1, "f09"], [0x0a, 1, "turnRate"],
+  [0x00, 1, "dir"], [0x01, 1, "dirTarget"], [0x05, 1, "passMask"], [0x06, 2, "nextCell"], [0x08, 1, "f08"], [0x09, 1, "f09"], [0x0a, 1, "turnRate"],
   [0x6c, 4, "f6c"], [0x70, 2, "stepFrom"], [0x72, 2, "f72"], [0x74, 2, "dest"], [0x76, 2, "f76"], [0x78, 1, "f78"],
   [0x7c, 4, "chaseTarget"], [0x80, 2, "footCell"], [0x82, 1, "f82"], [0x83, 1, "f83"], [0x84, 1, "f84"], [0x85, 1, "f85"],
   [0x86, 1, "f86"], [0x87, 1, "f87"], [0x88, 1, "f88"], [0x89, 1, "f89"], [0x8a, 2, "f8a"], [0x8c, 2, "f8c"], [0x90, 4, "f90"],
@@ -428,10 +444,11 @@ export const WALK_FIELDS: Field[] = [
   [0xb0, 1, "stepDx", true], [0xb1, 1, "stepDy", true],
 ];
 export const AI_FIELDS: Field[] = [
-  [0x00, 2, "f00"], [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"],
-  [0x14, 1, "range"], [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x30, 4, "f30"], [0x3c, 2, "f3c"],
-  [0x50, 4, "f50"], [0x54, 4, "f54"], [0x58, 2, "f58"], [0x5a, 1, "f5a"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x71, 1, "f71"],
-  [0x78, 1, "spellSlot"], [0x94, 4, "f94"], [0x98, 4, "f98"], [0x9c, 2, "f9c"], [0xac, 4, "fac"], [0xb0, 2, "fb0"],
+  [0x00, 2, "f00"], [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x10, 4, "f10"],
+  [0x14, 1, "range"], [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x20, 4, "f20"], [0x24, 4, "f24"], [0x28, 4, "f28"],
+  [0x30, 4, "f30"], [0x38, 4, "f38"], [0x3c, 2, "f3c"], [0x40, 4, "f40"], [0x44, 4, "f44"],
+  [0x50, 4, "f50"], [0x54, 4, "f54"], [0x58, 2, "f58"], [0x5a, 1, "f5a"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x6c, 4, "f6c"], [0x71, 1, "f71"],
+  [0x78, 1, "spellSlot"], [0x94, 4, "f94"], [0x98, 4, "f98"], [0x9c, 2, "f9c"], [0x9e, 1, "f9e"], [0xa0, 2, "fa0"], [0xa4, 4, "fa4"], [0xa8, 4, "fa8"], [0xac, 4, "fac"], [0xb0, 2, "fb0"],
 ];
 /** Mundo: lista das unidades vivas (+4), candidatos (+0xa68), caídos (+0xa88), tabela de diplomacia (+0xa8bc). */
 export const WORLD_LIVE_OFF = 0x4, WORLD_CAND_OFF = 0xa68, WORLD_DEAD_OFF = 0xa88, WORLD_DIP_OFF = 0xa8bc, WORLD_DIP_SIZE = 8 + 0x46 * 0x46;
@@ -466,22 +483,48 @@ export function unitFrom(cm: CallMem, a: number, memo: Map<number, UnitRec>): Un
   u.addr = a >>> 0;
   fill(u as unknown as Rec, cm, a, UNIT_FIELDS);
   u.mapObj = mapObjFrom(cm, cm.u32(a + 0x10));
-  fill(u.owner as unknown as Rec, cm, cm.u32(a + 0x14), PLAYER_FIELDS);
+  u.owner = playerFrom(cm, cm.u32(a + 0x14));
   u.tpl = templateFrom(cm, cm.u32(a + 0x3c));
   u.f68 = itemFrom(cm, cm.u32(a + 0x68)); u.f74 = itemFrom(cm, cm.u32(a + 0x74)); u.f78 = itemFrom(cm, cm.u32(a + 0x78));
   u.dmg = dmgFrom(cm, a + DMG_OFF);
   for (let i = 0; i < 6; i++) { u.prot[i] = cm.u16(a + PROT_OFF + 2 * i); u.resist[i] = cm.u8(a + RESIST_OFF + i); }
-  u.type.members = ptrListFrom(cm, cm.u32(a + 0x70));
-  const stats = cm.u32(cm.u32(a + 0x70) + 0x3c);
-  u.type.stats.f20 = cm.u8(stats + 0x20);
-  u.type.stats.speedByte = cm.u8(stats + 0x44);
-  u.type.stats.f45 = cm.u8(stats + 0x45);
+  u.type = groupFrom(cm, cm.u32(a + 0x70));
+  u.hasBook = cm.u32(a + 0x140) !== 0;
   u.book = bookFrom(cm, cm.u32(a + 0x140));
   fill(u.walk as unknown as Rec, cm, cm.u32(a + 0x1c0), WALK_FIELDS);
-  fill(u.ai as unknown as Rec, cm, cm.u32(a + 0x1c4), AI_FIELDS);
-  u.ai.patrol = listFrom(cm, cm.u32(cm.u32(a + 0x1c4) + 0xb4));   // IA+0xb4 = ponteiro para o CList<WORD>
+  const ai = cm.u32(a + 0x1c4);
+  fill(u.ai as unknown as Rec, cm, ai, AI_FIELDS);
+  for (let i = 0; i < 3; i++) { u.ai.f7c[i] = cm.u32(ai + 0x7c + 4 * i) | 0; u.ai.f88[i] = cm.u32(ai + 0x88 + 4 * i) | 0; }
+  u.ai.patrol = listFrom(cm, cm.u32(ai + 0xb4));   // IA+0xb4 = ponteiro para o CList<WORD>
   for (const [off, k] of UNIT_LISTS) u[k] = listFrom(cm, a + off);
   return u;
+}
+
+/** Grupo de IA em `g` (lista de membros em +0 e os dados do comando em [+0x3c]), memoizado em `cm.groups`. */
+export function groupFrom(cm: CallMem, g: number): UnitTypeRec {
+  let t = cm.groups.get(g >>> 0);
+  if (t) return t;
+  t = new UnitTypeRec();
+  cm.groups.set(g >>> 0, t);
+  t.addr = g >>> 0;
+  t.members = ptrListFrom(cm, g);
+  fill(t.stats as unknown as Rec, cm, cm.u32(g + 0x3c), GROUP_FIELDS);
+  // dono do grupo (+0x44; 0x5703c0 lê a formação dele)
+  if (cm.has(g + 0x44) && cm.u32(g + 0x44) !== 0) t.owner = playerFrom(cm, cm.u32(g + 0x44));
+  return t;
+}
+/** Jogador em `p` (campos e a lista de grupos [+0x28]), memoizado em `cm.players`. */
+export function playerFrom(cm: CallMem, p: number): PlayerRec {
+  let r = cm.players.get(p >>> 0);
+  if (r) return r;
+  r = new PlayerRec();
+  cm.players.set(p >>> 0, r);
+  r.addr = p >>> 0;
+  fill(r as unknown as Rec, cm, p, PLAYER_FIELDS);
+  r.groups = ptrListFrom(cm, cm.u32(p + 0x28));
+  // formação ([+0x34]+0x1f; 0x5703c0)
+  if (cm.has(p + 0x34)) { const o = cm.u32(p + 0x34); if (o !== 0 && cm.has(o + 0x1f)) r.formation = cm.u8(o + 0x1f); }
+  return r;
 }
 
 /** Modelo da unidade em `p` (+4 nome; +8 CArray<int>: dados em [+0xc], tamanho em +0x10), pelos bytes lidos. */
@@ -514,7 +557,7 @@ export function itemFrom(cm: CallMem, p: number): ItemRec | null {
 /** Magia do livro em `p` (+8 id, +9 alcance, +0xc custo; definição [+4] → CArray em +8: elemento 0). */
 export function spellFrom(cm: CallMem, p: number): BookSpellRec {
   const s = new BookSpellRec();
-  s.addr = p >>> 0; s.id = cm.u8(p + 8); s.range = cm.u8(p + 9); s.cost = (cm.u16(p + 0xc) << 16) >> 16;
+  s.addr = p >>> 0; s.id = cm.u8(p + 8); s.range = cm.u8(p + 9); s.f0a = cm.u8(p + 0xa); s.cost = (cm.u16(p + 0xc) << 16) >> 16;
   const def = cm.u32(p + 4);
   if (def !== 0 && cm.has(def + 0xc)) s.def0 = cm.u32(cm.u32(def + 0xc)) | 0;
   return s;
@@ -580,7 +623,6 @@ export function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string |
   let e = checkFields(cm, a, u as unknown as Rec, UNIT_FIELDS, "unidade")
     ?? checkFields(cm, w, u.walk as unknown as Rec, WALK_FIELDS, "andar")
     ?? checkFields(cm, ai, u.ai as unknown as Rec, AI_FIELDS, "ia")
-    ?? checkFields(cm, own, u.owner as unknown as Rec, PLAYER_FIELDS, "dono")
     ?? cm.checkRecord(mo, packMapObj(mapObjFrom(cm, mo)), packMapObj(u.mapObj))
     ?? checkBytes(cm, a + DMG_OFF, DMG_BYTES, packDmg(dmgFrom(cm, a + DMG_OFF)), packDmg(u.dmg), "golpe")
     ?? cm.checkRecord(a + PROT_OFF, cm.bytes(a + PROT_OFF, 12), packProt(u))
@@ -593,21 +635,28 @@ export function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string |
     if (wrote) { e = eq(`unidade.${key} (+0x${off.toString(16)})`, got, finView(cm).u32(a + off)); if (e) return e; }
     else if (got !== cm.u32(a + off)) return `unidade.${key} (+0x${off.toString(16)}): porta mudou o ponteiro, original não escreveu`;
   }
+  {
+    // o grupo (+0x70): regrupamento das ordens do cliente (0x52af8c/0x52afd2)
+    let wrote = false;
+    for (let i = 0; i < 4; i++) if (cm.written.has(a + 0x70 + i)) wrote = true;
+    if (wrote) { e = eq("unidade.type (+0x70)", u.type.addr >>> 0, finView(cm).u32(a + 0x70)); if (e) return e; }
+    else if ((u.type.addr >>> 0) !== cm.u32(a + 0x70)) return "unidade.type (+0x70): porta mudou o ponteiro, original não escreveu";
+  }
   const covered = (base: number, fields: Field[], x: number) => fields.some(([off, s]) => x >= base + off && x < base + off + s);
   for (const [wa, size] of d.writes) {
     for (let x = wa; x < wa + size; x++) {
       if (x >= a && x < a + 0x200) {
         if (UNIT_LISTS.some(([off]) => x >= a + off && x < a + off + 0x1c) || covered(a, UNIT_FIELDS, x)) continue;
-        if (UNIT_PTRS.some(([off]) => x >= a + off && x < a + off + 4)) continue;
+        if (UNIT_PTRS.some(([off]) => x >= a + off && x < a + off + 4) || (x >= a + 0x70 && x < a + 0x74)) continue;
         if ((x >= a + DMG_OFF && x < a + DMG_OFF + DMG_SIZE) || (x >= a + PROT_OFF && x < a + RESIST_OFF + 6)) continue;
         if (x >= a + 0x114 && x < a + 0x154) continue;   // tabela por jogador do cliente (0x503672 's', 0x5039e2): fora do espelho
         // experiência do herói pelo golpe (0x513128 → 0x5128cb, motor antigo: gancho `xpOnHit`): +0x18, habilidades +0xa8.., +0x130, +0x240
         if ((x >= a + 0x18 && x < a + 0x1a) || (x >= a + 0xa8 && x < a + 0xb4) || (x >= a + 0x130 && x < a + 0x134) || (x >= a + 0x240 && x < a + 0x244)) continue;
         return `escrita do original em unidade+0x${(x - a).toString(16)} não espelhada`;
       }
-      if (x >= own && x < own + 0xb00 && !covered(own, PLAYER_FIELDS, x) && !(x >= own + 0xad8 && x < own + 0xae0)) return `escrita do original em dono+0x${(x - own).toString(16)} não espelhada`;   // +0xad8/+0xadc: estatísticas do cliente (Server_Event)
+      if (x >= own && x < own + 0xb00 && !covered(own, PLAYER_FIELDS, x) && !(x >= own + 0xad8 && x < own + 0xae0) && !(x >= own + 0xaa0 && x < own + 0xaa4)) return `escrita do original em dono+0x${(x - own).toString(16)} não espelhada`;   // +0xaa0, +0xad8/+0xadc: estatísticas do cliente (Server_Event)
       if (x >= w && x < w + 0xb4 && !covered(w, WALK_FIELDS, x)) return `escrita do original em andar+0x${(x - w).toString(16)} não espelhada`;
-      if (x >= ai && x < ai + 0xb4 && !covered(ai, AI_FIELDS, x)) return `escrita do original em ia+0x${(x - ai).toString(16)} não espelhada`;
+      if (x >= ai && x < ai + 0xb4 && !covered(ai, AI_FIELDS, x) && !(x >= ai + 0x7c && x < ai + 0x94)) return `escrita do original em ia+0x${(x - ai).toString(16)} não espelhada`;
     }
   }
   for (const [off, k] of UNIT_LISTS) {
@@ -661,6 +710,7 @@ export function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
   wr.rng = c.rng;
   if (c.cm.has(w)) wr.divisor = c.cm.u32(w) | 0;
   wr.events = eventListFrom(c.cm, w + WORLD_EVENTS_OFF);
+  wr.spellAt = a => spellFrom(c.cm, a);   // BookSpellRec pelo ponteiro (unidade+0x44, IA+0x30)
   wr.evt.set(c.cm.bytes(w + WORLD_EVT_OFF, EVENT_SIZE));
   // listas do fim de caminho: unidades vivas ([mapa+0xa456c] = o mundo), candidatos e caídos; tabela de diplomacia (bytes lidos)
   const base = (m as { base?: number }).base;
@@ -669,12 +719,28 @@ export function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
   wr.cand = ptrListFrom(c.cm, w + WORLD_CAND_OFF);
   wr.dead = ptrListFrom(c.cm, w + WORLD_DEAD_OFF);
   for (let i = 0; i < WORLD_DIP_SIZE; i++) if (c.cm.has(w + WORLD_DIP_OFF + i)) wr.dipTable[i] = c.cm.u8(w + WORLD_DIP_OFF + i);
-  // o objeto global [0x6044c4]: contador de 1/s (+0), relógio de 16/s (+4), jogo local (+0x74)
+  for (let i = 0; i < 16; i++) if (c.cm.has(w + 0xa54 + i)) wr.classTable[i] = (c.cm.u8(w + 0xa54 + i) << 24) >> 24;
+  if (c.cm.has(w + 0xbbe8)) wr.fbbe8 = c.cm.u32(w + 0xbbe8);
+  if (c.cm.has(w + 0xa724)) wr.fa724 = c.cm.u8(w + 0xa724);
+  if (c.cm.has(w + 0xa8b8)) wr.fa8b8 = c.cm.u32(w + 0xa8b8) | 0;
+  // jogadores ([0x68d2c4]), grupos e o contentor das unidades ([0x68d2dc]); os objetos fixos ([[0x6044c4]+0x7c]+4, lista em +4)
+  (wr as { playersByAddr: Map<number, PlayerRec> }).playersByAddr = c.cm.players;
+  (wr as { groupsByAddr: Map<number, UnitTypeRec> }).groupsByAddr = c.cm.groups;
+  const po = c.cm.u32(0x68d2c4);
+  if (po !== 0 && c.cm.has(po + 4)) {
+    wr.players = ptrListFrom(c.cm, po);
+    for (const pa of wr.players.values()) { const p = playerFrom(c.cm, pa); for (const ga of p.groups.values()) groupFrom(c.cm, ga); }
+  }
+  const uc = c.cm.u32(0x68d2dc);
+  if (uc !== 0) wr.lists = listsFrom(c.cm, uc);
+  // o objeto global [0x6044c4]: contador de 1/s (+0), relógio de 16/s (+4), jogo local (+0x74), registro dos objetos (+0x7c: +4 fixos)
   const g = c.cm.u32(0x6044c4);
   if (g !== 0) {
     if (c.cm.has(g)) EXE_GLOBALS.w6044c4 = c.cm.u16(g);
     if (c.cm.has(g + 4)) EXE_GLOBALS.clock16 = c.cm.u32(g + 4);
     EXE_GLOBALS.f74 = c.cm.has(g + 0x74) ? c.cm.u32(g + 0x74) : 1;
+    const reg = c.cm.u32(g + 0x7c);
+    if (reg !== 0 && c.cm.has(reg + 4)) wr.lists.structs = ptrListFrom(c.cm, c.cm.u32(reg + 4) + 4);
   }
   c.world = wr;
   c.worldAddr = w;
@@ -731,6 +797,14 @@ export function done(c: Ctx, r: number | null, ret?: (v: number) => number): str
     const e = checkUnit(c.cm, c.d, a, u);
     if (e) return `unidade 0x${a.toString(16)}: ${e}`;
   }
+  for (const [a, g] of c.cm.groups) {
+    const e = checkFields(c.cm, c.cm.u32(a + 0x3c), g.stats as unknown as Rec, GROUP_FIELDS, "grupo") ?? checkPtrList(c.cm, a, g.members, "grupo.membros");
+    if (e) return `grupo 0x${a.toString(16)}: ${e}`;
+  }
+  for (const [a, p] of c.cm.players) {
+    const e = checkFields(c.cm, a, p as unknown as Rec, PLAYER_FIELDS, "dono");
+    if (e) return `jogador 0x${a.toString(16)}: ${e}`;
+  }
   const e = (c.rng ? eq("rand(): sorteios", c.rng.n, c.d.nrand) ?? eq("rand(): semente final", c.rng.state, c.d.rng1 >>> 0)
     : c.d.nrand !== 0 || c.d.rng0 !== c.d.rng1 ? "rand() chamado no original" : null) ?? checkWorld(c)
     ?? (c.events ? checkEventList(c.cm, c.eventsAddr, c.events, "lista") : null)
@@ -746,3 +820,50 @@ export const run = (f: (c: Ctx, d: Pair) => number | null, ret?: (v: number) => 
   return done(c, f(c, d), ret);
 };
 export const A = (d: Pair, i: number) => d.args[i];
+
+/** Roda as provas `CHECKS` (endereço → conferência) sobre os pares de todos os episódios em `PAIRS`. `HOOKED` = endereços cujo NotPorted
+ *  é esperado (ganchos, ramos com exec 0): a chamada conta "em gancho". A variável de ambiente `only` (ex.: EXE_THINK_ONLY) limita os
+ *  endereços. Sai com código 1 se alguma prova falhou. */
+export function runPairs(name: string, CHECKS: Record<string, Check>, HOOKED: Set<string>, onlyVar: string): void {
+  const only = (proc as unknown as { env: Record<string, string | undefined> }).env[onlyVar]?.split(",");
+  let failures = 0;
+  const notPorted = new Map<string, number>();
+  if (!existsSync(PAIRS)) {
+    console.log(`${name}: sem pares em ${PAIRS} (rode tools/re/oracle/fnprobe.py); pulado.`);
+  } else {
+    const total = new Map<string, number>();
+    for (const ep of readdirSync(PAIRS).sort()) {
+      for (const [fn, check] of Object.entries(CHECKS)) {
+        if (only && !only.includes(fn)) continue;
+        const file = join(PAIRS, ep, `${fn}.jsonl`);
+        if (!existsSync(file)) continue;
+        let n = 0, bad = 0, first = "", skipped = 0;
+        for (const line of readFileSync(file, "utf8").split("\n")) {
+          if (!line) continue;
+          const d = JSON.parse(line) as Pair;
+          n++;
+          let err: string | null;
+          try {
+            err = check(d, new CallMem(d));
+          } catch (ex) {
+            if (ex instanceof NotPorted) {
+              notPorted.set(ex.addr, (notPorted.get(ex.addr) ?? 0) + 1);
+              if (HOOKED.has(ex.addr)) { skipped++; n--; continue; }
+            }
+            err = `exceção: ${(ex as Error).stack?.split("\n").slice(0, 3).join(" | ") ?? (ex as Error).message}`;
+          }
+          if (err) { bad++; if (!first) first = `t=${d.t} seq=${d.seq}: ${err}`; }
+        }
+        if (bad) failures++;
+        total.set(fn, (total.get(fn) ?? 0) + n);
+        if (n === 0 && !skipped) continue;
+        console.log(`  ${bad ? "FALHOU" : "ok  "} ${ep} ${fn}: ${n - bad}/${n}${skipped ? ` (+${skipped} em gancho)` : ""}${first ? "  " + first : ""}`);
+      }
+    }
+    const missing = Object.keys(CHECKS).filter((f) => !total.get(f) && (!only || only.includes(f)));
+    if (missing.length) console.log(`  sem chamadas gravadas: ${missing.join(" ")}`);
+    if (notPorted.size) console.log(`  NotPorted alcançado: ${[...notPorted].map(([a, k]) => `${a}×${k}`).join(" ")}`);
+  }
+  console.log(failures ? `${name}: ${failures} FALHA(S)` : `${name}: tudo igual ao original`);
+  if (failures) proc.exitCode = 1;
+}

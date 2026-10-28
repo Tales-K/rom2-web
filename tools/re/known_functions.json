@@ -2376,6 +2376,144 @@
    "name": "CMap_GetNextAssoc",
    "desc": "MFC CMap::GetNextAssoc: ordem dos baldes (hash % tamanho), dentro do balde do mais novo ao mais velho",
    "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x55aca2",
+   "name": "Sectors_MarkUnit",
+   "desc": "Marca os setores em volta de uma unidade do lado humano (máscara dono+0x32)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x55b406",
+   "name": "Sectors_WakeUnitGroup",
+   "desc": "Acorda o grupo (+0x45) de uma unidade num setor marcado; +0x1a4 = máscara",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x55b507",
+   "name": "Sectors_MarkStruct",
+   "desc": "+0x42 do objeto fixo = OR das máscaras dos setores em volta",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x55b5f1",
+   "name": "Sectors_WakeGroups",
+   "desc": "Setores de 8x8 (mapa+0x92ecc): acorda os grupos perto dos jogadores humanos a cada pensamento",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x55b879",
+   "name": "Sectors_Reset",
+   "desc": "Zera a tabela de setores, adormece os grupos de IA e +0x1a4 das unidades",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x5679cf",
+   "name": "AI_AlliesAroundPost",
+   "desc": "Unidades nos anéis em volta da célula filtradas por AI_EnemyFilter 1 (aliadas)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x56a981",
+   "name": "AI_ProcSpellCast",
+   "desc": "Magia de chance sorteada em AI_Task_Attack: por id → AI_CastAtTarget / AI_TeleportCast",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x56b025",
+   "name": "AI_HumanIdle",
+   "desc": "Jogador humano ocioso: sem livro IA+8 = 0; com livro AI_Autocast",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x56fe34",
+   "name": "AI_UnitThinkEntry",
+   "desc": "Comando 0: 0x5692d5 por unidade (tarefas da unidade)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x56fe4d",
+   "name": "AI_ServerThink",
+   "desc": "Pensamento de 1/s: acorda grupos (0x55b5f1), script (0x57485b), AI_PlayerThink por jogador, armadilhas",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x5713f8",
+   "name": "AI_TargetCostAdjacent",
+   "desc": "AI_TargetCost só para alvos adjacentes",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x5725a8",
+   "name": "AI_GroupAssignAdjacentTargets",
+   "desc": "AI_GroupAssignTargets com 0x5713f8",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x5728fa",
+   "name": "AI_GroupGuardCargo",
+   "desc": "Comando 0x12 (Guard da carga do mapa): alvos do grupo, raio de combate, AI_Task_Attack por unidade",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x572d57",
+   "name": "AI_GroupCmd2",
+   "desc": "Comando 2 do grupo (exec 0 no corpus)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x572e1e",
+   "name": "AI_GroupSwarm",
+   "desc": "Comando 5 (enxame): inimigos vistos → alvos; senão andar do grupo",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x572ec4",
+   "name": "AI_GroupCmd11",
+   "desc": "Comando 0x11 do grupo (exec 0 no corpus)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x57309d",
+   "name": "AI_GroupStandCmd3",
+   "desc": "Comando 3 (parado, jogador humano): AI_Idle em cada unidade",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x57311c",
+   "name": "AI_GroupCmd13",
+   "desc": "Comando 0x13 do grupo (exec 0 no corpus)",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x573159",
+   "name": "AI_GroupHold",
+   "desc": "Comando -1 (grupo vazio/hold): AI_Idle 0 (Stand ground) em cada unidade",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x573198",
+   "name": "AI_GroupWalk",
+   "desc": "Comando 4 (andar do grupo): AI_MoveTo por unidade; chegou e centrada → 0x56dbc6 e AI_Idle",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x57375a",
+   "name": "AI_GroupEmptyCheck",
+   "desc": "Grupo sem membros → comando -1",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x57485b",
+   "name": "AI_ScriptStep",
+   "desc": "Contador +0xd720, script da missão (0x574899/0x574ba1) e RemoveAll dos eventos mundo+0xbbec",
+   "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x57a47d",
+   "name": "Traps_Think",
+   "desc": "Armadilhas do script a cada pensamento (0x57a307 sorteia o alvo)",
+   "source": "notes/pensamento.md"
   }
  ]
 }

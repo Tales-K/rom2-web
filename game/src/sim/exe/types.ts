@@ -17,6 +17,11 @@
  * morte 0x510a70 (+0x0e, +0x148, +0x1a0, dono +0x38/+0x40/+0xa54).
  * Etapa 9, lote 1 (sim/exe/regen.ts): regeneração 0x50fc5a (+0x98/+0x9e períodos, +0x9c mana máx., +0xa2/+0xa3 restos, +0xde/+0xe2 bônus)
  * e o contentor das listas de unidades [0x68d2dc] (`UnitListsRec`: todas, criadas por magia, cadáveres) de World_SecondTick 0x52bbb7.
+ * Etapa 9, lote 2 (sim/exe/think.ts, vision.ts): o GRUPO de IA = o objeto unidade+0x70 (`UnitTypeRec`: lista de membros em +0 e os dados
+ * do comando em +0x3c = `UnitStatsRec`: +0x0a parâmetro, +0x20 comando, +0x24..+0x2d centroide/raios, +0x30/+0x34 combate, +0x38 raio-base,
+ * +0x45 acordado, +0x48 sempre acordado); o dono (+0x14) com a lista de grupos +0x28 e a máscara +0x32; o mundo com a lista de jogadores
+ * ([0x68d2c4]+4), a tabela de classes +0xa54 e os contadores +0xa4c/+0xd720; a unidade +0x88 (Mind), +0xa5 (visão) e +0x1a4 (setor);
+ * a IA +0x20 alvo do grupo, +0x24, +0x40/+0x44 Withdraw/Wimpy, +0x7c/+0x88 magias de chance, +0x9e/+0xa0 (Guard da carga do mapa).
  */
 import { CListEvent, CListPtr, CListWord, CMapShortOcc } from "./mfc";
 import { Rng } from "../rng";
@@ -58,25 +63,46 @@ export class SessionRec {
   f18b0 = 0; // +0x18b0 u32
 }
 
-/** Registro-base do tipo da unidade ([[unidade+0x70]+0x3c]). */
+/** Dados do comando do GRUPO de IA ([[unidade+0x70]+0x3c]; 0x4c bytes). O "tipo" da etapa 5a é o grupo: o comando 0x12 em +0x20 é o
+ *  Guard da carga do mapa (0x54d76e testa-o), +0x44 e +0x45 são do grupo. */
 export class UnitStatsRec {
-  f20 = 0;       // +0x20 u8  0x12 = ramo de alcance de ataque em 0x54d76e
-  speedByte = 0; // +0x44 u8  se ≠ 0 vale como velocidade, senão usa unidade+0x8c (0x55915a)
-  f45 = 0;       // +0x45 u8  0 (com mundo+0xbbe8 = 0 e IA+9 = 0) → ação 0x1b, grupo dormindo (0x56dca2)
+  f00 = 0;       // +0x00 u16 célula do comando Guard = centroide +0x28 (0x57026e: AI_GroupCmd_Guard/AI_GuardLoad)
+  f0a = 0;       // +0x0a i16 parâmetro do comando: célula (comandos 2, 4, 5, 0x11; 0x5700f3)
+  f15 = 0;       // +0x15 u8  contagem do enxame (0x572ec4)
+  f20 = 0;       // +0x20 i8  comando: −1 ocioso (Stand ground), 0 tarefas por unidade, 1 Guard (script), 2, 3, 4 andar, 5, 0x11 enxame, 0x12 Guard da carga do mapa, 0x13 (0x5700f3); 0x54d76e testa 0x12
+  f24 = 0;       // +0x24 u32 centroide (x | y << 16; 0x56fa63, 0x56f850)
+  f28 = 0;       // +0x28 u16 célula do centroide (0x56fa63; 0x5728fa → 0x567e92)
+  f2a = 0;       // +0x2a u8  maior distância ao centroide
+  f2b = 0;       // +0x2b u8  maior visão (+0xa5) do grupo
+  f2c = 0;       // +0x2c u8  max(distância + visão)
+  f2d = 0;       // +0x2d u8  raio da guarda (0x5726f7: base + 4 + rand(−1..1); 0x57272c: base + rand(−1..1))
+  f30 = 0;       // +0x30 i32 em combate (0x5728fa/0x57275f)
+  f34 = 0;       // +0x34 i32 pensamentos seguidos no mesmo estado
+  f38 = 0;       // +0x38 i8  raio-base da guarda
+  f39 = 0;       // +0x39 u8  (0x5709d9/0x570aba)
+  speedByte = 0; // +0x44 u8  se ≠ 0 vale como velocidade, senão usa unidade+0x8c (0x55915a); comando 4: ≠ 0 → IA+0x24 = 1 (0x573198)
+  f45 = 0;       // +0x45 u8  acordado: 0 (com mundo+0xbbe8 = 0 e IA+9 = 0) → ação 0x1b, grupo dormindo (0x56dca2); 0x570087 não pensa; 0x55b5f1 escreve
+  f48 = 0;       // +0x48 u32 sempre acordado (gatilhos do script 0x562745; 0x55b406)
 }
-/** Tipo da unidade (alvo do ponteiro unidade+0x70): começa por um CList<void*> das unidades que o partilham. */
+/** Grupo de IA (alvo do ponteiro unidade+0x70; elemento da lista dono+0x28): começa por um CList<void*> das unidades do grupo. */
 export class UnitTypeRec {
-  /** +0x00 CList<void*> (cabeçalho 0x1c) das unidades deste tipo: AI_EnemyFilter 0x567a16 as percorre para ver invisíveis
-   *  [est: no motor, um registro por (dono, modelo)] */
+  addr = 0;      // endereço no exe (identidade na lista de grupos do dono)
+  /** +0x00 CList<void*> (cabeçalho 0x1c) das unidades do grupo: AI_EnemyFilter 0x567a16 as percorre para ver invisíveis; o pensamento
+   *  do grupo (0x5700f3) as percorre por 0x55f220/0x55f240 */
   members = new CListPtr();
-  stats: UnitStatsRec = new UnitStatsRec(); // +0x3c ptr
+  stats: UnitStatsRec = new UnitStatsRec(); // +0x3c ptr dados do comando
+  /** +0x44 ptr dono do grupo (= unidade+0x14 do último membro acrescentado por 0x52af8c; 0x5703c0 lê a formação dele) */
+  owner: PlayerRec | null = null;
 }
+export type GroupRec = UnitTypeRec;
+export type GroupDataRec = UnitStatsRec;
 
 /** Sub-registro de andar (alvo do ponteiro unidade+0x1c0). Direções em 1/256 de volta (0x20 = 1/8). */
 export class WalkRec {
   dir = 0;        // +0x00 u8  direção atual
   dirTarget = 0;  // +0x01 u8  direção desejada (0x556454, 0x555c7e)
   passMask = 0;   // +0x05 u8  máscara de passagem (AND com as grades +0x10000/+0x20000 do mapa)
+  f08 = 0;        // +0x08 u8  raio de guarda da unidade (5: 0x551346; Wimpy = raio + 5 em 0x56cb0c/0x56c9bc; AI_EnemiesAroundPost 0x567988)
   nextCell = 0;   // +0x06 u16 próxima célula (cabeça do caminho dinâmico; 0x555c7e)
   f09 = 0;        // +0x09 u8  contagem de refazer caminho (0xff = refazer já; 0x555411/0x55574d/0x56e4ac)
   turnRate = 0;   // +0x0a u8  passo de giro por tique (0x5551ef, 0x556454)
@@ -123,24 +149,38 @@ export class AiRec {
   sub = 0;        // +0x09 u8  subestado do despachante (3 = continuar o passo: 0x555b38 por tique; posto por 0x56e4ac)
   f0a = 0;        // +0x0a u16 célula (lida por 0x56fc69 em outra unidade)
   f0c = 0;        // +0x0c u32 alvo do ataque (endereço; tarefa 5 0x56eab5 → 0x56ea52)
+  f10 = 0;        // +0x10 u32 alvo das classes de tarefa 8/0x11 da unidade (endereço; AI_TaskDispatcher 0x569321 testa se morreu; exec 0)
   f15 = 0;        // +0x15 u8  zerado por 0x56e4ac
   range = 0;      // +0x14 u8  alcance da perseguição (0x56ea52 → 0x55574d)
-  f16 = 0;        // +0x16 i16
+  f16 = 0;        // +0x16 i16 segundo (contador de 1/s) da última perseguição inalcançável (0x54d76e; 0x5728fa compara)
   target = 0;     // +0x18 u32 unidade perseguida pela tarefa 4 (endereço; 0x56ea52)
+  f20 = 0;        // +0x20 u32 alvo atribuído pelo pensamento do grupo (endereço; 0x57240b/0x5725a8; 0x5728fa → AI_Task_Attack)
+  f24 = 0;        // +0x24 u16 dx e +0x26 u16 dy da formação (célula − centroide; 0x5703c0/0x57063e), guardados como u32 dx | dy << 16
   f28 = 0;        // +0x28 u32 alvo da magia (endereço; tarefa 8 0x56ebc0 → 0x56ea52)
   f30 = 0;        // +0x30 u32 magia do livro escolhida (endereço do BookSpellRec; 0x569a80; copiada para unidade+0x64 por 0x56e906)
+  f38 = 0;        // +0x38 u32 zerado pelo reinício da ordem do grupo (0x570e83)
   f3c = 0;        // +0x3c u16 célula da magia no chão (tarefa 9 0x56ec3f → 0x56e4ac)
+  f40 = 0;        // +0x40 i32 vida do Withdraw (0x56cd11: vida ≤ → recua com inimigo a ≤ 2)
+  f44 = 0;        // +0x44 i32 vida do Wimpy (0x56cb0c: vida ≤ → foge com inimigo a ≤ raio da unidade + 5)
   f50 = 0;        // +0x50 u32 1 depois de 0x56dbc6 (parar + Stand ground); 0 por 0x56dbfb
   f54 = 0;        // +0x54 u32 1 = sofreu golpe/magia (0x56e6b8): a próxima olhada em volta gira sem o sorteio (0x56e5bc zera)
   f58 = 0;        // +0x58 u16 célula de quem bateu (0x56e6b8)
   f5a = 0;        // +0x5a u8  zerado por 0x56e6b8
   f5c = 0;        // +0x5c u32 1 = a magia em curso mira uma unidade (0x56e906); 0 = célula (ação 0xe e evento 3 no despachante)
   f60 = 0;        // +0x60 u32 0 → 0x56e906 chama 0x56dbc6 (parar); zerado por 0x56d969
+  f6c = 0;        // +0x6c u32 1 = comando 4 do grupo com +0x44 ≠ 0 (0x573198)
   f71 = 0;        // +0x71 u8  alcance de ver invisível (AI_EnemyFilter 0x567a16)
   spellSlot = 0;  // +0x78 u8  magia do livro escolhida (0 = nenhuma; 0x56ac5b)
+  /** +0x7c i32[3] magias de chance (id; 0 = nenhuma) e +0x88 i32[3] a probabilidade de cada uma (rand() < p; AI_Task_Attack 0x56acc8) */
+  f7c = new Int32Array(3);
+  f88 = new Int32Array(3);
   f94 = 0;        // +0x94 u32 quem bateu por último (endereço; 0x56e6b8)
   f98 = 0;        // +0x98 u32 relógio de 16/s do último golpe recebido ([[0x6044c4]+4]; 0x56e6b8)
   f9c = 0;        // +0x9c u16 ponto de fuga y<<8 | x: célula + 10 × (vítima − agressor)/max(|dx|,|dy|) (0x56e6b8)
+  f9e = 0;        // +0x9e u8  Guard da carga do mapa (0x5728fa): ≠ 0 → anda para +0xa0 e conta até 10
+  fa0 = 0;        // +0xa0 u16 célula alternativa do Guard da carga do mapa (0x5728fa)
+  fa4 = 0;        // +0xa4 u32 id da última magia que a IA lançou NESTA unidade (AI_CastAtTarget 0x56c72b escreve no alvo)
+  fa8 = 0;        // +0xa8 u32 relógio de 16/s dessa magia ([[0x6044c4]+4]; 0x56c72b)
   fac = 0;        // +0xac u32 golpes recebidos de quem não era inimigo (0x57977a: > 10 → guerra de volta)
   fb0 = 0;        // +0xb0 u16 destino do teleporte da célula (0x5503af, registro de ocupação de tipo 0x17)
   /** +0xb4 ptr CList<WORD> dos pontos da patrulha (y<<8 | x), na ordem do roteiro: 0x57b020 Find, 0x55f1f0 GetNext e 0x55f0d0
@@ -148,10 +188,17 @@ export class AiRec {
   patrol = new CListWord();
 }
 
-/** Dono da unidade (alvo do ponteiro unidade+0x14). */
+/** Dono da unidade (alvo do ponteiro unidade+0x14; elemento da lista de jogadores [0x68d2c4]+4). */
 export class PlayerRec {
+  addr = 0;       // endereço no exe (identidade)
   f04 = 0;        // +0x04 i16 id do jogador (índice na tabela de diplomacia do mundo, 0x57994d; byte em 0x57977a)
+  /** +0x28 ptr → CList<void*> (cabeçalho 0x1c) dos grupos de IA do jogador (0x570087: 0x57b140/0x57b160; 0x55b879) */
+  groups = new CListPtr();
   f2c = 0;        // +0x2c u32 0 → 0x54d76e testa Path_TargetFree (onda estática de 1000); ≠ 0 = jogador de IA (0x57977a não avisa o cliente)
+  f32 = 0;        // +0x32 u16 máscara do jogador (0x55aca2: marca os setores de 8×8 em volta das unidades do lado humano)
+  /** [+0x34]+0x1f u8 formação do jogador (0x5703c0/0x57063e: 2 = os membros andam em formação, com deslocamentos IA+0x24/+0x26 em
+   *  relação ao centroide, se nenhum estiver a mais de mundo+0xa724 células dele; 2 em todos os jogadores das 3 imagens do oráculo) */
+  formation = 2;
   f38 = 0;        // +0x38 u32 unidade-herói do jogador (endereço; 0x50f12c, 0x510a70)
   f40 = 0;        // +0x40 u8  (0x510a70: id do modelo − 0x13)
   fa54 = 0;       // +0xa54 i32 contagem de mortes do herói (0x510a70)
@@ -162,6 +209,7 @@ export class BookSpellRec {
   addr = 0;       // endereço no exe (identidade do ponteiro devolvido por 0x51c391)
   id = 0;         // +0x08 u8  id da magia (0x516ceb, 0x510745)
   range = 0;      // +0x09 u8  alcance (0x56ac5b)
+  f0a = 0;        // +0x0a u8  ≠ 0 = magia de apoio (alvo aliado: 0x57a999 só sorteia estas; 0x56c72b procura aliados em vez de inimigos)
   cost = 0;       // +0x0c i16 custo de mana
   /** +0x04 ptr definição da magia → CArray<int> em +8: elemento 0 = nível ("Complication Level"; byte baixo somado à espera em 0x50f12c) */
   def0 = 0;
@@ -203,7 +251,9 @@ export class DmgRec {
 
 /** Livro de magias (alvo do ponteiro unidade+0x140): CArray<BookSpellRec*> em +4 (m_pData +8, m_nSize +0xc). */
 export class SpellBookRec {
-  spells: (BookSpellRec | null)[] = []; // +0x04 CArray (ponteiro nulo = slot vazio)
+  spells: (BookSpellRec | null)[] = []; // +0x04 CArray (ponteiro nulo = slot vazio; índice = id da magia; 28 slots nas imagens do oráculo)
+  /** não é do exe: assinatura das magias do motor antigo de que o espelho foi feito (World.exeSyncGroups só o refaz quando ela muda) */
+  src: unknown = null;
   last = 0;       // +0x18 i32 último índice consultado (escrito por 0x51c391)
 }
 
@@ -218,6 +268,7 @@ export class UnitRec {
   owner: PlayerRec = new PlayerRec();  // +0x014 ptr dono
   tpl: TemplateRec | null = null;      // +0x03c ptr modelo (0x542560: nulo → sem despachante/sem marcar o agressor)
   f40 = 0;                     // +0x040 u32 quem deu o último golpe (endereço; 0x516f6f)
+  f44 = 0;                     // +0x044 u32 magia do livro escolhida para a ordem de lançar do cliente (endereço do BookSpellRec; o despachante de pacotes 0x4f515d a põe, 0x5702be a usa e zera)
   /** +0x043 u8: o byte alto do ponteiro +0x40 (0x5160ef lê +0x43 de OUTRO objeto, o do jogador; o campo ficou do lote 5a) */
   get f43(): number { return (this.f40 >>> 24) & 0xff; }
   set f43(v: number) { this.f40 = ((this.f40 & 0x00ffffff) | ((v & 0xff) << 24)) >>> 0; }
@@ -237,6 +288,7 @@ export class UnitRec {
   f74: ItemRec | null = null;  // +0x074 ptr arma equipada (0x50f12c, 0x516ceb)
   f78: ItemRec | null = null;  // +0x078 ptr escudo/item solto ao morrer (0x510a70)
   f86 = 0;                     // +0x086 i16 Reaction (espera extra da arma em 0x50f12c)
+  f88 = 0;                     // +0x088 i16 Mind (AI_TargetCost 0x5711ea: > 14 pesa o custo das classes 1 e 4)
   speed = 0;                   // +0x08c i16 velocidade da unidade (0x55915a)
   f94 = 0;                     // +0x094 i16 vida (0x516ceb subtrai o dano; < 1 → queda em 0x50f12c; 0x56fc69)
   f96 = 0;                     // +0x096 i16 vida máxima (0x57977a)
@@ -246,6 +298,7 @@ export class UnitRec {
   f9e = 0;                     // +0x09e i16 período da regeneração de mana (0x50fc5a divide por ele sem testar 0)
   fa2 = 0;                     // +0x0a2 u8  resto (centésimos) da regeneração de vida (0x50fc5a)
   fa3 = 0;                     // +0x0a3 u8  resto (centésimos) da regeneração de mana (0x50fc5a)
+  fa5 = 0;                     // +0x0a5 u8  visão em células (Vision_Compute 0x552c28: orçamento (visão << 7) + 64; 0x56fa63)
   dmg: DmgRec = new DmgRec();  // +0x0a6 atributos do golpe (ponteiro passado a 0x516f6f)
   fbe = 0;                     // +0x0be i16 defesa (0x516f6f; ÷ 2 na queda, 0x50f12c)
   fc0 = 0;                     // +0x0c0 i16 absorção (0x516f6f)
@@ -262,10 +315,12 @@ export class UnitRec {
   f138 = 0;                    // +0x138 u32 relógio de 16/s até o qual a unidade está ocupada (0x5040c4, 0x504155; 0x50fc3e)
   f13c = 0;                    // +0x13c u8  estado do corpo: 0 de pé, 1 caída (0x50f12c), 2..5 decomposição (0x5110b8)
   book: SpellBookRec = new SpellBookRec(); // +0x140 ptr livro de magias
+  hasBook = false;             // +0x140 ≠ 0 (0x56c9bc: só quem tem livro tenta fugir por Teleport)
   effects = 0;                 // +0x144 u32 bits de efeito = 1 << id da magia (0x40000 → IA+9 = 4; 0x100000 Bless, 0x10000000 Curse, 0x1000 Invisibility)
   f148 = 0;                    // +0x148 u32 id de quem invocou (0x510a70: vida −10000)
   f14c = 0;                    // +0x14c u16 (0x510a70: dono+0x40 = valor − 0x13 no jogo não local)
   f1a0 = 0;                    // +0x1a0 u32 levantada/invocada: sem saque (0x510a70)
+  f1a4 = 0;                    // +0x1a4 u16 máscara dos jogadores humanos perto (setor de 8×8; 0x55b5f1/0x55b406; 0 = longe)
   walk: WalkRec = new WalkRec();           // +0x1c0 ptr andar
   ai: AiRec = new AiRec();                 // +0x1c4 ptr tarefa/IA
   pathStatic = new CListWord();            // +0x1c8 CList<WORD> caminho estático (0x54e58c)
@@ -297,6 +352,7 @@ export function newPathRec(): PathRec {
 /** Estrutura apontada por OccRec+0xc (objeto fixo na célula; lido por 0x550a96). */
 export class CellStructRec {
   mapObj: MapObjRec = new MapObjRec(); // +0x10 ptr objeto de mapa (canto)
+  f42 = 0;                             // +0x42 u16 máscara dos jogadores humanos nos blocos em volta (0x55b507, a cada pensamento)
   width = 0;                           // +0x60 u8  largura em células
   cellMask = 0;                        // +0x64 u32 bit (dy*largura+dx): célula ocupada pela estrutura
 }
@@ -336,6 +392,16 @@ export const MAP_DIR_DX_OFF = 0x58e88;  // i8[8] dx da direção 0..7 (0x559195)
 export const MAP_DIR_DY_OFF = 0x58e90;  // i8[8] dy
 export const MAP_DIR_CELL_OFF = 0x58e98; // i32[8] passo do índice de célula da direção (0x559195)
 export const MAP_ALT_OFF = 0x944f4;     // i8[0x10000] altitude por célula (0x559195)
+export const MAP_RECT_OFF = 0x58eb8;    // u8[4] área útil x0, y0, x1, y1 (0x559536)
+/** Objeto de visão em mapa+0x58ec0 (0x552c28; vision.ts): +0x22000 i8[2] pai de cada célula da janela 41×41 ([x × 0x80 + y × 2]),
+ *  +0x24000 i32 orçamento ([x × 0x100 + y × 4]), +0x28000 i16 custo do passo, +0x2a004 u32 deslocamento do orçamento, +0x2a008 u8[0x10000]
+ *  células vistas, +0x3a008 ptr mapa. */
+export const MAP_VISION_OFF = 0x58ec0;
+export const VIS_PARENT_OFF = 0x22000, VIS_BUDGET_OFF = 0x24000, VIS_COST_OFF = 0x28000, VIS_SHIFT_OFF = 0x2a004, VIS_SEEN_OFF = 0x2a008, VIS_MAP_OFF = 0x3a008;
+/** Objeto dos setores em mapa+0x92ecc (0x55b5f1): +0x404 i32[34][34] máscara dos jogadores humanos por bloco de 8×8 ([(bx + 1) × 0x88 +
+ *  (by + 1) × 4], borda de 1 bloco; zerado de +0x400 por 0x1210), +0x1610 ptr contentor das unidades, +0x1614/+0x1618/+0x1624 contadores. */
+export const MAP_WAKE_OFF = 0x92ecc;
+export const WAKE_TABLE_OFF = 0x404, WAKE_F1614_OFF = 0x1614, WAKE_F1618_OFF = 0x1618, WAKE_F1624_OFF = 0x1624;
 
 /**
  * Objeto de mapa/caminho do servidor (o `this` das ondas, de 0x55be86 e da ocupação; até +0xa456c): espelhado byte a byte
@@ -400,19 +466,27 @@ export class UnitListsRec {
   magic = new CListPtr();
   /** +0x44 cadáveres ([[0x6044c4]+0x7c]+0xc+4), na ordem da morte (0x52bbb7: Corpse_Decay 0x5110b8 em cada um). */
   corpses = new CListPtr();
+  /** [[0x6044c4]+0x7c]+4 (+4): objetos fixos do mapa (CellStructRec; 0x55b5f1 → 0x55b507 escreve +0x42). Não é do contentor [0x68d2dc]. */
+  structs = new CListPtr();
 }
 
 /** Mundo/servidor (o `this` de 0x56dca2, 0x56e4ac, 0x56fc69 e dos sorteios 0x57afc0/0x57afd0). */
 export class WorldRec {
+  /** as listas de unidades do servidor ([0x68d2dc]: não é parte do objeto mundo; fica aqui por ser o estado que 0x52bbb7/0x571c4d percorrem) */
+  lists = new UnitListsRec();
   divisor = 0x8000;                  // +0x0000 u32 divisor do objeto de sorteio uniforme (0x57afd0: rand() × n / divisor)
-  /** +0x0004 CList<void*> das unidades vivas, na ordem de criação (0x56ed4e a percorre via mapa+0xa456c → mundo). */
-  liveUnits = new CListPtr();
+  /** [mapa+0xa456c]+4 = o contentor das unidades [0x68d2dc] (todas, caídas incluídas; 0x56ed4e e 0x571c4d a percorrem): `lists.all`.
+   *  (Até o lote 1 da etapa 9 era tida como "mundo+4"; os pares de 0x52bbb7 mostraram que é o mesmo objeto.) */
+  get liveUnits(): CListPtr { return this.lists.all; }
+  set liveUnits(l: CListPtr) { this.lists.all = l; }
   /** +0xa68 (objeto +0xa64, lista em +4) CList<void*> dos candidatos a alvo no fim do caminho (0x56ed4e, 0x567ddf, 0x567a16). */
   cand = new CListPtr();
   /** +0xa88 (objeto +0xa84) CList<void*> dos candidatos caídos (vida +0x94 < 1; 0x567ddf). */
   dead = new CListPtr();
   /** +0xa8bc tabela de diplomacia: byte [8 + id(a) × 0x46 + id(b)], bit 0 = guerra (0x57994d). */
   dipTable = new Uint8Array(8 + 0x46 * 0x46);
+  /** não é do exe: endereços das unidades "vida 0" do mapa/script (reféns; `World.knockOut`) que a escolha de inimigos ignora [est] */
+  readonly helpless = new Set<number>();
   fbbe8 = 0;                         // +0xbbe8 u32 0 → 0x56dca2 testa o grupo dormindo (tipo+0x45)
   /** +0xbbec CList<Event> dos eventos para a IA (0x57b210 AddTail no despachante; 0x57b2b0 RemoveAll no pensamento 0x57485b). */
   events = new CListEvent();
@@ -423,7 +497,32 @@ export class WorldRec {
   evtU32(off: number): number { return this.evtDv.getUint32(off, true); }
   /** o rand() do CRT (_tiddata+0x14) que 0x583290 usa: o `Rng` do motor (a World põe o seu aqui) */
   rng: Rng = new Rng();
-  /** as listas de unidades do servidor ([0x68d2dc]: não é parte do objeto mundo; fica aqui por ser o estado que 0x52bbb7 percorre) */
-  lists = new UnitListsRec();
+  /** a lista de jogadores ([0x68d2c4]+4, CList<void*> de endereços de PlayerRec; 0x56fe4d: 0x57b120/0x53da40) e os registros */
+  players = new CListPtr();
+  readonly playersByAddr = new Map<number, PlayerRec>();
+  /** grupos pelo endereço (elementos das listas dono+0x28; a unidade aponta para o seu em +0x70) */
+  readonly groupsByAddr = new Map<number, UnitTypeRec>();
+  /** +0xa54 i8[4][4] peso por classe (AI_TargetCost 0x5711ea: [classe do atacante × 4 + classe do alvo]; 0 = nunca, 1 = ×1,5, 4 = ×0,75) */
+  classTable = new Int8Array(16);
+  fa4c = 0;                          // +0xa4c i32 pensamentos (0x56fe4d)
+  fa724 = 2;                         // +0xa724 u8  distância máxima ao centroide para andar em formação (0x5703c0/0x57063e; 2 nas 3 imagens)
+  fa8b8 = 8;                         // +0xa8b8 i32 MinimalGuardRange (ai.reg; AI_GroupCmd_Guard 0x5709d9, AI_GuardLoad 0x570aba)
+  fd720 = 0;                         // +0xd720 i32 passagens do script (0x57485b)
+  /** não é do exe: o endereço do próximo grupo que 0x52b06f aloca (o exe: `new` de 0x50 bytes); a World dá endereços sintéticos, o arnês
+   *  de remontagem o do par */
+  allocGroupAddr: () => number = () => { throw new Error("WorldRec.allocGroupAddr não definido (0x52b06f)"); };
+  /** não é do exe: a magia do livro pelo endereço que o exe guarda como ponteiro (IA+0x30, unidade+0x44); a World procura nos livros
+   *  espelhados, o arnês de remontagem lê o registro da memória do par */
+  spellAt: (addr: number) => BookSpellRec = (addr) => { throw new Error(`WorldRec.spellAt não definido (magia 0x${(addr >>> 0).toString(16)})`); };
+  playerAt(addr: number): PlayerRec {
+    const p = this.playersByAddr.get(addr >>> 0);
+    if (!p) throw new Error(`jogador 0x${(addr >>> 0).toString(16)} sem registro espelhado`);
+    return p;
+  }
+  groupAt(addr: number): UnitTypeRec {
+    const g = this.groupsByAddr.get(addr >>> 0);
+    if (!g) throw new Error(`grupo 0x${(addr >>> 0).toString(16)} sem registro espelhado`);
+    return g;
+  }
   constructor(public map: MapRec) {} // +0xa50 ptr objeto de mapa/caminho
 }

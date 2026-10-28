@@ -51,8 +51,10 @@ export interface OrigExeMap {
   mem: [number, string][];
   occ?: { n?: number; count?: number; null?: boolean; full?: number; b: Record<string, [number, string][]> };
   structs?: Record<string, [number, number, number, number]>;
-  /** etapa 9: as listas do contentor [0x68d2dc] que World_SecondTick percorre (ids na ordem da lista) */
-  world?: { bbe8: number; lists?: { all: number[]; magic: number[]; corpses: number[] } };
+  /** etapa 9: as listas do contentor [0x68d2dc] que World_SecondTick percorre (ids na ordem da lista); lote 2: jogadores com os grupos
+   *  (dados +0x3c em hex, membros por id) e a tabela de classes do mundo (+0xa54, 16 bytes em hex) */
+  world?: { bbe8: number; lists?: { all: number[]; magic: number[]; corpses: number[] };
+    players?: { a: number; id: number; f2c: number; f32: number; f38: number; groups: { a: number; data: string; units: number[] }[] }[]; class_table?: string };
 }
 /** grupo de IA do original (export_state.read_groups): raio atual `+0x2d`, base `+0x38`, em combate `+0x30`, alvo de cada unidade */
 export interface OrigGroup { player: number; cmd: number; center: number; radius: number; base?: number; combat: number; units: { id: number; assigned: number }[] }
@@ -145,7 +147,9 @@ export function heroFromState(st: OrigState): HeroState {
   return h;
 }
 
-export interface Imported { r: Run; w: World; idmap: Map<number, number>; base: MissionSnapshot; st0: OrigState }
+export interface Imported { r: Run; w: World; idmap: Map<number, number>; base: MissionSnapshot; st0: OrigState;
+  /** volta os jogadores e grupos do exe ao retrato do tique 0 (`World.exeGroupsSave`: não estão no `MissionSnapshot`) */
+  groups0: () => void }
 
 /** Bits de efeito ativo (+0x144, notes/ai-behaviors.md) → magia que os põe. Duração/força não são lidas (objetos de efeito à parte):
  *  aplicamos a magia com o poder 50 [est]. Maldições (Curse, Slow, Stone Curse, veneno) ficam de fora. */
@@ -203,7 +207,7 @@ export async function worldFromState(st: OrigState): Promise<Imported> {
   // mesmo tipo (o de vida máx. mais próxima) no lugar delas; o estado (stats, vida, ordem) vem do applyState
   spawnUnmatched(r, w, st, idmap);
   const base = snapshotMission(st.mission, r.b, { objectives: [], messages: [], elapsedMs: 0, cam: { x: 0, y: 0 }, zoom: 1 });
-  return { r, w, idmap, base, st0: st };
+  return { r, w, idmap, base, st0: st, groups0: w.exeGroupsSave() };
 }
 
 /** Cria no nosso mundo as unidades vivas do estado do original que não têm par (ou cujo par sumiu): do template do mesmo tipo (vida
@@ -240,10 +244,20 @@ export function resetWorld(imp: Imported): void {
   // pares criados por spawnUnmatched numa janela (ou noutro episódio do mesmo estado, no cache do golden) não valem mais
   for (const [o, n] of [...imp.idmap]) if (!keep.has(n)) imp.idmap.delete(o);
   if (w.units.some(u => !keep.has(u.id))) {
+    // os grupos espelhados do exe (fora do retrato) também largam quem sai: senão o pensamento lê um membro sem registro
+    const gone = w.units.filter(u => !keep.has(u.id)).map(u => u.rec.addr >>> 0);
+    for (const g of w.exe.world!.groupsByAddr.values()) for (const a of gone) g.members.remove(a);
     for (const u of w.units) if (!keep.has(u.id)) w.byId.delete(u.id);
     w.units.splice(0, w.units.length, ...w.units.filter(u => keep.has(u.id)));
   }
+  // os grupos do exe voltam ao tique 0 ANTES do retrato: o restore (exeRebuildLists → exeSyncGroups) reaplica os comandos do script
+  // como na 1.ª janela
+  imp.groups0();
+  // IA+0x20 (alvo atribuído pelo grupo, 0x57240b) fica o da corrida, como antes de o save levar todos os campos do registro: a
+  // importação não o traz e o do tique 0 piora a corrida reancorada do tickcmp (m10_start 97,4 → 96,3 %) [est: harness]
+  const f20 = new Map(w.units.map(u => [u.id, u.rec.ai.f20] as const));
   restoreMission(imp.r.b, imp.base);
+  for (const u of w.units) { const v = f20.get(u.id); if (v !== undefined) u.rec.ai.f20 = v; }
   imp.r.outcome = null;
 }
 
@@ -297,6 +311,9 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     if (!u) { missing.push(o.id); continue; }
     if (!origAlive(o)) {
       // morta (0x10): consumada; caída (vida ≤ 0 sem 0x10): a queda do exe, com o contador da animação (+0x6c) para Unit_Die cair no tique certo
+      // a caída fica na célula do traço (no exe ela segue nas células até a morte consumada): sem isto ficava onde a janela anterior a
+      // deixou (golden `target|t75`, m10_mage_s603 512: o goblin caído em (27,42) em vez de (25,42), longe do aliado que o golpeava)
+      if (o.state !== 0x10 && !u.bodyDead && (u.alive || u.state === "dying")) w.placeExact(u, o.x, o.y, o.x + o.sx / 256, o.y + o.sy / 256);
       if (u.alive) {
         if (o.state === 0x10) { u.hp = Math.min(0, o.hp); w.kill(u); }
         else { u.hp = o.hp; w.importFallen(u, o.act_cnt ?? 0); }
@@ -333,6 +350,10 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     const tgt = o.target > 0 ? byOrig.get(o.target) : undefined;
     // posto (+0x1c4[0]); na patrulha (tarefa 0xa, 0x569b62) o posto acompanha a unidade e o ponto A da nossa patrulha fica o do script
     if (o.post && o.task !== 0xa) u.home = { x: o.post & 0xff, y: o.post >> 8 };
+    // o posto IA+0 do traço vai direto ao registro (o pensamento portado não o relê de `home`); patrulha andando entre os pontos:
+    // IA+4 = 1 (0x569b62 o põe ao mandar andar; no próximo pensamento o posto passa a ser a célula) [est: IA+4 não está no traço]
+    if (o.post !== undefined) u.rec.ai.f00 = o.post & 0xffff;
+    if (o.task === 0xa && o.mode === 1) u.rec.ai.f04 = 1;
     if (o.task === 0xa && o.dest && u.ai.type === "patrol") {
       // patrulha: ponto corrente = IA+2 (despejo da etapa 6; o fim do caminho já pode tê-lo trocado), senão o destino IA+0xa;
       // B = o ponto do script, A = o posto inicial
@@ -372,14 +393,21 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     }
   }
   // grupos acordados (+0x3c+0x45): unidade com ação 0x1b (27) = grupo dormindo (0x56dca2); acordado sem estar perto do jogador humano
-  // nem ferido = sempre acordado (+0x48, gatilhos do script) — World.computeActiveGroups
+  // nem ferido = sempre acordado (+0x48, gatilhos do script). Sem o despejo do exe (janelas do golden) é a aproximação antiga do cálculo
+  // dos setores (0x55b5f1); com ele, +0x45/+0x48 vêm dos dados do grupo (abaixo)
+  const awakeG = new Set<number>();
   if (orders) {
-    const awakeG = new Set<number>();
     for (const o of st.units) { const u = byOrig.get(o.id); if (u && u.group && origAlive(o) && o.state !== 27) awakeG.add(u.group); }
-    w.alwaysAwake = new Set(); w.computeActiveGroups();
-    const near = w.activeGroups ?? new Set<number>();
+    const marks: [number, number][] = [];
+    for (const u of w.units) if (u.alive && (u.isHero || u.player === w.humanPlayer)) marks.push([Math.floor(u.x) >> 3, Math.floor(u.y) >> 3]);
+    const near = new Set<number>();
+    for (const u of w.units) {
+      if (!u.group || near.has(u.group) || !u.alive || !w.isAiPlayerUnit(u)) continue;
+      if (u.hp < u.maxHp) { near.add(u.group); continue; }
+      const bx = Math.floor(u.x) >> 3, by = Math.floor(u.y) >> 3;
+      if (marks.some(([x, y]) => Math.abs(x - bx) <= 2 && Math.abs(y - by) <= 2)) near.add(u.group);
+    }
     w.alwaysAwake = new Set([...awakeG].filter(g => !near.has(g)));
-    w.activeGroups = awakeG;
   }
   // MapRec do tique: o do original (deltas do despejo) ou, sem ele, refeito das unidades (`exeResync`); registros de unidades do
   // original sem par (mortas, fora do mapa) entram como estão, para os ponteiros da ocupação resolverem
@@ -399,8 +427,35 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     const L = st.exe?.world?.lists, toA = (ids: number[]) => ids.map(i => addrOf.get(i) ?? 0).filter(a => a !== 0);
     w.exeRebuildLists(st.units.filter(o => o.exe && origAlive(o)).map(o => o.exe!.a >>> 0),
       L ? { all: toA(L.all), magic: toA(L.magic), corpses: toA(L.corpses) } : undefined);
+    // jogadores e grupos do exe (lote 2): os registros exatos do despejo; a unidade do motor de cada membro dá o `u.group`
+    const P = st.exe?.world?.players;
+    if (P) {
+      const unitOf = new Map<number, Unit>(); for (const u of w.units) unitOf.set(u.rec.addr >>> 0, u);
+      w.exeApplyPlayers(P.map(p => ({ ...p, groups: p.groups.map(g => ({ a: g.a, data: g.data, units: toA(g.units) })) })), st.exe?.world?.class_table ?? "",
+        a => { const u = unitOf.get(a >>> 0); return u ? (u.group || -u.id) : 0; });
+    }
     w.exeExact = true;
-  } else { w.exeResync(); w.exeRebuildLists(); }
+  } else {
+    w.exeResync(); w.exeRebuildLists();
+    // janelas do golden (sem o despejo): os dados do grupo exportados (raio, base, combate, contagem, comando) e o alvo atribuído (+0x20)
+    for (const g of st.groups ?? []) {
+      const us = g.units.map(x => byOrig.get(x.id)).filter((x): x is Unit => !!x && (x.group > 0 || (g.cmd === 1 && !w.isAiPlayerUnit(x) && x.ai.type === "guard")));   // + Guard do script no lado humano (grupo próprio)
+      if (!us.length) continue;
+      if (us[0]!.group === 0) w.exeScriptGuardNow(us[0]!);
+      const d = us[0]!.rec.type.stats;
+      d.f2d = g.radius & 0xff; d.f38 = (g.base ?? (g.combat ? g.radius - 4 : g.radius)) & 0xff; d.f30 = g.combat | 0; d.f34 = (g as { count?: number }).count ?? 0;
+      d.f28 = g.center & 0xffff;
+      for (const x of g.units) { const u = byOrig.get(x.id); if (u && u.rec.type === us[0]!.rec.type) u.rec.ai.f20 = x.assigned ? byOrig.get(x.assigned)?.rec.addr ?? 0 : 0; }
+    }
+    // +0x45 acordado agora (ação ≠ 0x1b) e +0x48 sempre acordado (gatilhos do script 0x562745, fora do traço): o grupo que dorme no
+    // original tem +0x48 = 0 (com 1, 0x55b406 o acordaria); o acordado fica com 1 [est: perto do lado humano não dá para saber]. Sem
+    // isto (+0x48 = 1 de todos, do retrato do tique 0) o 1.º pensamento acordava os que o original deixa dormindo (9 olhares em volta a
+    // mais por tique na m10_start_s22)
+    if (orders) for (const u of w.units) if (u.group && w.isAiPlayerUnit(u)) {
+      const d = u.rec.type.stats, on = awakeG.has(u.group) ? 1 : 0;
+      d.f45 = on; d.f48 = on;
+    }
+  }
   // unidades nossas sem par no original (ex.: invocação que o original não tem): ficam como estão
   return { missing, dead };
 }
@@ -420,12 +475,23 @@ function recFromState(w: World, u: Unit, o: OrigUnit, byOrig: Map<number, Unit>)
   if (o.pmask) r.walk.passMask = o.pmask & 0xff;
   r.task = o.task; r.act = o.state; r.effects = o.effects >>> 0;
   r.f58 = (o.act_phase ?? 0) >>> 0; r.f6c = (o.act_cnt ?? 0) & 0xff;
+  // +0x136 pedido pronto (vem no traço): sem ele, o golpe acabado (fase 0) seguia direto para o próximo (0x56dca2 só encerra a sub-ação 1/2
+  // com IA+0x15 > 2 E +0x136 ≠ 0) — o herói batia ~4 tiques antes (golden `alive|t103`, m20_start_s130 720)
+  r.ready = (o.act_ready ?? 0) & 0xff;
   if ((o.state === 3 || o.state === 0xd) && o.target > 0) r.f5c = byOrig.get(o.target)?.rec.addr ?? 0;
   r.speed = o.speed_eff ?? o.speed; r.type.stats.speedByte = 0; r.f94 = o.hp; r.mana = o.mana;
   // relógio de ocupação +0x138 (0x50fc3e: regeneração ×3 depois de 80 tiques parada) não está no traço: como se a unidade acabasse de agir
   // [est: o mesmo que o motor antigo fazia com `lastActionTick` = 0 num mundo recém-criado]; os restos +0xa2/+0xa3 ficam 0
   r.f138 = ((w.t16base ?? 0) + w.clock16()) >>> 0;
   r.ai.task = o.mode & 0xff; r.ai.sub = (o.sub9 ?? 0) & 0xff; r.ai.f0a = o.dest & 0xffff; r.ai.f54 = o.look_hit ? 1 : 0;
+  // IA+0x15 (tiques da sub-ação 1/2 desde 0x56e8c3/0x56e906, que o zeram) não está no traço: na fase 5 = carga − contador, depois dela já
+  // passou de 2 (só se compara com 2) [est: sem o acréscimo de 0x5167c6 na carga]
+  if (r.ai.sub === 1 || r.ai.sub === 2) r.ai.f15 = r.f58 === 5 ? Math.max(0, Math.min(3, ((o.charge ?? r.f134) & 0xff) - r.f6c)) : 3;
+  // tarefas 5/6 (atacar IA+0xc): o alvo do traço; sem par para ele, a tarefa fica 0 (o despachante leria um ponteiro nulo) [est]
+  if (r.ai.task === 5 || r.ai.task === 6) {
+    r.ai.f0c = o.target > 0 ? byOrig.get(o.target)?.rec.addr ?? 0 : 0;
+    if (r.ai.f0c === 0) r.ai.task = 0;
+  }
   // a meio giro (rumo ≠ desejado): andar+0xa0 = 1 (0x556454 continua pelo passo de giro em vez de encostar de uma vez)
   r.walk.turning = r.walk.dir !== r.walk.dirTarget ? 1 : 0; r.walk.stepTick = 0; r.walk.stepTicks = 0;
   if (o.sx === 128 && o.sy === 128) { if (r.ai.sub === 3) r.ai.sub = 0; return; }

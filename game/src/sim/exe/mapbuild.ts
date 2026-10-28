@@ -9,11 +9,12 @@
  * padrão 6 nas livres). [est] Objetos e sacos não ganham registro.
  * Constantes do objeto (+0x50000.. +0x58e98): iguais nas 3 imagens do oráculo.
  */
-import { BLOCK_BORDER, BLOCK_OBJECT, BLOCK_SPELL, BLOCK_STRUCTURE, BLOCK_TERRAIN, type Grid } from "../grid";
+import { BLOCK_BORDER, BLOCK_OBJECT, BLOCK_SPELL, BLOCK_STRUCTURE, BLOCK_TERRAIN, MAP_BORDER, type Grid } from "../grid";
+import { VIS_COST, VIS_PARENT } from "../vision_tables";
 import {
   CellStructRec, OccRec, FLAGS_OFF, MAP_ALT_OFF, MAP_DEFAULT_COST_OFF, MAP_DIR_CELL_OFF, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_DYN_LEN_OFF, MAP_DYN_NEAR_OFF,
   MAP_DYN_TICKS_OFF, MAP_HEIGHT_OFF, MAP_MASK_OFF, MAP_PATH_STATIC_N_OFF, MAP_SPEED_MUL_OFF, MAP_WAVES_DYNAMIC_OFF, MAP_WAVES_STATIC_OFF,
-  MAP_WIDTH_OFF, MapRec, WorldRec,
+  MAP_RECT_OFF, MAP_VISION_OFF, MAP_WIDTH_OFF, MapRec, VIS_COST_OFF, VIS_PARENT_OFF, VIS_SHIFT_OFF, WorldRec,
 } from "./types";
 
 /** Tamanho da tabela de baldes do CMap de ocupação (+0x54088) nas imagens. */
@@ -86,6 +87,19 @@ export function mapRecFromGrid(g: Grid): MapRec {
       else { m.mem[MAP_MASK_OFF + c] = 0x25; m.mem[FLAGS_OFF + c] = 0x25; }
     }
   });
+  // objeto de visão (0x552c28, sim/exe/vision.ts): tabelas fixas da janela 41×41 (pai e custo, vision_tables.ts, [x × 0x80 + y × 2]),
+  // deslocamento do orçamento 7 e a área útil (+0x58eb8: 8..largura−9, 8..altura−9 — iguais nas imagens do oráculo)
+  for (let x = 0; x < 41; x++) {
+    for (let y = 0; y < 41; y++) {
+      const k = x * 41 + y, o = x * 0x80 + y * 2;
+      m.dv.setInt8(MAP_VISION_OFF + VIS_PARENT_OFF + o, VIS_PARENT[k * 2]!);
+      m.dv.setInt8(MAP_VISION_OFF + VIS_PARENT_OFF + o + 1, VIS_PARENT[k * 2 + 1]!);
+      m.dv.setInt16(MAP_VISION_OFF + VIS_COST_OFF + o, VIS_COST[k]!, true);
+    }
+  }
+  m.dv.setUint32(MAP_VISION_OFF + VIS_SHIFT_OFF, 7, true);
+  m.mem[MAP_RECT_OFF] = MAP_BORDER; m.mem[MAP_RECT_OFF + 1] = MAP_BORDER;
+  m.mem[MAP_RECT_OFF + 2] = Math.max(0, Math.min(255, g.w - MAP_BORDER - 1)); m.mem[MAP_RECT_OFF + 3] = Math.max(0, Math.min(255, g.h - MAP_BORDER - 1));
   m.world = new WorldRec(m);
   return m;
 }

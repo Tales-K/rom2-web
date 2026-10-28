@@ -36,6 +36,30 @@ REC_N = 0xB4            # bytes de andar (+0x1c0) e de IA (+0x1c4) despejados (W
 UNITS_PTR = 0x68D2DC    # [ ] = contentor das listas de unidades (0x52bbb7): +4 todas, +0x24 criadas por magia, +0x44 cadáveres
 
 
+PLAYERS_PTR = 0x68D2C4  # [ ] = lista de jogadores (CList<void*>, cabeçalho no próprio objeto)
+
+
+def _ptrs(o, hdr: int) -> list:
+    """Dados (ponteiros) de um CList<void*> em `hdr` (+4 cabeça; nó: +0 próximo, +8 dado), na ordem da lista."""
+    out, p, n = [], o.u32(hdr + 4), 0
+    while p and n < 4096:
+        out.append(o.u32(p + 8))
+        p, n = o.u32(p), n + 1
+    return out
+
+
+def _players(o) -> list:
+    out = []
+    for pa in _ptrs(o, o.u32(PLAYERS_PTR)):
+        groups = []
+        for ga in _ptrs(o, o.u32(pa + 0x28)):
+            dt = o.u32(ga + 0x3C)
+            groups.append({"a": ga, "data": bytes(o.read(dt, 0x4C)).hex() if dt else "", "units": [o.u32(u + 4) for u in _ptrs(o, ga)]})
+        out.append({"a": pa, "id": struct.unpack("<h", bytes(o.read(pa + 4, 2)))[0], "f2c": o.u32(pa + 0x2C),
+                    "f32": struct.unpack("<H", bytes(o.read(pa + 0x32, 2)))[0], "f38": o.u32(pa + 0x38), "groups": groups})
+    return out
+
+
 def _ids(o, hdr: int) -> list:
     """Ids (+4 da unidade) de um CList<void*> de unidades em `hdr` (cabeçalho: +4 cabeça; nó: +0 próximo, +8 dado), na ordem da lista."""
     out, p, n = [], o.u32(hdr + 4), 0
@@ -113,7 +137,10 @@ class ExeTracker:
         # +4 todas (ordem de criação, caídas incluídas), +0x24 criadas por magia ([0x672f64]+4), +0x44 cadáveres ([[0x6044c4]+0x7c]+0xc+4)
         ul = o.u32(UNITS_PTR)
         ex["world"] = {"bbe8": o.u32(wd + 0xBBE8),
-                       "lists": {"all": _ids(o, ul + 4), "magic": _ids(o, ul + 0x24), "corpses": _ids(o, ul + 0x44)}}
+                       "lists": {"all": _ids(o, ul + 4), "magic": _ids(o, ul + 0x24), "corpses": _ids(o, ul + 0x44)},
+                       # etapa 9, lote 2: jogadores na ordem da lista [0x68d2c4] (+4), cada um com os grupos na ordem da lista +0x28
+                       # (dados do comando [grupo+0x3c], 0x4c bytes; membros na ordem da lista do grupo) e a tabela de classes +0xa54
+                       "players": _players(o), "class_table": bytes(o.read(wd + 0xA54, 16)).hex()}
         units = {}
         for a in addrs:
             b = bytes(o.read(a, 0x1D0))

@@ -49,26 +49,42 @@
  * e os períodos +0x98/+0x9e do registro — `mana`/`maxMana` são vistas; sangria de quem caiu), Corpse_Decay 0x5110b8 em `lists.corpses` e o
  * desgaste das invocações em `lists.magic` (Rand_One 0x51fa4e, CMap<uint,uint>). O contador de 1/s do exe ([[0x6044c4]+0]) é
  * `secClock()` = ⌊relógio de 16/s ÷ 16⌋ (vira no fim do tique ≡ 0xf). O veneno (efeito do motor antigo) continua em `poisonTick`.
+ *
+ * PENSAMENTO (etapa 9, lote 2, notes/pensamento.md): no tique do pensamento (`aiTick`) roda a porta de 0x56fe4d (sim/exe/think.ts) sobre
+ * os registros espelhados: jogadores (`exeWorld.players`, um PlayerRec partilhado por jogador: +0x2c IA, +0x32 máscara, +0x38 herói),
+ * grupos (`exeGroups`: o "tipo" unidade+0x70 É o grupo — lista de membros e os dados do comando +0x3c; grupo do mapa/script `u.group`,
+ * senão um grupo por unidade) e as unidades. O comando do grupo vem do `AiMode`/da ordem (`exeGroupCmd`): Guard da carga → 0x12, Guard do
+ * script → 1, hold → −1, move → 4, swarm → 5, jogador humano parado → 3 / andando → 4; o resto → 0 (tarefas por unidade = o gancho
+ * `unitThink` = o `aiThink`/`heroThink` antigos, até o lote 3). Acordar os grupos é a porta de 0x55b5f1 (setores de 8×8; `f48` = sempre
+ * acordado: todos no jogo normal, `alwaysAwake` nos estados importados). Depois do pensamento `syncOrdersFromTasks` lê a tarefa IA+8 que o
+ * porte deixou (1 andar, 5 atacar, 0xb/0 parada) e a escreve na ordem da unidade (`exeTask` = a ordem vem do porte: `act` não a reinterpreta
+ * na chegada). Visão: a porta de Vision_Compute (sim/exe/vision.ts) sobre as tabelas do objeto de visão no MapRec (mapbuild as copia).
  */
 import { BLOCK_BORDER, BLOCK_SPELL, BLOCK_STRUCTURE, Grid, MAP_BORDER } from "./grid";
 import { skillExp, skillFromExp } from "./stats";
 import { lineOfSight } from "./los";
 import { CellStructRec, MapRec, OccRec, UnitRec, WorldRec } from "./exe/types";
-import { listSet } from "./exe/recio";
+import { listSet, scalarFields, type ExeGroupsJson } from "./exe/recio";
 import { CListPtr, CListWord, type ListPos } from "./exe/mfc";
 import { mapRecFromGrid, exeMaskOf } from "./exe/mapbuild";
 import { unitActionMachine, type MachineHooks } from "./exe/action";
 import { unitPhysicalDamage, unitStrikeBegin } from "./exe/combat";
 import { corpseDecay, unitDie } from "./exe/death";
 import { worldSecondTick } from "./exe/regen";
+import { aiCastAtTarget, aiIdleAlt, aiMoveTo, aiTeleportCast, aiIdleCasterSupport, fn_0x56fe4d, type ThinkHooks } from "./exe/think";
+import { BookSpellRec, PlayerRec, UnitStatsRec, UnitTypeRec } from "./exe/types";
 import { DmgRec, ItemRec, TemplateRec } from "./exe/types";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
-import { fn_0x55be86 } from "./exe/wave";
+import { BACKTRACE_UB, fn_0x55be86 } from "./exe/wave";
 import { EXE_GLOBALS } from "./exe/types";
 import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
-import { aiThink, heroThink } from "./ai";
+import { autocast, castAt, exeFlee, legacyThink, pickOffensive } from "./ai";
+import {
+  ClientOrder, EMPTY_GROUP, aiGroupCmdGuard, aiGroupCmdMove, aiGroupCmdSwarm2, aiGuardLoad, clientOrder, fn_0x52ae43, fn_0x52af8c, fn_0x53d690,
+  fn_0x5708ff, fn_0x570946, fn_0x570b8b, fn_0x570d26,
+} from "./exe/orders";
 import { canRevive, healDying, onFell, raiseDead, summonCreature, CORPSE } from "./necro";
 import { selectedSpellRange, spellAttack } from "./spellattack";
 import {
@@ -90,6 +106,10 @@ export interface AnimTiming {
   attackDelay: number;
   dyingTicks: number;
 }
+
+/** Jogador do despejo do oráculo (tools/re/oracle/dump_ticks.py: `exe.world.players`): endereço, id, +0x2c, +0x32, +0x38 e os grupos
+ *  (endereço, dados do comando em hex, membros = endereços das unidades, já traduzidos pelo importador). */
+export interface ExePlayerSpec { a: number; id: number; f2c: number; f32: number; f38: number; groups: { a: number; data: string; units: number[] }[] }
 
 /** Comportamento padrão dado pelo script (comando de grupo), pelo mapa ou pela cena (mercenários). */
 export type AiMode =
@@ -211,6 +231,7 @@ function initUnitRec(u: Unit): void {
   r.walk.passMask = r.kind === 3 ? 0x82 : r.kind === 2 ? 0x44 : 0x41;
   r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
   r.walk.f09 = 0xff;
+  r.walk.f08 = UNIT_GUARD_RADIUS;   // +0x1c0+8 = 5 (0x551346)
   r.speed = Math.round(u.stats.speed * 16);
   r.type.stats.f45 = 1;
   r.tpl = new TemplateRec();
@@ -363,8 +384,14 @@ export class Unit {
   /** grupo do mapa/script (0 = nenhum) e raio de guarda DO GRUPO em volta do centroide (0 = guarda individual) [exe 0x57275f] */
   group = 0;
   groupRadius = 0;
-  /** alvo que a guarda do grupo deu a esta unidade no último pensamento (`+0x1c4 +0x20`, 0x57240b) */
+  /** alvo que a guarda do grupo deu a esta unidade no último pensamento (`+0x1c4 +0x20`, 0x57240b) — vista para os testes/comparador */
   groupTarget = 0;
+  /** a ordem corrente foi escrita pelo pensamento portado a partir da tarefa IA+8 (`syncOrdersFromTasks`): `act` não a reinterpreta */
+  exeTask = false;
+  /** não é do exe: o pensamento portado acabou de dar a tarefa de magia 8/9 (gancho `castTask`): `applyTaskOrder` escreve a ordem uma vez */
+  castThisThink = false;
+  /** o pensamento deste tique mandou a unidade fugir/recuar (AI_GroupFlee): a tarefa de andar vale sobre a ordem do gancho */
+  fledThisThink = false;
 
   constructor(id: number, init: UnitInit) {
     this.id = id;
@@ -532,6 +559,15 @@ export class World {
     this.grid = grid;
     this.exe = mapRecFromGrid(grid);
     this.exeWorld = this.exe.world!;
+    this.exeWorld.allocGroupAddr = () => { const a = this.nextGroupAddr; this.nextGroupAddr = (a + 0x100) >>> 0; return a; };
+    // a tabela de classes do mundo (+0xa54; igual nas 3 imagens do oráculo) desde a montagem: uma ordem dada antes do 1.º tique
+    // (AI_TargetCost 0x5711ea em 0x570946) via tudo "não atacável" com a tabela zerada
+    this.exeWorld.classTable.set([2, 1, 2, 4, 4, 2, 1, 0, 2, 1, 4, 0, 2, 1, 2, 4]);
+    this.exeWorld.fa8b8 = MINIMAL_GUARD_RANGE;
+    this.exeWorld.spellAt = (a) => {
+      for (const u of this.units) for (const s of u.rec.book.spells) if (s && (s.addr >>> 0) === (a >>> 0)) return s;
+      throw new Error(`magia 0x${(a >>> 0).toString(16)} fora dos livros espelhados`);
+    };
     this.exeBase = this.exe.mem.slice();
     for (const a of this.exe.occ.table ?? []) for (let p = a; p; p = p.next) this.exeBaseOcc.push([p.key, p.value.b.slice()]);
     this.exeBaseStructs.push(...this.exe.structs);
@@ -556,19 +592,400 @@ export class World {
     u.rec.owner.f04 = u.player;
     // listas do exe: unidades vivas do mundo (+4, ordem de criação) e as do mesmo tipo (tipo+0: a lista é partilhada por modelo
     // [est]; o resto do registro do tipo — +0x45 grupo dormindo, +0x44, +0x20 — fica por unidade, como o despejo o traz)
-    this.exeWorld.liveUnits.addTail(u.rec.addr);
     this.exeWorld.lists.all.addTail(u.rec.addr);
-    u.rec.type.members = this.typeList(u.typeId);
-    u.rec.type.members.addTail(u.rec.addr);
     u.rec.ai.f71 = (u.stats.seeInvisible ?? 0) & 0xff;
+    this.exeGroupSync(u);
     this.occupy(u);
     return u;
   }
-  private readonly typeLists = new Map<number, CListPtr>();
-  private typeList(typeId: number): CListPtr {
-    let l = this.typeLists.get(typeId);
-    if (!l) { l = new CListPtr(); this.typeLists.set(typeId, l); }
-    return l;
+  // ------------------------------------------------------------------------------------------- jogadores e grupos do exe
+
+  /** registros dos grupos de IA do exe por id (`u.group`; 0 → um grupo por unidade, id −u.id) e dos jogadores por número */
+  readonly exeGroups = new Map<number, UnitTypeRec>();
+  readonly exePlayers = new Map<number, PlayerRec>();
+  private nextGroupAddr = 0x21000000;
+  exePlayer(p: number): PlayerRec {
+    let r = this.exePlayers.get(p);
+    if (!r) {
+      r = new PlayerRec();
+      r.addr = (0x30000000 + p * 0x1000) >>> 0; r.f04 = p; r.f32 = (1 << p) & 0xffff; r.f2c = p === this.humanPlayer ? 0 : 1;
+      this.exePlayers.set(p, r);
+      this.exeWorld.playersByAddr.set(r.addr, r);
+      // lista de jogadores na ordem do número (o exe: ordem de criação = a do mapa)
+      this.exeWorld.players.removeAll();
+      for (const q of [...this.exePlayers.keys()].sort((a, b) => a - b)) this.exeWorld.players.addTail(this.exePlayers.get(q)!.addr);
+    }
+    return r;
+  }
+  /** Modos/ordens sem tratador no exe executado pelo corpus (defend 0x56d5b9, follow 0x56d638, still 0x56dafe → tarefa 0x1a 0x56a909:
+   *  exec 0, NotPorted): a unidade pensa no motor antigo (`legacyThink`), com o comando 0 no grupo e fora do despachante de tarefas. */
+  private static legacyAi(a: AiMode): boolean { return a.type === "defend" || a.type === "follow" || a.type === "still"; }
+  /** Ordens do lado humano sem `case` executado no corpus (0x4f515d): ficam no motor antigo [est] — pegar/andar perto (0x22), magia no
+   *  chão (0xd), guarda (5), patrulha (0xb), defender (9), seguir, recuar, vagar, parado. */
+  private static legacyOrder(o: Order): boolean {
+    return o.type === "defend" || o.type === "follow" || o.type === "still" || o.type === "pickup" || o.type === "guard" || o.type === "patrol"
+      || o.type === "retreat" || o.type === "roam" || (o.type === "move" && !!o.near) || (o.type === "cast" && !o.target);
+  }
+  legacyMode(u: Unit): boolean { return World.legacyAi(u.ai) || (!this.isAiPlayerUnit(u) && World.legacyOrder(u.order)); }
+  /** Um grupo novo do exe (0x52ae43: vazio, comando 0, acordado) registrado no mundo espelhado. */
+  private exeNewGroup(): UnitTypeRec {
+    const g = fn_0x52ae43(new UnitTypeRec());
+    g.addr = this.exeWorld.allocGroupAddr() >>> 0;
+    this.exeWorld.groupsByAddr.set(g.addr, g);
+    return g;
+  }
+  /** Assinatura do comando de grupo que o `AiMode` da unidade pede ao exe (o despachante do script 0x577cee → AI_GroupCmd_*), ou null
+   *  quando nada muda por aqui (Guard de grupo do script: `initGroupGuard`; modos do motor antigo). */
+  private exeGroupCmdKey(u: Unit): string | null {
+    if (u.suspended || u.helpless) return null;
+    const a = u.ai;
+    switch (a.type) {
+      case "guard": return u.group ? null : `g:${a.range | 0}`;
+      case "hold": return "h";
+      case "move": return `m:${a.x},${a.y}`;
+      case "swarm": return `s:${a.x},${a.y}`;
+      case "patrol": return `p:${a.x},${a.y}`;
+      case "roam": return "r";
+      default: return null;
+    }
+  }
+  /** comando de grupo já aplicado (assinatura `exeGroupCmdKey`) por endereço do grupo */
+  private readonly groupCmdApplied = new Map<number, string>();
+  /** Guard do script já aplicado ao grupo de uma unidade do lado humano (assinatura `exeGroupCmdKey`), por id da unidade */
+  private readonly humanScriptCmd = new Map<number, string>();
+  /** Estado importado sem despejo (janelas do golden): o Guard do script no grupo ATUAL da unidade do lado humano — a ordem de ataque
+   *  importada passa pelo cliente e a reagrupa, mas no original o ataque é do pensamento do grupo de comando 1 */
+  exeScriptGuardNow(u: Unit): void {
+    const key = this.exeGroupCmdKey(u);
+    if (key === null || this.isAiPlayerUnit(u) || u.ai.type !== "guard") return;
+    this.humanScriptCmd.set(u.id, key); this.exeApplyGroupCmd(u, u.rec.type, key);
+  }
+  /** O comando do script para o grupo (AI_GroupCommandDispatch 0x577cee): 1 Guard → AI_GroupCmd_Guard, 3 Stand ground → 0x570b8b,
+   *  4 Move → AI_GroupCmd_Move, 5 Swarm2 → AI_GroupCmd_Swarm2 (o comando 2 Swarm do script, 0x5708bc, chega aqui como Swarm2 [est: o
+   *  `AiMode` não os distingue]), 10 Attack → 0x570946 (o `AiMode` enxame com a ordem de atacar que o script deu), 14 Patrol → 0x570d26,
+   *  17 Roam → 0x5708ff. */
+  private exeApplyGroupCmd(u: Unit, g: UnitTypeRec, key: string): void {
+    const wd = this.exeWorld, a = u.ai;
+    switch (a.type) {
+      case "guard": aiGroupCmdGuard(wd, g, a.range & 0xff); u.groupRadius = g.stats.f38 & 0xff; u.home = { x: u.rec.ai.f00 & 0xff, y: (u.rec.ai.f00 >> 8) & 0xff }; break;
+      case "hold": fn_0x570b8b(wd, g); break;
+      case "move": aiGroupCmdMove(wd, g, a.x & 0xff, a.y & 0xff); break;
+      case "swarm": {
+        const t = u.order.type === "attack" ? this.get(u.order.target) : undefined;
+        if (t && t.alive) fn_0x570946(wd, g, t.rec); else aiGroupCmdSwarm2(wd, g, a.x & 0xff, a.y & 0xff);
+        break;
+      }
+      case "patrol": {
+        fn_0x570d26(wd, g, a.x & 0xff, a.y & 0xff);
+        // 0x56d6b7 põe A = a célula de AGORA: no exe o script deu a ordem na célula de nascimento. Quem já tem a patrulha do motor
+        // (nascimento ou estado importado no meio do caminho) fica com a lista [A, B] e o ponto corrente dela [est]
+        for (const v of this.units) {
+          const o = v.order;
+          if (v.rec.type !== g || o.type !== "patrol") continue;
+          const A = ((o.ay & 0xff) << 8) | (o.ax & 0xff), B = ((o.by & 0xff) << 8) | (o.bx & 0xff);
+          listSet(v.rec.ai.patrol, A === B ? [A] : [A, B]);
+          v.rec.ai.f02 = o.toB ? B : A;
+        }
+        break;
+      }
+      case "roam": fn_0x5708ff(wd, g); break;
+      default: return;
+    }
+    void key;
+  }
+  /** O grupo do exe da unidade. Lado humano: um grupo por unidade [est: a seleção do cliente] que nasce com ela (parado = Stand ground
+   *  0x570b8b [est]) e que só as ordens do cliente (`command` → `clientOrder`) trocam. Jogador de IA: o grupo do script (`u.group`) ou um
+   *  por unidade; o comando vem do `AiMode` pela porta (`exeApplyGroupCmd`), aplicado uma vez por mudança. */
+  private exeGroupSync(u: Unit): UnitTypeRec {
+    const p = this.exePlayer(u.player);
+    if (u.rec.owner !== p) u.rec.owner = p;
+    if (!this.isAiPlayerUnit(u)) {
+      if (u.rec.type.addr === 0 || u.rec.type === EMPTY_GROUP) {
+        const g = this.exeNewGroup();
+        fn_0x52af8c(g, u.rec);
+        fn_0x53d690(p.groups, g.addr);
+        fn_0x570b8b(this.exeWorld, g);
+        this.exeGroups.set(-u.id, g);
+      }
+      const legacy = this.legacyMode(u);
+      if (legacy && u.rec.type.stats.f20 !== 0) u.rec.type.stats.f20 = 0;
+      // Guard do script numa unidade do lado humano (aliado da m10_mage): o despachante do script 0x577cee dá o comando 1 ao grupo dela
+      // como a qualquer outro (traço: grupo do jogador 1 com comando 1) — uma vez por mudança DA UNIDADE (as ordens do cliente reagrupam
+      // 0x5703c0 e trocam o comando depois; por grupo, o grupo novo recebia a guarda de volta: Putnik da missão 53 não andava)
+      else if (!legacy && !u.isHero && u.ai.type === "guard") {
+        const key = this.exeGroupCmdKey(u);
+        if (key !== null && this.humanScriptCmd.get(u.id) !== key) { this.humanScriptCmd.set(u.id, key); this.exeApplyGroupCmd(u, u.rec.type, key); }
+      }
+      u.exeTask = !legacy;
+      return u.rec.type;
+    }
+    const gid = u.group || -u.id;
+    let g = this.exeGroups.get(gid);
+    if (!g) {
+      g = this.exeNewGroup();
+      const d = g.stats, gs = this.groupState.get(gid);
+      d.f48 = this.alwaysAwake ? (this.alwaysAwake.has(gid) ? 1 : 0) : 1;
+      d.f38 = (gs?.base ?? u.groupRadius ?? 0) & 0xff; d.f2d = (gs?.radius ?? gs?.base ?? u.groupRadius ?? 0) & 0xff; d.f30 = gs?.combat ? 1 : 0;
+      this.exeGroups.set(gid, g);
+    }
+    if (!p.groups.values().includes(g.addr)) {
+      // o grupo é de um só dono (dono+0x28): a unidade que trocou de jogador (script) leva o grupo — senão ele pensava 2× por tique [est]
+      for (const q of this.exePlayers.values()) if (q !== p) q.groups.remove(g.addr);
+      p.groups.addTail(g.addr);
+      g.owner = p;
+    }
+    if (u.rec.type !== g) {
+      u.rec.type.members.remove(u.rec.addr);
+      if (u.rec.type.members.count === 0 && u.rec.type.addr) {
+        // grupo que ficou vazio: sai da lista do dono (como o exe apaga o grupo vazio ao regrupar)
+        for (const q of this.exePlayers.values()) q.groups.remove(u.rec.type.addr);
+      }
+      u.rec.type = g;
+      g.members.addTail(u.rec.addr);
+      g.owner = p;
+    }
+    const legacy = this.legacyMode(u);
+    if (legacy) { if (g.stats.f20 !== 0) g.stats.f20 = 0; }
+    else {
+      const key = this.exeGroupCmdKey(u);
+      if (key !== null && this.groupCmdApplied.get(g.addr) !== key) { this.groupCmdApplied.set(g.addr, key); this.exeApplyGroupCmd(u, g, key); }
+    }
+    u.exeTask = !legacy;
+    return g;
+  }
+  /** Os jogadores e grupos espelhados do exe no save (`WorldSnapshot.exeGroups`): os registros, as listas, os mapas e o comando de
+   *  grupo já aplicado. Sem eles o restore refazia os grupos e reaplicava o comando do script (a patrulha 0x56d6b7 recalcula a visão). */
+  exeGroupsToJson(): ExeGroupsJson {
+    const w = this.exeWorld;
+    const groups = [...new Set<UnitTypeRec>([...w.groupsByAddr.values(), ...this.exeGroups.values(), ...this.units.map(u => u.rec.type)])].filter(g => g !== EMPTY_GROUP);
+    const players = [...new Set<PlayerRec>([...w.playersByAddr.values(), ...this.exePlayers.values(), ...this.units.map(u => u.rec.owner),
+      ...groups.flatMap(g => g.owner ? [g.owner] : [])])];
+    const gi = new Map(groups.map((g, i) => [g, i])), pi = new Map(players.map((p, i) => [p, i]));
+    return {
+      p: players.map(p => ({ f: scalarFields(p), g: p.groups.values() })),
+      g: groups.map(g => ({ a: g.addr, m: g.members.values(), s: scalarFields(g.stats), o: g.owner ? pi.get(g.owner)! : -1 })),
+      u: this.units.map(u => [u.id, u.rec.type === EMPTY_GROUP ? -1 : gi.get(u.rec.type)!, pi.get(u.rec.owner)!]),
+      eg: [...this.exeGroups].map(([k, g]) => [k, gi.get(g)!]), ep: [...this.exePlayers].map(([k, p]) => [k, pi.get(p)!]),
+      bg: [...w.groupsByAddr].map(([k, g]) => [k, gi.get(g)!]), bp: [...w.playersByAddr].map(([k, p]) => [k, pi.get(p)!]),
+      pl: w.players.values(), ap: [...this.groupCmdApplied], next: this.nextGroupAddr, hs: [...this.humanScriptCmd],
+    };
+  }
+  exeGroupsFromJson(j: ExeGroupsJson): void {
+    const w = this.exeWorld;
+    const players = j.p.map(x => { const p = new PlayerRec(); Object.assign(p, x.f); for (const a of x.g) p.groups.addTail(a); return p; });
+    const groups = j.g.map(x => {
+      const g = new UnitTypeRec();
+      g.addr = x.a; Object.assign(g.stats, x.s); g.owner = x.o < 0 ? null : players[x.o]!;
+      for (const a of x.m) g.members.addTail(a);
+      return g;
+    });
+    for (const [id, t, o] of j.u) { const u = this.get(id); if (!u) continue; u.rec.type = t < 0 ? EMPTY_GROUP : groups[t]!; u.rec.owner = players[o]!; }
+    this.exeGroups.clear(); for (const [k, i] of j.eg) this.exeGroups.set(k, groups[i]!);
+    this.exePlayers.clear(); for (const [k, i] of j.ep) this.exePlayers.set(k, players[i]!);
+    w.groupsByAddr.clear(); for (const [k, i] of j.bg) w.groupsByAddr.set(k, groups[i]!);
+    w.playersByAddr.clear(); for (const [k, i] of j.bp) w.playersByAddr.set(k, players[i]!);
+    w.players.removeAll(); for (const a of j.pl) w.players.addTail(a);
+    this.groupCmdApplied.clear(); for (const [k, v] of j.ap) this.groupCmdApplied.set(k, v);
+    this.humanScriptCmd.clear(); for (const [k, v] of j.hs ?? []) this.humanScriptCmd.set(k, v);
+    this.nextGroupAddr = j.next;
+  }
+  /** Retrato dos jogadores e grupos do exe (o golden reaproveita o mundo entre janelas: `resetWorld` volta a ele antes do restore). */
+  exeGroupsSave(): () => void {
+    const j = JSON.parse(JSON.stringify(this.exeGroupsToJson())) as ExeGroupsJson;
+    return () => this.exeGroupsFromJson(j);
+  }
+  /** Estado exato do oráculo: jogadores (ordem da lista, campos), grupos (endereço, dados +0x3c, membros na ordem) e a tabela de
+   *  classes, pelo despejo; as unidades passam a apontar para eles. `groupOf(addr)` = o grupo do motor (`u.group`) de uma unidade. */
+  exeApplyPlayers(players: ExePlayerSpec[], classTable: string, groupOf: (addr: number) => number): void {
+    const w = this.exeWorld;
+    w.players.removeAll(); w.playersByAddr.clear(); w.groupsByAddr.clear(); this.exeGroups.clear(); this.exePlayers.clear();
+    const byUnit = new Map<number, UnitTypeRec>();
+    for (const p of players) {
+      const pr = new PlayerRec();
+      pr.addr = p.a >>> 0; pr.f04 = p.id; pr.f2c = p.f2c >>> 0; pr.f32 = p.f32 & 0xffff; pr.f38 = p.f38 >>> 0;
+      for (const g of p.groups) {
+        const gr = new UnitTypeRec();
+        gr.addr = g.a >>> 0;
+        if (g.data) {
+          const b = new Uint8Array(g.data.match(/../g)!.map(h => parseInt(h, 16))), dv = new DataView(b.buffer), d = gr.stats;
+          d.f0a = dv.getInt16(0x0a, true); d.f15 = b[0x15]!; d.f20 = b[0x20]!; d.f24 = dv.getUint32(0x24, true); d.f28 = dv.getUint16(0x28, true);
+          d.f2a = b[0x2a]!; d.f2b = b[0x2b]!; d.f2c = b[0x2c]!; d.f2d = b[0x2d]!; d.f30 = dv.getInt32(0x30, true); d.f34 = dv.getInt32(0x34, true);
+          d.f38 = b[0x38]!; d.f39 = b[0x39]!; d.speedByte = b[0x44]!; d.f45 = b[0x45]!; d.f48 = dv.getUint32(0x48, true);
+        }
+        for (const a of g.units) { gr.members.addTail(a >>> 0); byUnit.set(a >>> 0, gr); }
+        gr.owner = pr;
+        w.groupsByAddr.set(gr.addr, gr);
+        pr.groups.addTail(gr.addr);
+        const first = g.units[0];
+        if (first !== undefined) { const gid = groupOf(first >>> 0); if (!this.exeGroups.has(gid)) this.exeGroups.set(gid, gr); }
+      }
+      w.playersByAddr.set(pr.addr, pr); w.players.addTail(pr.addr);
+      this.exePlayers.set(p.id, pr);
+    }
+    const ct = classTable.match(/../g) ?? [];
+    for (let i = 0; i < 16 && i < ct.length; i++) w.classTable[i] = (parseInt(ct[i]!, 16) << 24) >> 24;
+    for (const r of this.exe.units.values()) {
+      const g = byUnit.get(r.addr >>> 0);
+      if (g) r.type = g;
+      const pr = this.exePlayers.get(r.owner.f04);
+      if (pr) r.owner = pr;
+    }
+    this.nextGroupAddr = 0x21000000;
+  }
+  /** Os registros de grupo/jogador de todas as unidades e os campos de IA que o pensamento lê (fora do estado exato do oráculo). */
+  private exeSyncGroups(): void {
+    for (const u of this.units) {
+      const g = this.exeGroupSync(u), r = u.rec;
+      // posto (0x56d52b / carga do mapa) do motor antigo; com o pensamento portado (`exeTask`) quem o escreve são as tarefas
+      // (0x56d4ba guarda, 0x569b62 patrulha: o posto acompanha a unidade, 0x56d52b Stand ground)
+      if (!u.exeTask) r.ai.f00 = ((u.home.y & 0xff) << 8) | (u.home.x & 0xff);
+      r.ai.f40 = u.withdrawHp | 0; r.ai.f44 = u.wimpyHp | 0;
+      for (let i = 0; i < 3; i++) { const ps = u.procSpells[i]; r.ai.f7c[i] = ps ? Number(ps.spell.base ?? ps.spell.id) | 0 : 0; r.ai.f88[i] = ps ? Math.round(ps.chance * 0x8000 / 100) | 0 : 0; }
+      r.fa5 = Math.max(0, Math.floor(this.sightOf(u))) & 0xff;
+      r.f88 = ((u.stats.mind ?? 0) << 16) >> 16;
+      r.hasBook = u.spells.length > 0;
+      if (r.book.src !== World.bookSig(u)) this.exeSyncBook(u);
+      void g;
+    }
+    this.exeWorld.players.removeAll();
+    for (const q of [...this.exePlayers.keys()].sort((a, b) => a - b)) this.exeWorld.players.addTail(this.exePlayers.get(q)!.addr);
+    // os objetos fixos do mapa ([[0x6044c4]+0x7c]+4: 0x55b507 escreve +0x42 de cada um)
+    {
+      const ls = this.exeWorld.lists.structs;
+      let stale = ls.count !== this.exe.structs.size;
+      if (!stale) for (const a of ls.values()) if (!this.exe.structs.has(a)) { stale = true; break; }
+      if (stale) { ls.removeAll(); for (const a of this.exe.structs.keys()) ls.addTail(a); }
+    }
+  }
+  /** as magias do livro espelhado: as do motor antigo e as de chance (IA+0x7c: 0x56a981 as busca no livro por Unit_GetBookSpell 0x51c391) */
+  private static bookSpells(u: Unit): SpellDef[] {
+    return [...u.spells, ...u.procSpells.map(p => p.spell).filter(p => !u.spells.some(s => (s.base ?? s.id) === (p.base ?? p.id)))];
+  }
+  /** assinatura das magias que o livro espelha (a lista muda no lugar: pergaminhos, magias aprendidas) */
+  private static bookSig(u: Unit): string {
+    return World.bookSpells(u).map(s => `${s.base ?? s.id}:${s.range}:${s.mana}:${s.defensive ? 1 : 0}`).join(",");
+  }
+  /** O livro de magias espelhado (unidade+0x140: CArray de 28 slots indexado pelo id, como nas imagens do oráculo) a partir das magias do
+   *  motor antigo: id, alcance, custo, bit de apoio (+0xa) e o endereço sintético que a máquina portada resolve (`spellAddr`). */
+  private exeSyncBook(u: Unit): void {
+    const b = u.rec.book;
+    b.src = World.bookSig(u); b.spells.length = 0;
+    // 28 posições nas imagens do oráculo; quem conhece Curse (0x1c)/Slow (0x1d) tem o CArray maior (o índice é o id)
+    const list = World.bookSpells(u), n = Math.max(0x1c, ...list.map(s => (Number(s.base ?? s.id) | 0) + 1).filter(k => k <= 0x1e));
+    for (let i = 0; i < n; i++) b.spells.push(null);
+    for (const s of list) {
+      const id = Number(s.base ?? s.id) | 0;
+      if (id < 0 || id >= n) continue;
+      const r = new BookSpellRec();
+      r.addr = this.spellAddr(s); r.id = id; r.range = Math.max(0, Math.floor(s.range)) & 0xff; r.cost = (Math.round(s.mana) << 16) >> 16; r.f0a = s.defensive ? 1 : 0;
+      b.spells[id] = r;
+    }
+  }
+  /** AI_IdleCasterSupport 0x56c592 portado, chamado pelo pensamento do motor antigo (modos `legacyMode`): true se ficou com a tarefa 8
+   *  (a ordem de magia do motor antigo é escrita a partir dela). */
+  exeIdleCasterSupport(u: Unit): boolean {
+    aiIdleCasterSupport(this.exeWorld, u.rec, this.thinkHooks);
+    if (!u.castThisThink) return false;
+    this.applyTaskOrder(u);
+    return true;
+  }
+  /** A ordem do motor antigo a partir da tarefa IA+8 que o porte deixou (1 andar para IA+0xa, 5 atacar IA+0xc, 8 magia IA+0x30 em IA+0x28,
+   *  0xb/0 parada); só a apresentação: os registros (tarefa, destino, alvo, perseguição) já são os do exe. */
+  private applyTaskOrder(u: Unit): void {
+    const r = u.rec, task = r.ai.task & 0xff, cast = u.castThisThink;
+    u.castThisThink = false;
+    let o: Order;
+    // classe +0x50 ainda 1 com IA+8 = 0/0xb a meio do último passo (IA+9 = 3: o pensamento largou a ordem) ou 6 (0x56eff3: atacar IA+0xc
+    // sem perseguir): a unidade segue andando até o fim do passo (medido: herói da m10_start_s16 T=36, classe 1 e IA+8 = 0; m10_mage_s120
+    // T=548, classe 1 e IA+8 = 6). Parada no centro (0x573198 → Stand ground ao lado do destino ocupado: classe 1 e IA+8 = 0) = "none"
+    const walking = (r.task & 0xff) === 1 && (task === 6 || ((task === 0 || task === 0xb) && r.ai.sub === 3));
+    if (task === 1 || walking) o = { type: "move", x: r.ai.f0a & 0xff, y: (r.ai.f0a >> 8) & 0xff };
+    else if (task === 5 || task === 6) { const t = this.unitByAddr(r.ai.f0c); if (!t) return; o = { type: "attack", target: t.id }; }
+    // tarefa de magia 8/9: só a nascida neste pensamento (gancho `castTask`); a que ficou de um pensamento anterior já virou ordem
+    else if (task === 8) { const t = this.unitByAddr(r.ai.f28), s = SPELL_BY_ADDR.get(r.ai.f30 >>> 0); if (!cast || !t || !s) return; o = { type: "cast", spell: s.id, target: t.id }; }
+    else if (task === 9) { const s = SPELL_BY_ADDR.get(r.ai.f30 >>> 0); if (!cast || !s) return; o = { type: "cast", spell: s.id, x: r.ai.f3c & 0xff, y: (r.ai.f3c >> 8) & 0xff }; }
+    else if (task === 0xb || task === 0) o = { type: "none" };
+    else return;
+    const p = u.order;
+    const same = p.type === o.type && (o.type !== "move" || (p.type === "move" && p.x === o.x && p.y === o.y)) && (o.type !== "attack" || (p.type === "attack" && p.target === o.target))
+      && (o.type !== "cast" || (p.type === "cast" && p.spell === o.spell && p.target === o.target && p.x === o.x && p.y === o.y));
+    if (same) return;
+    u.order = o; u.resume = null; u.orderArmed = true; u.orderTick = -1e9; u.waitTicks = 0;
+    if (o.type === "attack") { if (u.state !== "attack" && u.state !== "cast") u.target = o.target; u.lastTarget = o.target; }
+    else if (o.type === "cast") { if (o.target) { u.target = o.target; u.lastTarget = o.target; } }
+    else if (u.state !== "attack" && u.state !== "cast") u.target = 0;
+    if (p.type !== o.type || o.type !== "move") u.decideTick = this.tick;
+  }
+  /** Depois do pensamento: `groupState`/`groupRadius`/`groupTarget` (vistas) e a ordem das unidades cujo grupo o porte comanda, a partir
+   *  da tarefa IA+8 (`applyTaskOrder`). */
+  private syncOrdersFromTasks(): void {
+    for (const [gid, g] of this.exeGroups) {
+      if (gid <= 0 || !this.groupState.has(gid)) continue;
+      const gs = this.groupState.get(gid)!, d = g.stats;
+      gs.radius = d.f2d & 0xff; gs.base = (d.f38 << 24) >> 24; gs.combat = (d.f30 | 0) !== 0;
+    }
+    for (const u of this.units) {
+      const r = u.rec, cmd = (r.type.stats.f20 << 24) >> 24;
+      u.groupRadius = u.group ? r.type.stats.f2d & 0xff : u.groupRadius;
+      u.groupTarget = r.ai.f20 ? this.unitByAddr(r.ai.f20)?.id ?? 0 : 0;
+      const driven = u.exeTask || u.fledThisThink || u.castThisThink;
+      u.fledThisThink = false;
+      void cmd;
+      if (!driven || !u.alive || u.phased || u.suspended) continue;   // grupo suspenso pelo script: fica parado (como no motor antigo) [est]
+      this.applyTaskOrder(u);
+    }
+  }
+  /** O pensamento do exe (0x56fe4d) neste tique: relógio de 16/s ainda ≡ 6 (pré-incremento) e o contador de 1/s. */
+  private exeThink(): void {
+    EXE_GLOBALS.clock16 = this.absClock16() - 1;
+    EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff;
+    fn_0x56fe4d(this.exeWorld, this.exeWorld.players, this.thinkHooks);
+    EXE_GLOBALS.clock16 = this.absClock16();
+    this.syncOrdersFromTasks();
+  }
+  /** Ganchos do pensamento: magias (8b) no motor antigo e os modos sem tratador (`legacyMode`). */
+  private readonly thinkHooks: ThinkHooks = {
+    legacyThink: (_w, r) => {
+      const u = this.unitByAddr(r.addr);
+      if (!u || !this.legacyMode(u)) return false;
+      if (u.alive && !u.phased && !u.suspended && !u.helpless && !this.stunned(u)) legacyThink(this, u);
+      return true;
+    },
+    castChosenSpell: () => 0,   // a magia escolhida no livro entra no golpe (adaptador `thinkAfterDispatch`)
+    // 0x57a769: a escolha é a do motor antigo (8b); o fim é o do exe — AI_CastAtTarget 0x56c72b (tarefa 8 no alvo, portada), que o
+    // `applyTaskOrder` torna a ordem de lançar (sem a tarefa, a ordem dada aqui era apagada pela tarefa 0 do pensamento)
+    casterOffensiveSpell: (w, r, t) => {
+      const u = this.unitByAddr(r.addr), tu = this.unitByAddr(t.addr);
+      if (!u || !tu) return 0;
+      const s = pickOffensive(this, u, tu);
+      if (!s) return 0;
+      if (r.book.src !== World.bookSig(u)) this.exeSyncBook(u);
+      const b = r.book.spells[Number(s.base ?? s.id) | 0];
+      if (!b) { this.command(u, castAt(u, s, tu)); u.orderTick = -1e9; return 1; }
+      aiCastAtTarget(w, r, s.kind === "summon" ? r : t, b, this.thinkHooks);
+      return 1;
+    },
+    autocast: (_w, r) => { const u = this.unitByAddr(r.addr); if (u && u.alive && !this.stunned(u)) autocast(this, u); },
+    traps: () => { for (let i = 0; i < this.traps.length; i++) this.rng.draw(0x57a409); },
+    fleeTeleport: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) { exeFlee(this, u, this.enemiesInSquare(u, UNIT_GUARD_RADIUS + 5), Math.max(1, Math.floor(u.stats.sight)) + 1, UNIT_GUARD_RADIUS); this.fleeTask(u); } },
+    withdrawTeleport: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) { exeFlee(this, u, this.enemiesInSquare(u, 2), Math.max(1, Math.max(1, Math.floor(u.stats.sight)) - 1)); this.fleeTask(u); } },
+    fled: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) { u.fledThisThink = true; if (u.order.type !== "retreat") this.events.push({ type: "flee", unit: u.id }); } },
+    castTask: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) u.castThisThink = true; },
+  };
+
+  /** Fim da fuga por magia do motor antigo (`exeFlee`, ganchos 0x56cb8c/0x56cef3) como no exe: o Teleport no ponto é AI_TeleportCast
+   *  0x56969c (tarefa 9) e o andar é AI_MoveTo 0x56c8af (tarefa 1) — o `applyTaskOrder` os torna a ordem; sem isso a tarefa antiga
+   *  do pensamento apagava a ordem de fuga. */
+  private fleeTask(u: Unit): void {
+    const o = u.order, r = u.rec;
+    u.fledThisThink = true;
+    if (o.type === "cast" && !o.target && o.x !== undefined && o.y !== undefined) {
+      const sp = u.spells.find(x => x.id === o.spell);
+      if (!sp) return;
+      if (r.book.src !== World.bookSig(u)) this.exeSyncBook(u);
+      const b = r.book.spells[Number(sp.base ?? sp.id) | 0];
+      if (b) aiTeleportCast(this.exeWorld, r, ((o.y & 0xff) << 8) | (o.x & 0xff), b, this.thinkHooks);
+    } else if (o.type === "retreat" && u.fleeX >= 0) aiMoveTo(r, ((u.fleeY & 0xff) << 8) | (u.fleeX & 0xff));
   }
 
   get(id: number): Unit | undefined { return this.byId.get(id); }
@@ -637,19 +1054,25 @@ export class World {
    *  (a lista veio do despejo). */
   private exeSyncWorld(): void {
     const w = this.exeWorld;
+    w.helpless.clear(); for (const u of this.units) if (u.helpless) w.helpless.add(u.rec.addr >>> 0);
     for (let a = 0; a < this.dip.length && a < 0x46; a++) for (let b = 0; b < this.dip.length && b < 0x46; b++) {
-      w.dipTable[8 + a * 0x46 + b] = a === b ? 0 : (this.dip[a]?.[b] ?? 0) & 3;   // bit 0 guerra, bit 1 aliança (0x57977a testa & 3)
+      w.dipTable[8 + a * 0x46 + b] = a === b ? 0x12 : (this.dip[a]?.[b] ?? 0) & 3;   // bit 0 guerra, bit 1 aliança (0x57977a testa & 3; AI_AlliesScan 0x567b2d guarda o bit 1); consigo mesmo 0x12 nas 3 imagens do oráculo
     }
     const heroOf = new Map<number, number>();
     for (const u of this.units) if (u.isHero) heroOf.set(u.player, u.rec.addr);
-    for (const u of this.units) { u.rec.owner.f04 = u.player; u.rec.owner.f38 = heroOf.get(u.player) ?? 0; }
-    if (this.exeExact) return;
+    if (this.exeExact) { for (const u of this.units) { u.rec.owner.f04 = u.player; u.rec.owner.f38 = heroOf.get(u.player) ?? 0; } return; }
+    this.exeSyncGroups();
+    for (const [p, r] of this.exePlayers) { r.f04 = p; r.f38 = heroOf.get(p) ?? 0; r.f2c = p === this.humanPlayer ? 0 : 1; }
+    // ordem de criação do exe: o herói ANTES das unidades do mapa (despejos m10/m20: [0x68d2dc]+4 começa no herói; o nosso o cria depois
+    // do mapa) — 0x52b459 roda a unidade inteira (pensar, golpe, passo) na ordem da lista: com o herói por último, quem o persegue media a
+    // distância com o passo dele por acabar (golden `pos|t75`). [est] O resto segue a nossa ordem (a do original não é a dos ids)
+    const created = [...this.units.filter(u => u.isHero), ...this.units.filter(u => !u.isHero)];
     w.liveUnits.removeAll();
-    for (const u of this.units) if (u.state !== "dead" && u.state !== "dying") w.liveUnits.addTail(u.rec.addr);
+    for (const u of created) if (u.state !== "dead" && u.state !== "dying") w.liveUnits.addTail(u.rec.addr);
     // contentor [0x68d2dc] (World_SecondTick): todas as não consumadas (ordem de criação, caídas incluídas), as criadas por magia e os
     // cadáveres [est: ordem de criação; no exe é a da morte — sem efeito no estado, cada cadáver decompõe-se sozinho]
     w.lists.all.removeAll(); w.lists.magic.removeAll(); w.lists.corpses.removeAll();
-    for (const u of this.units) {
+    for (const u of created) {
       if (u.bodyDead) w.lists.corpses.addTail(u.rec.addr); else w.lists.all.addTail(u.rec.addr);
       if (u.dynamic || u.summoner) w.lists.magic.addTail(u.rec.addr);
     }
@@ -659,12 +1082,7 @@ export class World {
    *  cada tipo (tipo+0, por modelo [est]), a diplomacia e os donos. Estado importado/restaurado: os endereços dos registros mudaram. */
   exeRebuildLists(live?: number[], lists?: { all: number[]; magic: number[]; corpses: number[] }): void {
     const w = this.exeWorld;
-    this.typeLists.clear();
-    for (const u of this.units) {
-      u.rec.type.members = this.typeList(u.typeId);
-      u.rec.type.members.addTail(u.rec.addr);
-      u.rec.ai.f71 = (u.stats.seeInvisible ?? 0) & 0xff;
-    }
+    for (const u of this.units) u.rec.ai.f71 = (u.stats.seeInvisible ?? 0) & 0xff;
     this.exeSyncWorld();
     if (live) { w.liveUnits.removeAll(); for (const a of live) w.liveUnits.addTail(a >>> 0); }
     if (lists) {
@@ -767,14 +1185,26 @@ export class World {
         if (q.type === "attack" && t) u.rec.ai.f0c = t.rec.addr;
       }
     } else u.orderArmed = true;
-    // ordem nova do lado humano: a mensagem do cliente zera a perseguição (andar+0x7c; medido: herói da m10_start, T=119 ataque e
-    // T=429 andar); a de andar já põe a tarefa 1 e o destino (IA+8, IA+0xa)
+    // ordem nova do lado humano = a mensagem do cliente (Server_PacketDispatcher 0x4f515d, pacote 3; sim/exe/orders.ts `clientOrder`):
+    // regrupa a unidade [est: seleção de uma] e despacha andar (4), atacar unidade (7), lançar em unidade (0xc), Stand ground (6).
+    // As ordens sem `case` executado no corpus (andar "perto" = pegar/usar, pacote 0x22; magia no chão 0xd; guarda 5; patrulha 0xb;
+    // defender 9; parado) ficam como estavam: só zeram a perseguição e o "parado" [est]
     if (!this.isAiPlayerUnit(u) && !sameOrder(u.order, o)) {
-      u.rec.walk.chaseTarget = 0;
-      if (o.type === "move") {
-        const x = Math.max(MAP_BORDER, Math.min(this.grid.w - MAP_BORDER - 1, o.x)), y = Math.max(MAP_BORDER, Math.min(this.grid.h - MAP_BORDER - 1, o.y));
-        u.rec.ai.task = 1; u.rec.ai.f0a = ((y & 0xff) << 8) | (x & 0xff);
+      const wd = this.exeWorld, r = u.rec;
+      let g: UnitTypeRec | null = null;
+      if (!World.legacyAi(u.ai) && !World.legacyOrder(o)) {
+        if (o.type === "move" && !o.near) g = clientOrder(wd, [r], ClientOrder.Walk, o.x, o.y, null, 0);
+        else if (o.type === "attack") { const t = this.get(o.target); if (t) g = clientOrder(wd, [r], ClientOrder.AttackUnit, 0, 0, t.rec, 0); }
+        else if (o.type === "cast" && o.target) {
+          const t = this.get(o.target), s = u.spells.find(x => x.id === o.spell);
+          // o livro (+0x140) existe desde o nascimento no exe: espelhado aqui também, não só no pensamento (Unit_GetBookSpell em 0x4f515d)
+          r.hasBook = u.spells.length > 0;
+          if (r.book.src !== World.bookSig(u)) this.exeSyncBook(u);
+          if (t && s) g = clientOrder(wd, [r], ClientOrder.CastAtUnit, 0, 0, t.rec, Number(s.base ?? s.id) | 0);
+        } else if (o.type === "hold") g = clientOrder(wd, [r], ClientOrder.StandGround, 0, 0, null, 0);
       }
+      if (g) this.exeGroups.set(-u.id, g);
+      else { r.walk.chaseTarget = 0; r.ai.f50 = 0; }
     }
     if (!sameOrder(u.order, o)) u.decideTick = this.tick;
     // patrulha: a lista de pontos do exe (IA+0xb4, na ordem do roteiro: A = posto, B = ponto do script) e o ponto corrente IA+2
@@ -794,6 +1224,7 @@ export class World {
     else if (o.type !== "cast") u.target = 0;
     if (o.type === "retreat") { u.fleeX = -1; u.fleeY = -1; }
     if (o.type === "guard") u.home = { x: o.x, y: o.y };
+    if (!this.isAiPlayerUnit(u)) u.exeTask = !this.legacyMode(u);
   }
 
   /** Volta à ordem interrompida (patrulha/guarda do jogador) ou fica parado. */
@@ -814,43 +1245,29 @@ export class World {
   initGroupGuard(group: number, units: Unit[], param = 0, setup = false): void {
     const m = units.filter(u => u.alive && this.isAiPlayerUnit(u));
     if (!group || !m.length) return;
-    const cx = Math.floor(m.reduce((s, u) => s + u.cx, 0) / m.length), cy = Math.floor(m.reduce((s, u) => s + u.cy, 0) / m.length);
-    let geom = 0;
-    for (const u of m) geom = Math.max(geom, Math.max(Math.abs(u.cx - cx), Math.abs(u.cy - cy)) + Math.max(0, Math.floor(u.stats.sight)));
-    // raio-base (+0x38): com parâmetro, max(geometria, parâmetro); sem ele e abaixo de MinimalGuardRange (ai.reg: 8), o Guard da
-    // carga do mapa (0x570aba, comando 0x12) usa 20 e o Guard do script (0x5709d9) usa 8 — conferido nos grupos exportados das
-    // missões 10 e 20 (unidades sozinhas: 20 fora de combate, 25 = 20 + 4 + 1 em combate)
-    const base = param > 0 ? Math.max(geom, param) : geom >= MINIMAL_GUARD_RANGE ? geom : setup ? 20 : MINIMAL_GUARD_RANGE;
-    this.groupState.set(group, { base, radius: base, combat: false, cmd12: setup });
-    for (const u of m) { u.group = group; u.groupRadius = base; u.groupTarget = 0; u.home = { x: u.cx, y: u.cy }; }
+    for (const u of m) { u.group = group; u.groupTarget = 0; }
+    // o grupo do exe com todos os membros e o comando pela porta: AI_GuardLoad 0x570aba (carga do mapa, comando 0x12, raio 20) ou
+    // AI_GroupCmd_Guard 0x5709d9 (script, comando 1, raio MinimalGuardRange); a visão +0xa5 e as células já têm de estar no registro
+    let g: UnitTypeRec | null = null;
+    for (const u of m) { u.rec.fa5 = Math.max(0, Math.floor(this.sightOf(u))) & 0xff; g = this.exeGroupSync(u); }
+    if (!g) return;
+    if (setup) aiGuardLoad(this.exeWorld, g, param & 0xff); else aiGroupCmdGuard(this.exeWorld, g, param & 0xff);
+    const base = g.stats.f38 & 0xff;
+    this.groupState.set(group, { base, radius: g.stats.f2d & 0xff, combat: (g.stats.f30 | 0) !== 0, cmd12: setup });
+    for (const u of m) { u.groupRadius = base; u.home = { x: u.rec.ai.f00 & 0xff, y: (u.rec.ai.f00 >> 8) & 0xff }; }
   }
 
   /** estado da guarda de cada grupo de IA (comando `+0x3c`): raio-base `+0x38`, raio atual `+0x2d`, em combate `+0x30`; `cmd12` = Guard
    *  da carga do mapa (comando 0x12, 0x570aba → pensamento 0x5728fa; o Guard do script é o comando 1, 0x57275f) */
   groupState = new Map<number, GroupGuardState>();
 
-  /** grupos de IA "acordados" (`+0x3c+0x45`), refeito no início de cada pensamento da IA [exe 0x56fe4d → 0x55b5f1]: grupo com alguma
-   *  unidade ferida (vida < máx.) ou num bloco de 8×8 células a ≤ 2 blocos (Chebyshev) do bloco de alguma unidade do jogador humano.
-   *  Grupo dormindo não pensa (0x570087) e o despachante de ações das unidades dele não roda (0x56dca2: ação 0x1b). `null` = todos. */
-  activeGroups: Set<number> | null = null;
   /** grupos sempre acordados (`+0x3c+0x48`, posto pelos gatilhos do script 0x562745 nos grupos que eles citam). `null` = não modelado:
-   *  todos acordados (o jogo normal; o importador do diferencial deduz do estado exportado: ação 0x1b = dormindo) */
+   *  todos acordados (o jogo normal: `f48` = 1 em todos; o importador do diferencial deduz do estado exportado: ação 0x1b = dormindo) */
   alwaysAwake: Set<number> | null = null;
-  computeActiveGroups(): void {
-    if (!this.alwaysAwake) { this.activeGroups = null; return; }
-    const marks: [number, number][] = [];
-    for (const u of this.units) if (u.alive && (u.isHero || u.player === this.humanPlayer)) marks.push([Math.floor(u.x) >> 3, Math.floor(u.y) >> 3]);
-    const act = new Set<number>(this.alwaysAwake);
-    for (const u of this.units) {
-      if (!u.group || act.has(u.group) || !u.alive || !this.isAiPlayerUnit(u)) continue;
-      if (u.hp < u.maxHp) { act.add(u.group); continue; }
-      const bx = Math.floor(u.x) >> 3, by = Math.floor(u.y) >> 3;
-      if (marks.some(([x, y]) => Math.abs(x - bx) <= 2 && Math.abs(y - by) <= 2)) act.add(u.group);
-    }
-    this.activeGroups = act;
-  }
-  /** a unidade pertence a um grupo acordado (sem grupo: sempre) */
-  awake(u: Unit): boolean { return !u.group || !this.activeGroups || this.activeGroups.has(u.group); }
+  /** há invisibilidade do ritual da missão 77 neste tique (ver `step`) */
+  private ritualHidden = false;
+  /** a unidade pertence a um grupo acordado (`+0x3c+0x45`, escrito pelo pensamento: 0x55b5f1 a cada 1 s; com mundo+0xbbe8 ≠ 0 todos) */
+  awake(u: Unit): boolean { return (this.exeWorld.fbbe8 | 0) !== 0 || (u.rec.type.stats.f45 & 0xff) !== 0; }
 
   /** relógio de 16/s do original no nosso tique 0 (estado importado: `t16 − clock16()` no tique da importação); `null` = jogo normal
    *  (o pensamento segue `clockPhase`/AI_THINK_PHASE) */
@@ -859,7 +1276,14 @@ export class World {
   thinkNow = false;
   /** unidades na ordem do servidor do exe: jogador e, dentro dele, id (o do original nos estados importados) */
   serverOrder(): Unit[] {
-    return [...this.units].sort((a, b) => a.player - b.player || (a.regenSlot ?? a.id) - (b.regenSlot ?? b.id));
+    // Server_ClockTick 0x4f8521 → 0x52b459 percorre [0x68d2dc]+4 (`lists.all`: ordem de criação, que NÃO é a dos ids — m20_start:
+    // 24660 vem antes de 24621); quem não está na lista (cadáveres em `corpses`) vai depois, por (jogador, id)
+    const byAddr = new Map<number, Unit>();
+    for (const u of this.units) byAddr.set(u.rec.addr >>> 0, u);
+    const out: Unit[] = [];
+    for (const a of this.exeWorld.lists.all.values()) { const u = byAddr.get(a >>> 0); if (u) { out.push(u); byAddr.delete(a >>> 0); } }
+    const rest = [...byAddr.values()].sort((a, b) => a.player - b.player || (a.regenSlot ?? a.id) - (b.regenSlot ?? b.id));
+    return out.concat(rest);
   }
 
   /** contador de 1/s do exe (`[[0x6044c4]+0]`): ⌊relógio de 16/s absoluto ÷ 16⌋ — Server_Tick o incrementa no fim do tique cujo relógio
@@ -892,12 +1316,12 @@ export class World {
     r.prot[4] = this.resistOf(u, "earth"); r.prot[5] = this.resistOf(u, "astral");
     const rp = s.resistPhysical;
     for (let i = 0; i < WTYPE_KEYS.length; i++) r.resist[i] = rp ? Math.min(100, rp[WTYPE_KEYS[i]!] ?? 0) & 0xff : 0;
-    r.f4c = (r.f4c & ~0x10) | (s.alwaysHit ? 0x10 : 0);
+    r.f4c = (r.f4c & ~0x14) | (s.alwaysHit ? 0x10 : 0) | (u.spells.length ? 4 : 0);   // bit 4 = tem livro de magias (0x53a5a0: conjurador)
     r.f04 = (u.regenSlot ?? u.id) >>> 0; r.f0e = u.typeId & 0xffff;   // +4 = id do original nos estados importados (trava % 4 da regeneração)
     r.vtbl = u.isHero || (u.typeId > 0 && u.typeId < 0x40) ? 0x5d0fb8 : 0x5d0eb0;   // humanos/herói × monstros (os testes mudam `isHero` depois do spawn)
     { const mv = s.movement ?? (u.flying ? 3 : 1); r.kind = u.flying && mv < 2 ? 3 : mv; }   // +0x4a (> 1: some ao morrer); os testes mudam `flying` depois do spawn
     r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (0x516ceb: distância ≤ alcance; AI_AttackRange 0x56ac5b sem magia escolhida)
-    r.f1a0 = u.dynamic ? 1 : 0; r.f148 = u.summoner ? unitAddr(u.summoner) : 0;
+    r.f1a0 = u.dynamic ? 1 : 0; r.f148 = u.summoner && !u.bodyDead ? unitAddr(u.summoner) : 0;   // Unit_Die 0x510a70 zera +0x148
     // regeneração (0x50fc5a): períodos +0x98/+0x9e dos dados (0 = não regenera), bônus +0xde/+0xe2 (não há nos `stats`); os restos
     // +0xa2/+0xa3 são do registro. No estado importado do oráculo vêm do despejo.
     if (!this.exeExact) { r.f98 = ((s.healthRegen ?? 0) << 16) >> 16; r.f9e = ((s.manaRegen ?? 0) << 16) >> 16; r.fde = 0; r.fe2 = 0; }
@@ -918,6 +1342,8 @@ export class World {
     if (!this.exeExact) {
       let e = 0;
       for (const b of u.buffs) { const id = Number(b.spell); if (id >= 1 && id < 32) e |= 1 << id; }
+      // a invisibilidade dada pelo script (missão 77, `spell: "ritual"`) também é o efeito 0xc (AI_EnemyFilter 0x567a16 testa 0x1000)
+      if (u.buffs.some(b => b.kind === "invisible")) e |= 1 << SPELL.Invisibility;
       r.effects = e >>> 0;
     }
   }
@@ -976,60 +1402,6 @@ export class World {
     }
   }
 
-  /** Pensamento da guarda dos grupos de IA, 1×/s [exe 0x57275f]: centroide atual do grupo (média inteira das células, 0x56fa63);
-   *  inimigos vistos por alguma unidade do grupo (mapa de visão 0x571c4d → filtro de diplomacia/Invisibility 0x567a16) a Chebyshev ≤ raio
-   *  do centroide (0x567e92); cada unidade recebe o de menor custo (0x57240b → 0x5711ea): distância de Chebyshev (para quem atira, o que
-   *  falta além do alcance + 1), × 256, + 0x7f se o alvo está petrificado. Sem alvo a unidade volta ao próprio posto (0x56c8af).
-   *  [est] visão = raio `sightOf` de cada unidade do grupo; a tabela de preferência por classe (+0xa54) e o desempate 0x55aa21 não são
-   *  modelados (empate = o mais perto em Euclides). */
-  private thinkGroups(): void {
-    const groups = new Map<number, Unit[]>();
-    for (const u of this.units) {
-      if (!u.group || u.groupRadius <= 0 || !u.active || u.phased || u.suspended || u.helpless || !this.isAiPlayerUnit(u)) continue;
-      let g = groups.get(u.group);
-      if (!g) groups.set(u.group, (g = []));
-      g.push(u);
-    }
-    for (const [gid, m] of groups) {
-      if (this.activeGroups && !this.activeGroups.has(gid)) continue;   // grupo dormindo não pensa (0x570087)
-      const guards = m.filter(u => u.ai.type === "guard");
-      if (!guards.length) continue;
-      const cx = Math.floor(m.reduce((s, u) => s + Math.floor(u.x), 0) / m.length), cy = Math.floor(m.reduce((s, u) => s + Math.floor(u.y), 0) / m.length);
-      const gs: GroupGuardState = this.groupState.get(gid) ?? { base: guards[0]!.groupRadius, radius: guards[0]!.groupRadius, combat: false };
-      const r = gs.radius;
-      const foes: Unit[] = [];
-      // visão do GRUPO (0x571c4d): células vistas por alguma unidade (orçamento com relevo, World.markVision); entra quem está numa
-      // delas (célula do CHÃO = floor da posição fina, objeto de mapa do exe), passa no filtro de diplomacia/Invisibility (0x567a16) e
-      // fica a Chebyshev ≤ raio do centroide (0x567e92)
-      const seen = this.visionScratch(); for (const u of m) this.markVision(u, seen);
-      const W = this.grid.w;
-      for (const v of this.units) {
-        const vx = Math.floor(v.x), vy = Math.floor(v.y);
-        if (!v.targetable || v.helpless || !this.grid.inside(vx, vy) || !seen[vy * W + vx] || Math.max(Math.abs(vx - cx), Math.abs(vy - cy)) > r) continue;
-        if (m.some(u => this.isEnemy(u, v) && this.canSee(u, v))) foes.push(v);
-      }
-      // raio (0x5726f7 / 0x57272c): o teste de 0x57275f/0x5728fa é `FUN_0055f220(grupo)` = a 1ª UNIDADE do grupo (não um inimigo): grupo
-      // com unidades → no 1º pensamento acordado o raio vira base + 4 + rand(−1..1) e `+0x30` = 1 para sempre; grupo vazio → base + rand(−1..1).
-      // (os grupos exportados em "combate" sem alvo nenhum e com raio = base + 3..5 confirmam)
-      if (m.length) { if (!gs.combat) { gs.radius = gs.base + 4 + this.rng.range(-1, 1, 0x572718); gs.combat = true; } }
-      else if (gs.combat) { gs.radius = gs.base + this.rng.range(-1, 1, 0x57274d); gs.combat = false; }
-      this.groupState.set(gid, gs);
-      for (const u of m) u.groupRadius = gs.radius;
-      for (const u of guards) {
-        const range = Math.max(1, this.attackRange(u));
-        let best: Unit | undefined, bs = Infinity, be = Infinity;
-        for (const v of foes) {
-          if (!this.isEnemy(u, v)) continue;
-          let d = Math.max(Math.abs(v.cx - u.cx), Math.abs(v.cy - u.cy));
-          if (range > 1) d = d > range ? d - range + 1 : 1;
-          const s = d * 256 + (v.hasBuff("stone") ? 0x7f : 0), e = Math.hypot(v.cx - u.cx, v.cy - u.cy);
-          if (s < bs || (s === bs && e < be)) { bs = s; be = e; best = v; }
-        }
-        u.groupTarget = best?.id ?? 0;
-      }
-    }
-  }
-
   // ------------------------------------------------------------------------------------------- laço
 
   step(): void {
@@ -1044,22 +1416,24 @@ export class World {
     // rodar as unidades: é o mesmo tique do nosso ≡ 7 (relógio já incrementado), mas os sorteios dele foram gravados com o relógio
     // anterior — no replay (golden) o bloco do pensamento busca a fila do tique − 1
     if (aiTick && this.t16base !== null) this.rng.shift = -1;
+    this.exeSyncWorld();
+    for (const u of this.units) this.syncCombat(u);
+    // [est] a invisibilidade do ritual da missão 77 (mission/setup.ts, `spell: "ritual"`: "os guardas que aparecem não veem ninguém") não é
+    // mecânica do exe — AI_EnemyFilter 0x567a16 só deixa ver o invisível a distância ≤ IA+0x71 de um membro do grupo; enquanto ela dura,
+    // as unidades de IA ficam com IA+0x71 = 0
+    if (!this.exeExact) {
+      const ritual = this.units.some(v => v.alive && v.buffs.some(b => b.kind === "invisible" && b.spell === "ritual"));
+      if (ritual || this.ritualHidden) for (const u of this.units) u.rec.ai.f71 = (ritual && this.isAiPlayerUnit(u) ? 0 : u.stats.seeInvisible ?? 0) & 0xff;
+      this.ritualHidden = ritual;
+    }
     if (aiTick) {
       // em tiques de 16/s: a ordem precisa ter chegado ≥ 2 tiques antes do pensamento (a do tique anterior só vale no tique dele)
       const s16 = (t: number) => Math.round(t * SERVER_TICKS_PER_SEC / TICKS_PER_SEC);
       for (const u of this.units) if (s16(this.tick) - s16(u.orderTick) >= 2) { if (!u.orderArmed) u.decideTick = this.tick; u.orderArmed = true; }
-      this.computeActiveGroups();
-      this.thinkGroups();
-      // armadilhas do script [exe 0x57a47d → 0x57a307]: no fim do pensamento da IA cada uma sorteia 1 dos candidatos na zona
-      // (Rand_Range(1, n): 1 rand() mesmo com n = 0) — a escolha em si continua em stepTraps
-      for (let i = 0; i < this.traps.length; i++) this.rng.draw(0x57a409);
-      // o pensamento consome a lista de eventos do mundo (+0xbbec: golpes e magias para a IA de grupo, 0x574899/0x574ba1 — etapa
-      // 8) e a esvazia (0x57485b → 0x57b2b0 RemoveAll)
-      this.exeWorld.events.removeAll();
+      // 0x56fe4d: acordar os grupos (0x55b5f1), esvaziar os eventos do mundo (0x57485b), AI_PlayerThink por jogador, as armadilhas (gancho)
+      this.exeThink();
     }
-    this.exeSyncWorld();
     EXE_GLOBALS.clock16 = this.absClock16();
-    for (const u of this.units) this.syncCombat(u);
     // World_SecondTick 0x52bbb7 (regeneração/sangria 0x50fc5a, decomposição 0x5110b8, desgaste das invocações): Server_Tick a chama no
     // tique em que o relógio de 16/s ainda ≡ 0xc, ANTES de Server_ClockTick o incrementar e rodar as máquinas (pares: a regeneração lê
     // o relógio 28, a máquina do mesmo tique 29) — a vida que chega a −10 na sangria morre (Unit_Die) no mesmo tique
@@ -1072,14 +1446,6 @@ export class World {
     // ordem do servidor: jogadores em ordem e, em cada um, as unidades por id (sonda rngprobe: a posição dos sorteios do olhar em volta
     // bate 9/9 com (jogador, id)); `regenSlot` = id do original nos estados importados
     const order = this.serverOrder();
-    if (aiTick && this.t16base !== null) {
-      // decisões da IA (fuga, alvo, apoio) no pensamento, antes do laço das unidades
-      for (const u of order) {
-        if (u.state === "dead" || u.state === "dying" || u.phased || !u.active || u.isHero || u.suspended || u.helpless || !this.isAiPlayerUnit(u)) continue;
-        if (this.stunned(u) || !this.awake(u)) continue;
-        aiThink(this, u, true);
-      }
-    }
     this.rng.shift = 0;
     for (const u of order) {
       u.stateTime++;
@@ -1095,15 +1461,9 @@ export class World {
       if (!u.active) continue;
       if (u.cooldown > 0) u.cooldown--;
       if (this.stunned(u)) { if (u.state === "move" || u.state === "attack" || u.state === "cast") this.setState(u, "idle"); continue; }
-      // unidades do jogador humano: a cada 4 tiques; jogadores de IA: o pensamento que DECIDE (alvo, magia, fuga) é 1×/s, na fase
-      // AI_THINK_PHASE [exe 0x570087]; entre um e outro só conferem o alvo atual (a sub-tarefa em curso continua no `act`)
-      const decide = aiTick && this.isAiPlayerUnit(u) && this.t16base === null;
-      // o herói confere a sub-tarefa em TODO tique (Stand ground do despachante 0x569321 → 0x56dbc6; a decisão vale no pensamento
-      // seguinte): a cada 4 tiques, a 16/s, a conferência podia cair no próprio tique do pensamento (depois dele) e a ordem esperava 1 s a mais
-      if (decide || u.isHero || (this.tick + u.id) % 4 === 0) {
-        if (u.isHero) heroThink(this, u);
-        else if (!u.suspended && !u.helpless) aiThink(this, u, decide || !this.isAiPlayerUnit(u)); // caído (vida 0 do mapa/script): não age nem se cura sozinho
-      }
+      // o pensamento que DECIDE (alvo, magia, fuga) é 1×/s, no `exeThink` (pelo porte: grupos, tarefas por unidade e ordens do cliente).
+      // Só os modos sem tratador portado (`legacyMode`: defend/follow/still) pensam aqui no motor antigo, entre um pensamento e outro
+      if (!this.isAiPlayerUnit(u) && !u.exeTask && (u.isHero || (this.tick + u.id) % 4 === 0) && !u.suspended && !u.helpless) legacyThink(this, u);
       this.act(u);
     }
     this.stepProjectiles();
@@ -1267,7 +1627,7 @@ export class World {
     // ordem de andar: o pensamento (0x569321, tique ≡ 7) larga a tarefa 1 (IA+8 = 0) quando a CÉLULA já é a do destino, mesmo a meio
     // passo; a classe da tarefa (+0x50) só vira "parado" no pensamento em que a unidade já está no centro (medido: herói da m10_start
     // no centro em T=49 → as duas em T=50; da m10_mage a meio passo em T=97 → IA+8 = 0 em T=98, classe 1 até o pensamento seguinte)
-    if (u.order.type === "move" && this.thinkNow && u.cx === u.order.x && u.cy === u.order.y) {
+    if (u.order.type === "move" && this.thinkNow && !u.exeTask && u.cx === u.order.x && u.cy === u.order.y) {
       if (u.rec.ai.sub === 3 && !u.order.arrived) { u.order.arrived = true; u.rec.ai.task = 0; }
       else this.command(u, { type: "none" });
     }
@@ -1280,6 +1640,9 @@ export class World {
     // qualquer ordem; a máquina de ação (0x50f12c = o golpe/a magia do motor antigo, `progressAttack`) roda depois dele no mesmo
     // tique. No fim (pronto = 1 no tique E) o despachante solta o pedido em E + 1 (ação 0) e a tarefa volta em E + 2 (sonda c1/c2:
     // Skrakan, Lightning a cada charge + relax + nível + rand(0..3) + 2 = 24–27 tiques)
+    // [est] quem faz o ritual da missão 77 (invisibilidade `spell: "ritual"`, mission/setup.ts) só o faz: o Stand ground portado
+    // (0x56a1fb) o mandaria golpear o guarda que aparece ao lado e o golpe tiraria a invisibilidade (0x516b2f) — falha 7
+    if (u.exeTask && r.ai.sub === 0 && u.buffs.some(b => b.kind === "invisible" && b.spell === "ritual")) { this.stop(u); return; }
     if (r.ai.sub !== 0) { this.machine(u); return; }
     const o = u.order;
     switch (o.type) {
@@ -1287,7 +1650,8 @@ export class World {
         // ociosa de jogador de IA: o pensamento (0x56afd9, tique ≡ 7) põe a tarefa IA+8 = 0xb, e o despachante olha em volta em todo
         // tique (0x56e5bc: sorteios 0x56e629/0x56e656, giro por 0x556454); a tarefa importada do oráculo vale até o pensamento.
         // A tarefa 6 (fim de caminho 0x56ed4e: atacar quem está ao alcance, 0x56eff3) também segue no despachante
-        if (this.idleTask(u) && this.thinkNow && r.ai.task !== 0xb) r.ai.task = 0xb;
+        if (u.suspended) { this.stop(u); return; }
+        if (!u.exeTask && this.idleTask(u) && this.thinkNow && r.ai.task !== 0xb) r.ai.task = 0xb;
         if ((r.ai.task === 0xb && this.idleTask(u)) || r.ai.task === 6) { this.machine(u); return; }
         this.stop(u);
         return;
@@ -1308,6 +1672,24 @@ export class World {
         // no destino a tarefa de andar (IA+8 = 1) só acaba no pensamento (acima; medido: o herói da m10_start chega em T=43 e larga a
         // tarefa em T=50); até lá Unit_WalkNear 0x56e4ac dá ação 1 parada. Largada a meio passo (IA+8 = 0): parado até o pensamento.
         if (o.arrived) { this.stop(u); return; }
+        // pelo porte (`exeTask`) a tarefa de andar é a do exe (0x56d032, 0x573198): o motor antigo não reescreve IA+8/IA+0xa. Com IA+8
+        // largada pelo pensamento e a classe +0x50 ainda 1 (`applyTaskOrder`), parado como a ordem "none" (medido: herói da
+        // m10_start_s16, T=44–50: IA+8 = 0 até o pensamento, sem voltar a andar)
+        if (u.exeTask) {
+          // [est] destino fora da área útil (a fuga de 0x5728fa para IA+0x9c = 0): no exe, lixo de pilha no backtrace 0x54e886; como no
+          // `walkTo`, a célula limitada à área útil (medido: m20_mage_s404, 24639, T=288: o original anda para oeste)
+          if (r.ai.task === 1 && !this.exeExact) {
+            const x = r.ai.f0a & 0xff, y = (r.ai.f0a >> 8) & 0xff;
+            const cx = Math.max(MAP_BORDER, Math.min(this.grid.w - MAP_BORDER - 1, x)), cy = Math.max(MAP_BORDER, Math.min(this.grid.h - MAP_BORDER - 1, y));
+            if (cx !== x || cy !== y) r.ai.f0a = ((cy & 0xff) << 8) | (cx & 0xff);
+          }
+          if (r.ai.task !== 1 && r.ai.task !== 6 && r.ai.task !== 0xb) this.stop(u);
+          else if (!this.machineUB(u)) { u.order = { type: "none" }; this.stop(u); return; }
+          // o despachante acabou a tarefa de andar (fim do caminho 0x56dc24 → Stand ground 0x56dba1, classe 0xc; medido: herói da
+          // m10_start_s16, ordem para a célula ocupada em T=55): a ordem apresentada também
+          if ((r.task & 0xff) !== 1 && r.ai.task !== 1) u.order = { type: "none" };
+          return;
+        }
         // Andar para USAR (`near`, mission/interact.ts: no exe a tarefa 0xf, 0x56ecbc → Unit_WalkNear até a estrutura parando a 1): acaba ao ficar a `near` (a ação de usar substitui a tarefa)
         if (o.near && Math.max(Math.abs(u.cx - o.x), Math.abs(u.cy - o.y)) <= o.near) { this.command(u, { type: "none" }); this.stop(u); return; }
         if (!this.walkTo(u, o.x, o.y, o.near ?? 0)) { this.command(u, { type: "none" }); this.stop(u); }
@@ -1367,13 +1749,19 @@ export class World {
       case "attack":
       case "cast": {
         const t = o.type === "attack" ? this.get(o.target) : o.target ? this.get(o.target) : undefined;
+        // lado humano pelo porte, alvo que caiu morto: no exe a tarefa e a classe +0x50 ficam (o despachante 0x56dca2 é quem a larga; o
+        // pensamento do grupo escolhe a seguinte) — a ordem apresentada também, sem a volta do motor antigo (`resumeOrNone`). Golden
+        // `task|hero` (m10_mage_s14 800: o herói segue com classe 3 e o mesmo alvo) e `target|t75` (m10_mage_s603 512: o aliado da
+        // guarda do script segue no alvo morto até o pensamento e só então volta ao posto)
+        // (com uma ordem para retomar — a guarda/patrulha do motor antigo que pôs este ataque — ela volta como antes)
+        if (o.type === "attack" && t && !t.targetable && u.exeTask && !this.isAiPlayerUnit(u) && !u.resume) return;
         if (o.type === "attack" && (!t || !t.targetable)) { this.resumeOrNone(u); this.stop(u); return; }
         // lado humano: a ordem nova espera o pensamento 1×/s (termina o passo em curso e fica parado até lá)
         if (!u.orderArmed) { this.stop(u); return; }
         // o alvo (de pé ou caído) só segue sendo alvo enquanto há guerra: a paz que chega no meio da luta (feras da missão 53 depois dos
         // necromantes; Igles ainda batendo no lagarto) solta o alvo em vez de reabrir a guerra no próximo golpe; só o clique forçado insiste
         if (o.type === "attack" && t && t.player !== u.player && !o.forced && !this.hostile(u.player, t.player) && !this.hostile(t.player, u.player)) { this.resumeOrNone(u); this.stop(u); return; }
-        const spell = o.type === "cast" ? u.spells.find(s => s.id === o.spell) : undefined;
+        const spell = o.type === "cast" ? u.spells.find(s => s.id === o.spell) ?? u.procSpells.find(p => p.spell.id === o.spell)?.spell : undefined;
         if (o.type === "cast" && !spell) { this.command(u, { type: "none" }); return; }
         // Heal pode mirar quem ainda está morrendo (sangrando): levanta se a vida passar de 0 [exe 0x51a2b8] (sim/necro.ts)
         if (o.type === "cast" && t && !t.active && !(spell!.kind === "heal" && canRevive(this, u, t))) { this.command(u, { type: "none" }); this.stop(u); return; }
@@ -1480,10 +1868,12 @@ export class World {
     switch (u.order.type) {
       case "move": case "pickup": case "retreat": case "follow": case "defend": return 1;
       case "patrol": return 0xa;
-      case "attack": return 3;
-      case "cast": return 8;
-      default: return u.isHero ? 0xc : 0xb;
+      // as classes com alvo (3: IA+0xc, 8: IA+0x10) só com o ponteiro escrito: o despachante portado (0x569321) o lê quando a unidade
+      // volta ao pensamento do exe [est: a classe do motor antigo é só para o ramo do fim de caminho de 0x56dca2]
+      case "attack": { const t = this.get(u.order.target); if (!t) break; u.rec.ai.f0c = t.rec.addr; return 3; }
+      case "cast": { const t = u.order.target ? this.get(u.order.target) : undefined; if (!t) break; u.rec.ai.f10 = t.rec.addr; return 8; }
     }
+    return u.isHero ? 0xc : 0xb;
   }
 
   /** Adaptador da tarefa 9 do exe (0x56ec3f, exec 0 no corpus: só o ramo de andar; ver o cabeçalho deste arquivo). */
@@ -1522,7 +1912,9 @@ export class World {
       const pool = this.itemPool.filter(([, price]) => price >= min && price <= max);
       if (pool.length) u.items.push(pool[this.rng.exe(pool.length - 1, 0x510ddf)]![0]);
     },
-    packCount: r => this.unitByAddr(r.addr)?.items.length ?? 0,
+    // 0x53de20: itens da mochila; o ouro que a unidade carrega no motor antigo (`gold`) também a faz não vazia [est: no exe o dinheiro
+    // carregado vive na mochila], senão o saco só caía quando o sorteio do modelo dava ouro
+    packCount: r => { const u = this.unitByAddr(r.addr); return u ? u.items.length + (u.gold > 0 ? 1 : 0) : 0; },
     sackDrop: (r, gold) => {
       const u = this.unitByAddr(r.addr);
       if (!u) return;
@@ -1557,12 +1949,7 @@ export class World {
       r.speed = Math.round(this.speedOf(u) * 16);
       r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
       r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (AI_AttackRange 0x56ac5b sem magia escolhida no registro)
-      r.owner.f04 = u.player;                         // o dono pode mudar (script: unidade passa a outro jogador)
-      // grupo dormindo (tipo+0x45): quem dorme no motor antigo não recebe ordem de andar (a IA não pensa por ele); o teste do
-      // despachante fica desligado para não parar uma ordem que o motor antigo deu
-      r.type.stats.f45 = 1;
-      r.owner.f2c = this.isAiPlayerUnit(u) ? 1 : 0;
-      r.task = this.taskClass(u);
+      if (!u.exeTask) r.task = this.taskClass(u);   // pelo porte, a classe +0x50 vem dos tratadores das ordens (exe/orders.ts)
     }
     EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff;
     try {
@@ -1610,7 +1997,9 @@ export class World {
   /** a magia do endereço `addr`; estado importado (endereço do original): a da ordem de lançar ou a em curso */
   private spellFor(u: Unit, addr: number): SpellDef | undefined {
     const s = SPELL_BY_ADDR.get(addr >>> 0);
-    if (s) return s;
+    // o mapa é do módulo (vários mundos no mesmo processo, objetos refeitos pelo restore): a definição igual da própria unidade
+    if (s) return [...u.spells, u.castSpell, u.weaponSpell, ...u.procSpells.map(p => p.spell)]
+      .find(x => !!x && x.id === s.id && Math.round(x.power ?? 0) === Math.round(s.power ?? 0) && Math.round(x.mana) === Math.round(s.mana)) ?? s;
     const o = u.order;
     return (o.type === "cast" ? u.spells.find(x => x.id === o.spell) : undefined) ?? u.castSpell ?? undefined;
   }
@@ -1635,7 +2024,9 @@ export class World {
     const sa = t.active && u.selectedSpell ? spellAttack(this, u, t) : null;   // em quem caiu só o golpe da arma
     if (sa === "stop") { this.command(u, { type: "none" }); r.ai.sub = 0; r.act = 0; return; }
     if (sa && (sa.target === u || !sa.target || Math.hypot(sa.target.cx - u.cx, sa.target.cy - u.cy) <= sa.spell.range + 0.5)) { this.asCast(u, sa.spell, sa.target, sa.x, sa.y); return; }
-    const proc = t.active ? this.rollProc(u, t) : null;
+    // magia de chance: no exe é o pensamento (AI_Task_Attack 0x56acc8, sorteio 0x56ad33 → 0x56a981, tarefa 8/9) — portado para as
+    // unidades que o pensamento comanda (`exeTask`); as dos modos do motor antigo (`legacyMode`) ainda sorteiam no golpe
+    const proc = t.active && !u.exeTask ? this.rollProc(u, t) : null;
     if (proc) { this.asCast(u, proc, t, t.cx, t.cy); return; }
     if (u.weaponSpell && t.active) { this.asCast(u, u.weaponSpell, t, t.cx, t.cy); return; }
     u.castSpell = null;
@@ -1652,6 +2043,11 @@ export class World {
     if (!spell) { abort(); return 0; }
     if (u.mana < spell.mana) { if (u.isHero) this.events.push({ type: "message", text: "Not enough mana" }); this.command(u, { type: "none" }); abort(); return 0; }
     this.beginCast(u, spell, t, t ? t.cx : x, t ? t.cy : y, u.castAuto);
+    // 0x519998 no fim: a magia que sai avisa o cliente (0x5041d6/0x5042ba) e, como a unidade responde 1 em vtable+0x2c, +0x138 =
+    // relógio de 16/s — a unidade "ficou ocupada agora" e a regeneração (0x50fc5a: 0x50fc3e > 0x50 → ×3) não triplica em quem lança
+    // sem parar. Sem aviso: arma-cajado sem livro (+0x74 = +0x68), Prismatic Spray (0xb) e unidade sem modelo (0x542560)
+    const sid = Number(spell.base ?? spell.id) | 0;
+    if (!(!r.hasBook && r.f74 !== null && r.f74 === r.f68) && sid !== 0xb && r.tpl !== null) r.f138 = EXE_GLOBALS.clock16 >>> 0;
     return 1;
   }
   /** 0x519d7f Spell_Release / 0x519db8 Spell_Apply (motor antigo): a magia sai. */
@@ -1710,6 +2106,17 @@ export class World {
    *  exe IA+8 = 1 até a célula IA+0xa (0x56dca2 → Unit_WalkNear 0x56e4ac, perto 0); com `near` > 0, o ramo de andar da tarefa 9
    *  (0x56ec3f: Unit_WalkNear até IA+0x3c parando a IA+0x14). Devolve false quando desiste: 20 tiques no fim do caminho estático
    *  (andar+0x90) sem chegar a `near` (alvo inalcançável). */
+  /** A máquina de ação; false no caso indefinido do exe (lixo de pilha no backtrace 0x54e886) [est]: o alvo alternativo caiu fora da
+   *  borda — ex.: a fuga de 0x5728fa para IA+0x9c = 0 de quem nunca foi golpeado. Tratado como destino inalcançável. */
+  private machineUB(u: Unit): boolean {
+    try { this.machine(u); }
+    catch (e) {
+      if (!(e instanceof Error) || !e.message.startsWith(BACKTRACE_UB)) throw e;
+      u.rec.ai.sub = 0; u.waitTicks = 0;
+      return false;
+    }
+    return true;
+  }
   walkTo(u: Unit, tx: number, ty: number, near: number): boolean {
     // destino limitado à área útil (o original anda até a 1ª célula fora da borda; ordens de andar na borda medidas na m10)
     tx = Math.max(MAP_BORDER, Math.min(this.grid.w - MAP_BORDER - 1, tx)); ty = Math.max(MAP_BORDER, Math.min(this.grid.h - MAP_BORDER - 1, ty));
@@ -1717,7 +2124,7 @@ export class World {
     if (near > 0) {
       if (!this.exeExact || r.ai.task !== 9) { r.ai.task = 9; r.ai.f3c = cell; r.ai.range = near & 0xff; }
     } else if (!this.exeExact || r.ai.task !== 1) { r.ai.task = 1; r.ai.f0a = cell; }
-    this.machine(u);
+    if (!this.machineUB(u)) return false;
     if (r.walk.f90 !== 0 && r.ai.sub !== 3 && Math.max(Math.abs(tx - u.cx), Math.abs(ty - u.cy)) > near) { u.waitTicks++; return u.waitTicks < 20; }
     u.waitTicks = 0;
     return true;

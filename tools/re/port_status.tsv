@@ -215,7 +215,7 @@ addr	name	size	file	line	status	ts	note
 0x4f3d14	FUN_004f3d14	84	game/g_4f0000.c	2170	pending		
 0x4f3d68	Cheat_CommandParser	4891	game/g_4f0000.c	2197	pending		
 0x4f5083	Cheat_LeadingCount	218	game/g_4f0000.c	2794	pending		
-0x4f515d	Server_PacketDispatcher	12585	game/g_4f0000.c	2842	pending		
+0x4f515d	Server_PacketDispatcher	12585	game/g_4f0000.c	2842	review	orders.ts:clientOrder	só os case executados do pacote 3 (4/6/7/0xa/0xc) portados; demais NotPorted/out; sem pares diretos (provado pelos tratadores)
 0x4f84c6	Server_ClientMessages	50	game/g_4f0000.c	4174	pending		
 0x4f8521	Server_ClockTick	73	game/g_4f0000.c	4202	pending		
 0x4f856a	FUN_004f856a	952	game/g_4f0000.c	4218	pending		
@@ -597,10 +597,10 @@ addr	name	size	file	line	status	ts	note
 0x52ada6	FUN_0052ada6	85	game/g_520000.c	7866	pending		
 0x52ae43	FUN_0052ae43	188	game/g_520000.c	7911	pending		
 0x52aeff	FUN_0052aeff	141	game/g_520000.c	7949	pending		
-0x52af8c	FUN_0052af8c	70	game/g_520000.c	7976	pending		
-0x52afd2	FUN_0052afd2	35	game/g_520000.c	7991	pending		
+0x52af8c	FUN_0052af8c	70	game/g_520000.c	7976	ported	orders.ts:fn_0x52af8c	pares 100% (exe_orders.ts, 3 episódios)
+0x52afd2	FUN_0052afd2	35	game/g_520000.c	7991	ported	orders.ts:fn_0x52afd2	pares 100% (exe_orders.ts, 3 episódios)
 0x52b059	FUN_0052b059	22	game/g_520000.c	8029	pending		
-0x52b06f	FUN_0052b06f	227	game/g_520000.c	8039	pending		
+0x52b06f	FUN_0052b06f	227	game/g_520000.c	8039	ported	orders.ts:fn_0x52b06f	pares 100% (exe_orders.ts, 3 episódios)
 0x52b152	~CAtlWinModule	72	game/g_520000.c	8088	pending		
 0x52b19a	FUN_0052b19a	34	game/g_520000.c	8115	pending		
 0x52b1bc	FUN_0052b1bc	110	game/g_520000.c	8126	pending		
@@ -608,7 +608,7 @@ addr	name	size	file	line	status	ts	note
 0x52b246	FUN_0052b246	59	game/g_520000.c	8166	pending		
 0x52b2bd	FUN_0052b2bd	100	game/g_520000.c	8193	pending		
 0x52b321	FUN_0052b321	312	game/g_520000.c	8221	pending		
-0x52b459	FUN_0052b459	1886	game/g_520000.c	8260	pending		
+0x52b459	FUN_0052b459	1886	game/g_520000.c	8260	pending		não portada: o laço chama vtable+0x18 de cada unidade INTEIRA (pensar, golpe, passo) na ordem de [0x68d2dc]+4, que começa no herói nos despejos m10/m20 (World.serverOrder/exeSyncWorld; golden pos|t75)
 0x52bbb7	World_SecondTick	586	game/g_520000.c	8458	ported	worldSecondTick	pares 0x52bbb7.jsonl 100% - 180 chamadas, listas do contentor [0x68d2dc]; exe/regen.ts
 0x52be01	FUN_0052be01	109	game/g_520000.c	8563	pending		
 0x52be6e	FUN_0052be6e	215	game/g_520000.c	8588	pending		
@@ -652,7 +652,7 @@ addr	name	size	file	line	status	ts	note
 0x536e27	FUN_00536e27	124	game/g_530000.c	2871	pending		
 0x536ea3	FUN_00536ea3	109	game/g_530000.c	2899	pending		
 0x539d50	FUN_00539d50	74	game/g_530000.c	5219	pending		
-0x539da0	FUN_00539da0	50	game/g_530000.c	5232	pending		
+0x539da0	FUN_00539da0	50	game/g_530000.c	5232	ported	orders.ts:fn_0x539da0	pares 100% (exe_orders.ts, 3 episódios)
 0x539de0	FUN_00539de0	14	game/g_530000.c	5247	pending		
 0x539df0	FUN_00539df0	67	game/g_530000.c	5256	pending		
 0x539e40	FUN_00539e40	41	game/g_530000.c	5276	pending		
@@ -792,7 +792,7 @@ addr	name	size	file	line	status	ts	note
 0x53d4e0	FUN_0053d4e0	22	game/g_530000.c	8386	pending		
 0x53d550	FUN_0053d550	115	game/g_530000.c	8411	pending		
 0x53d5d0	FUN_0053d5d0	36	game/g_530000.c	8432	pending		
-0x53d690	FUN_0053d690	25	game/g_530000.c	8486	pending		
+0x53d690	FUN_0053d690	25	game/g_530000.c	8486	ported	orders.ts:fn_0x53d690	pares 100% (exe_orders.ts, 3 episódios)
 0x53d6b0	FUN_0053d6b0	87	game/g_530000.c	8496	pending		
 0x53d710	FUN_0053d710	211	game/g_530000.c	8516	pending		
 0x53d7f0	FUN_0053d7f0	71	game/g_530000.c	8547	pending		
@@ -1293,8 +1293,8 @@ addr	name	size	file	line	status	ts	note
 0x550966	FUN_00550966	237	game/g_550000.c	336	ported	wave.ts:fn_0x550966	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
 0x550a53	FUN_00550a53	67	game/g_550000.c	369	ported	wave.ts:fn_0x550a53	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
 0x550a96	FUN_00550a96	777	game/g_550000.c	386	ported	wave.ts:fn_0x550a96	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
-0x550d9f	FUN_00550d9f	20	game/g_550000.c	459	pending		
-0x550db3	FUN_00550db3	20	game/g_550000.c	468	pending		
+0x550d9f	FUN_00550d9f	20	game/g_550000.c	459	ported	think.ts:fn_0x550d9f	acessor mapa+largura (etapa 9 lote 2)
+0x550db3	FUN_00550db3	20	game/g_550000.c	468	ported	think.ts:fn_0x550db3	acessor mapa+altura (etapa 9 lote 2)
 0x550de0	FUN_00550de0	50	game/g_550000.c	487	ported	cellFlagMark40	exe_walk.ts: pares 100% (3 episódios)
 0x550e12	FUN_00550e12	53	game/g_550000.c	504	ported	wave.ts:fn_0x550e12	exec 0 no corpus: coberta pelo fuzz_wave (unidade de tipo 3 na célula, bit 0x80)
 0x550eae	FUN_00550eae	39	game/g_550000.c	555	ported	cellFlagTest40	exe_walk.ts: pares 100% (3 episódios)
@@ -1308,10 +1308,10 @@ addr	name	size	file	line	status	ts	note
 0x55201a	Map_UnitAtCell	95	game/g_550000.c	1348	pending		
 0x552244	FUN_00552244	240	game/g_550000.c	1467	pending		
 0x552334	FUN_00552334	1119	game/g_550000.c	1489	pending		
-0x552af8	FUN_00552af8	304	game/g_550000.c	1656	pending		
-0x552c28	Vision_Compute	645	game/g_550000.c	1680	pending		
-0x553329	Vision_UnitMap	30	game/g_550000.c	1892	pending		
-0x553681	FUN_00553681	35	game/g_550000.c	1982	pending		
+0x552af8	FUN_00552af8	304	game/g_550000.c	1656	ported	vision.ts:visionCompute	laço interno da visão (inline em visionCompute; etapa 9 lote 2)
+0x552c28	Vision_Compute	645	game/g_550000.c	1680	ported	vision.ts:visionCompute	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2) (189/189 na m20): laços quentes 0x552af8/0x559536 dentro
+0x553329	Vision_UnitMap	30	game/g_550000.c	1892	ported	vision.ts:visionUnitMap	chama Vision_Compute; coberto pelos pares de 0x571c4d (etapa 9 lote 2)
+0x553681	FUN_00553681	35	game/g_550000.c	1982	ported	vision.ts:fn_0x553681	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x5536a4	FUN_005536a4	323	game/g_550000.c	1992	pending		
 0x55385f	FUN_0055385f	31	game/g_550000.c	2085	ported	occRecCopy	exe_walk.ts: pares 100% (3 episódios)
 0x553891	Unit_RemoveFromCells	54	game/g_550000.c	2104	ported	walk_action.ts:unitRemoveFromCells	pares 3 episódios 100% (exe_walkaction.ts)
@@ -1352,13 +1352,13 @@ addr	name	size	file	line	status	ts	note
 0x5585f4	Path_UnlabeledTargetRing	951	game/g_550000.c	4782	ported	path.ts:pathUnlabeledTargetRing	pares 37/37 + Unicorn 1000/1000; os dois ramos (lado==2 ou nao) sao identicos no asm, uma copia; mesma sequencia de celulas
 0x558b3d	FUN_00558b3d	56	game/g_550000.c	4951	ported	combat.ts:fn_0x558b3d	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (640 amostradas, stride 4)
 0x558b75	FUN_00558b75	29	game/g_550000.c	4967	ported	fn_0x558b75	exe/action.ts; exec 0: só a leitura do C (0x55be86(u,0,1) portado)
-0x558b92	Grid_FineCoordCentroid	458	game/g_550000.c	4977	pending		
+0x558b92	Grid_FineCoordCentroid	458	game/g_550000.c	4977	ported	think.ts:gridFineCoordCentroid	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): x87 reconstruída do assembly (float32 nas divisões)
 0x558f4b	FUN_00558f4b	25	game/g_550000.c	5152	pending		
 0x558f64	FUN_00558f64	133	game/g_550000.c	5162	ported	walk_action.ts:fn_0x558f64	pares 3 episódios 100% (exe_walkaction.ts) (AX)
 0x558fe9	AI_TeleportTargetDist	135	game/g_550000.c	5206	ported	wave.ts:aiTeleportTargetDist	exe_wave.ts: pares 100% (3 episódios)
 0x55915a	FUN_0055915a	59	game/g_550000.c	5285	ported	fn_0x55915a	exe_walk.ts: pares 100% (3 episódios)
 0x559195	Unit_WalkFormula	929	game/g_550000.c	5302	ported	walk_action.ts:unitWalkFormula	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts); x87: ftol(v*d*0.707 em double)
-0x559536	FUN_00559536	114	game/g_550000.c	5396	pending		
+0x559536	FUN_00559536	114	game/g_550000.c	5396	ported	vision.ts:visionSeen	laço interno da visão (etapa 9 lote 2)
 0x5595e5	FUN_005595e5	156	game/g_550000.c	5433	pending		
 0x5596ff	FUN_005596ff	401	game/g_550000.c	5503	pending		
 0x559bc9	FUN_00559bc9	95	game/g_550000.c	5729	ported	wave.ts:fn_0x559bc9	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
@@ -1373,11 +1373,11 @@ addr	name	size	file	line	status	ts	note
 0x55aa21	AI_AngleTiebreak	84	game/g_550000.c	6345	ported	aiAngleTiebreak	exe/action.ts; pares 497/497
 0x55aa75	FUN_0055aa75	22	game/g_550000.c	6368	pending		
 0x55aa96	FUN_0055aa96	30	game/g_550000.c	6387	pending		
-0x55aca2	FUN_0055aca2	1892	game/g_550000.c	6486	pending		
-0x55b406	FUN_0055b406	257	game/g_550000.c	6585	pending		
-0x55b507	FUN_0055b507	234	game/g_550000.c	6616	pending		
-0x55b5f1	FUN_0055b5f1	648	game/g_550000.c	6642	pending		
-0x55b879	FUN_0055b879	230	game/g_550000.c	6734	pending		
+0x55aca2	FUN_0055aca2	1892	game/g_550000.c	6486	ported	think.ts:fn_0x55aca2	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x55b406	FUN_0055b406	257	game/g_550000.c	6585	ported	think.ts:fn_0x55b406	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x55b507	FUN_0055b507	234	game/g_550000.c	6616	ported	think.ts:fn_0x55b507	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x55b5f1	FUN_0055b5f1	648	game/g_550000.c	6642	ported	think.ts:fn_0x55b5f1	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): acorda os grupos pelos setores de 8x8
+0x55b879	FUN_0055b879	230	game/g_550000.c	6734	ported	think.ts:fn_0x55b879	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x55b95f	FUN_0055b95f	14	game/g_550000.c	6777	ported	fn_0x55b95f	exe_walk.ts: pares 100% (3 episódios)
 0x55b96d	FUN_0055b96d	11	game/g_550000.c	6786	out		destrutor/stub sem estado (só chama destrutor vazio ou retorna)
 0x55b978	FUN_0055b978	31	game/g_550000.c	6795	pending		
@@ -1410,8 +1410,8 @@ addr	name	size	file	line	status	ts	note
 0x55f170	FUN_0055f170	90	game/g_550000.c	8433	out		MFC: exe/mfc.ts:CListWord.addHead; provada por exe_wave.ts (pares de 0x55f3e0/0x55f430/0x55f460/0x55f110/0x55f170/0x5421b0 e dos chamadores 100%)
 0x55f1d0	FUN_0055f1d0	17	game/g_550000.c	8453	out		MFC: exe/mfc.ts:CListWord.getHeadPosition; provada por exe_wave.ts (pares de 0x55f3e0/0x55f430/0x55f460/0x55f110/0x55f170/0x5421b0 e dos chamadores 100%)
 0x55f1f0	FUN_0055f1f0	39	game/g_550000.c	8462	out		MFC: exe/mfc.ts:CListWord.getNext; provada por exe_wave.ts (pares de 0x55f3e0/0x55f430/0x55f460/0x55f110/0x55f170/0x5421b0 e dos chamadores 100%)
-0x55f220	FUN_0055f220	19	game/g_550000.c	8475	pending		
-0x55f240	FUN_0055f240	78	game/g_550000.c	8485	pending		
+0x55f220	FUN_0055f220	19	game/g_550000.c	8475	out		MFC: exe/mfc.ts:CListPtr.first (GetHead)
+0x55f240	FUN_0055f240	78	game/g_550000.c	8485	out		MFC: exe/mfc.ts:CListPtr.nextAfter (Find + GetNext)
 0x55f290	FUN_0055f290	64	game/g_550000.c	8512	pending		
 0x55f2d0	AI_ProfileTimer	21	game/g_550000.c	8527	pending		
 0x55f2f0	FUN_0055f2f0	43	game/g_550000.c	8539	pending		
@@ -1526,13 +1526,13 @@ addr	name	size	file	line	status	ts	note
 0x567618	Cheat_LookupCommand	168	game/g_560000.c	4539	pending		
 0x567911	FUN_00567911	52	game/g_560000.c	4681	pending		
 0x567945	FUN_00567945	67	game/g_560000.c	4696	pending		
-0x567988	AI_EnemiesAroundPost	71	game/g_560000.c	4710	pending		
-0x5679cf	FUN_005679cf	71	game/g_560000.c	4727	pending		
+0x567988	AI_EnemiesAroundPost	71	game/g_560000.c	4710	ported	think.ts:aiEnemiesAroundPost	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x5679cf	FUN_005679cf	71	game/g_560000.c	4727	ported	think.ts:fn_0x5679cf	tradução direta (0x54ec6a + AI_EnemyFilter 1); sem chamadas no corpus (etapa 9 lote 2)
 0x567a16	AI_EnemyFilter	279	game/g_560000.c	4742	ported	aiEnemyFilter	exe/action.ts; pares 1770/1770 (chamadas do pensamento inclusive)
-0x567b2d	AI_AlliesScan	297	game/g_560000.c	4795	pending		
+0x567b2d	AI_AlliesScan	297	game/g_560000.c	4795	ported	think.ts:aiAlliesScan	pares m10_start+m10_mage 240/240 (exe_think.ts; etapa 9 lote 2): bit 1 da diplomacia (consigo = 0x12)
 0x567c56	FUN_00567c56	393	game/g_560000.c	4847	pending		
 0x567ddf	FUN_00567ddf	179	game/g_560000.c	4911	ported	fn_0x567ddf	exe/action.ts; caídos para a lista +0xa88; pares 1516/1516
-0x567e92	AI_FilterByGroupRadius	183	game/g_560000.c	4945	pending		
+0x567e92	AI_FilterByGroupRadius	183	game/g_560000.c	4945	ported	think.ts:aiFilterByGroupRadius	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x567f49	FUN_00567f49	162	game/g_560000.c	4985	pending		
 0x5680ba	FUN_005680ba	78	game/g_560000.c	5072	pending		
 0x56811b	FUN_0056811b	731	game/g_560000.c	5097	pending		
@@ -1546,51 +1546,51 @@ addr	name	size	file	line	status	ts	note
 0x56918c	~COleControlSiteOrWnd	59	game/g_560000.c	5797	pending		
 0x5691c7	FUN_005691c7	58	game/g_560000.c	5814	pending		
 0x569201	FUN_00569201	11	game/g_560000.c	5828	pending		
-0x5692d5	FUN_005692d5	51	game/g_560000.c	5862	pending		
-0x569308	FUN_00569308	25	game/g_560000.c	5877	pending		
-0x569321	AI_TaskDispatcher	679	game/g_560000.c	5887	pending		
+0x5692d5	FUN_005692d5	51	game/g_560000.c	5862	ported	tasks.ts:fn_0x5692d5	pares 100% (exe_tasks.ts, 3 episódios)
+0x569308	FUN_00569308	25	game/g_560000.c	5877	ported	tasks.ts:fn_0x569308	pares 100% (exe_tasks.ts, 3 episódios)
+0x569321	AI_TaskDispatcher	679	game/g_560000.c	5887	ported	tasks.ts:aiTaskDispatcher	pares 100% (exe_tasks.ts, 3 episódios)
 0x569638	FUN_00569638	100	game/g_560000.c	5978	pending		
-0x56969c	AI_TeleportCast	76	game/g_560000.c	6003	pending		
+0x56969c	AI_TeleportCast	76	game/g_560000.c	6003	ported	think.ts:aiTeleportCast	tradução direta (tarefa 9); exec 0 no corpus (etapa 9 lote 2)
 0x5696e8	FUN_005696e8	347	game/g_560000.c	6018	pending		
 0x569857	FUN_00569857	273	game/g_560000.c	6078	pending		
 0x569968	FUN_00569968	280	game/g_560000.c	6123	pending		
-0x569b62	AI_Task_Patrol	359	game/g_560000.c	6192	pending		
+0x569b62	AI_Task_Patrol	359	game/g_560000.c	6192	ported	tasks.ts:aiTaskPatrol	pares 100% (exe_tasks.ts, 3 episódios)
 0x569cc9	FUN_00569cc9	25	game/g_560000.c	6236	pending		
-0x569fd4	FUN_00569fd4	551	game/g_560000.c	6349	pending		
-0x56a1fb	AI_Task_StandGround	1025	game/g_560000.c	6418	pending		
-0x56a5fc	AI_Task_Guard	319	game/g_560000.c	6561	pending		
+0x569fd4	FUN_00569fd4	551	game/g_560000.c	6349	ported	tasks.ts:fn_0x569fd4	pares 100% (exe_tasks.ts, 3 episódios)
+0x56a1fb	AI_Task_StandGround	1025	game/g_560000.c	6418	ported	tasks.ts:aiTaskStandGround	pares 100% (exe_tasks.ts, 3 episódios)
+0x56a5fc	AI_Task_Guard	319	game/g_560000.c	6561	ported	tasks.ts:aiTaskGuard	pares 100% (exe_tasks.ts, 3 episódios)
 0x56a73b	FUN_0056a73b	462	game/g_560000.c	6613	pending		
 0x56a909	FUN_0056a909	120	game/g_560000.c	6696	pending		
-0x56a981	FUN_0056a981	614	game/g_560000.c	6718	pending		
+0x56a981	FUN_0056a981	614	game/g_560000.c	6718	review	think.ts:fn_0x56a981	tradução direta sem pares (exec 0 no corpus): magia de chance por id → 0x56c72b/0x56969c
 0x56ac5b	AI_AttackRange	109	game/g_560000.c	6813	ported	wave.ts:aiAttackRange	exe_wave.ts: pares 100% (3 episódios)
-0x56acc8	AI_Task_Attack	603	game/g_560000.c	6832	pending		
+0x56acc8	AI_Task_Attack	603	game/g_560000.c	6832	ported	think.ts:aiTaskAttack	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): sorteio das magias de chance 0x56ad33; 0x56b059/0x57a769 em gancho (8b)
 0x56af23	FUN_0056af23	41	game/g_560000.c	6924	pending		
-0x56afac	AI_Idle	45	game/g_560000.c	6947	pending		
-0x56afd9	AI_IdleAlt	76	game/g_560000.c	6964	pending		
-0x56b025	FUN_0056b025	52	game/g_560000.c	6988	pending		
+0x56afac	AI_Idle	45	game/g_560000.c	6947	ported	think.ts:aiIdle	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): 0 → 0x56a1fb em gancho standGround (lote 3)
+0x56afd9	AI_IdleAlt	76	game/g_560000.c	6964	ported	think.ts:aiIdleAlt	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x56b025	FUN_0056b025	52	game/g_560000.c	6988	ported	think.ts:fn_0x56b025	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): AI_Autocast 0x56bc7b em gancho (8b)
 0x56b059	AI_CastChosenSpell	2635	game/g_560000.c	7007	pending		
 0x56bb00	FUN_0056bb00	13	game/g_560000.c	7385	pending		
-0x56bb0d	AI_CanCastCost	70	game/g_560000.c	7394	pending		
+0x56bb0d	AI_CanCastCost	70	game/g_560000.c	7394	ported	think.ts:aiCanCastCost	tradução direta; coberto pelos pares de 0x56c9bc (etapa 9 lote 2)
 0x56bb53	AI_AutocastTargetsMask	219	game/g_560000.c	7411	pending		
 0x56bc2e	FUN_0056bc2e	77	game/g_560000.c	7448	pending		
 0x56bc7b	AI_Autocast	2327	game/g_560000.c	7467	pending		
-0x56c592	AI_IdleCasterSupport	409	game/g_560000.c	7698	pending		
-0x56c72b	AI_CastAtTarget	277	game/g_560000.c	7762	pending		
-0x56c840	FUN_0056c840	111	game/g_560000.c	7809	pending		
-0x56c8af	AI_MoveTo	43	game/g_560000.c	7831	pending		
+0x56c592	AI_IdleCasterSupport	409	game/g_560000.c	7698	ported	think.ts:aiIdleCasterSupport	pares m10_start+m10_mage 240/240 (exe_think.ts; etapa 9 lote 2)
+0x56c72b	AI_CastAtTarget	277	game/g_560000.c	7762	ported	think.ts:aiCastAtTarget	pares m10_mage 5/5 (exe_think.ts; etapa 9 lote 2): tarefa 8; o lançamento é o despachante + máquina
+0x56c840	FUN_0056c840	111	game/g_560000.c	7809	review	tasks.ts:fn_0x56c840	sem pares gravados (exec 0 nos pares); tradução direta
+0x56c8af	AI_MoveTo	43	game/g_560000.c	7831	ported	think.ts:aiMoveTo	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x56c8da	FUN_0056c8da	93	game/g_560000.c	7844	pending		
 0x56c960	FUN_0056c960	92	game/g_560000.c	7874	pending		
-0x56c9bc	AI_FleeAction	336	game/g_560000.c	7891	pending		
-0x56cb0c	AI_Wimpy	128	game/g_560000.c	7951	pending		
+0x56c9bc	AI_FleeAction	336	game/g_560000.c	7891	ported	think.ts:aiFleeAction	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2) (0x56cb8c Teleport: gancho fleeTeleport, exec 0)
+0x56cb0c	AI_Wimpy	128	game/g_560000.c	7951	ported	think.ts:aiWimpy	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x56cb8c	FUN_0056cb8c	389	game/g_560000.c	7976	pending		
-0x56cd11	AI_Withdraw	112	game/g_560000.c	8040	pending		
-0x56ce0f	AI_WithdrawAction	228	game/g_560000.c	8092	pending		
+0x56cd11	AI_Withdraw	112	game/g_560000.c	8040	ported	think.ts:aiWithdraw	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x56ce0f	AI_WithdrawAction	228	game/g_560000.c	8092	review	think.ts:aiWithdrawAction	tradução direta sem pares (exec 0 no corpus); 0x56cef3 Teleport em gancho
 0x56cef3	AI_WithdrawActionAlt	319	game/g_560000.c	8134	pending		
-0x56d032	FUN_0056d032	294	game/g_560000.c	8182	pending		
-0x56d1be	FUN_0056d1be	109	game/g_560000.c	8222	pending		
+0x56d032	FUN_0056d032	294	game/g_560000.c	8182	ported	orders.ts:fn_0x56d032	pares 100% (exe_orders.ts, 3 episódios)
+0x56d1be	FUN_0056d1be	109	game/g_560000.c	8222	ported	orders.ts:fn_0x56d1be	pares 100% (exe_orders.ts, 3 episódios)
 0x56d22b	FUN_0056d22b	344	game/g_560000.c	8244	pending		
 0x56d393	FUN_0056d393	83	game/g_560000.c	8283	pending		
-0x56d3e6	FUN_0056d3e6	96	game/g_560000.c	8296	pending		
+0x56d3e6	FUN_0056d3e6	96	game/g_560000.c	8296	ported	orders.ts:fn_0x56d3e6	pares 100% (exe_orders.ts, 3 episódios)
 0x56d446	FUN_0056d446	116	game/g_560000.c	8311	pending		
 0x56d4ba	FUN_0056d4ba	113	game/g_560000.c	8326	pending		
 0x56d52b	AI_StandGroundAt	71	game/g_560000.c	8349	ported	aiStandGroundAt	exe/action.ts; provada aninhada nos pares de 0x56dbc6
@@ -1626,53 +1626,53 @@ addr	name	size	file	line	status	ts	note
 0x56f0bb	FUN_0056f0bb	86	game/g_560000.c	9403	ported	fn_0x56f0bb	exe/action.ts; pares 100%
 0x56f492	FUN_0056f492	648	game/g_560000.c	9552	pending		
 0x56f71a	FUN_0056f71a	75	game/g_560000.c	9628	pending		
-0x56f765	AI_FleePoint	235	game/g_560000.c	9644	pending		
-0x56f850	AI_GroupMaxScanRange	531	game/g_560000.c	9690	pending		
-0x56fa63	AI_GroupCentroid	518	game/g_560000.c	9765	pending		
+0x56f765	AI_FleePoint	235	game/g_560000.c	9644	ported	think.ts:aiFleePoint	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x56f850	AI_GroupMaxScanRange	531	game/g_560000.c	9690	ported	think.ts:aiGroupMaxScanRange	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x56fa63	AI_GroupCentroid	518	game/g_560000.c	9765	ported	think.ts:aiGroupCentroid	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x56fc69	FUN_0056fc69	459	game/g_560000.c	9846	ported	walk_action.ts:fn_0x56fc69	pares 3 episódios 100% (exe_walkaction.ts) (14 chamadas)
-0x56fe34	FUN_0056fe34	25	game/g_560000.c	9929	pending		
-0x56fe4d	FUN_0056fe4d	570	game/g_560000.c	9939	pending		
-0x570087	AI_PlayerThink	108	game/g_570000.c	3	pending		
-0x5700f3	AI_GroupThink	319	game/g_570000.c	27	pending		
+0x56fe34	FUN_0056fe34	25	game/g_560000.c	9929	ported	tasks.ts:fn_0x56fe34	pares 100% (exe_tasks.ts, 3 episódios)
+0x56fe4d	FUN_0056fe4d	570	game/g_560000.c	9939	ported	think.ts:fn_0x56fe4d	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): pensamento de 1/s (sem cronômetros de perfil nem a mensagem Stats)
+0x570087	AI_PlayerThink	108	game/g_570000.c	3	ported	think.ts:aiPlayerThink	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x5700f3	AI_GroupThink	319	game/g_570000.c	27	ported	think.ts:aiGroupThink	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x57026e	FUN_0057026e	80	game/g_570000.c	80	pending		
-0x5702be	FUN_005702be	127	game/g_570000.c	95	pending		
+0x5702be	FUN_005702be	127	game/g_570000.c	95	ported	orders.ts:fn_0x5702be	pares 100% (exe_orders.ts, 3 episódios)
 0x57033d	FUN_0057033d	131	game/g_570000.c	118	pending		
-0x5703c0	AI_GroupCmd_Move	638	game/g_570000.c	144	pending		
+0x5703c0	AI_GroupCmd_Move	638	game/g_570000.c	144	ported	orders.ts:aiGroupCmdMove	pares 100% (exe_orders.ts, 3 episódios)
 0x57063e	AI_GroupCmd_Swarm2	638	game/g_570000.c	222	pending		
 0x5708bc	FUN_005708bc	67	game/g_570000.c	300	pending		
 0x5708ff	FUN_005708ff	71	game/g_570000.c	312	pending		
-0x570946	FUN_00570946	114	game/g_570000.c	330	pending		
+0x570946	FUN_00570946	114	game/g_570000.c	330	ported	orders.ts:fn_0x570946	pares 100% (exe_orders.ts, 3 episódios)
 0x5709b8	FUN_005709b8	33	game/g_570000.c	353	pending		
 0x5709d9	AI_GroupCmd_Guard	225	game/g_570000.c	365	pending		
 0x570aba	AI_GuardLoad	209	game/g_570000.c	396	pending		
-0x570b8b	FUN_00570b8b	83	game/g_570000.c	427	pending		
+0x570b8b	FUN_00570b8b	83	game/g_570000.c	427	ported	orders.ts:fn_0x570b8b	pares 100% (exe_orders.ts, 3 episódios)
 0x570bde	FUN_00570bde	83	game/g_570000.c	444	pending		
 0x570c31	FUN_00570c31	83	game/g_570000.c	461	pending		
 0x570c84	FUN_00570c84	81	game/g_570000.c	478	pending		
 0x570cd5	FUN_00570cd5	81	game/g_570000.c	494	pending		
 0x570d26	FUN_00570d26	81	game/g_570000.c	510	pending		
-0x570e83	FUN_00570e83	87	game/g_570000.c	580	pending		
+0x570e83	FUN_00570e83	87	game/g_570000.c	580	ported	orders.ts:fn_0x570e83	pares 100% (exe_orders.ts, 3 episódios)
 0x570f2b	AI_NewGroupStandGround	37	game/g_570000.c	623	pending		
-0x5711ea	AI_TargetCost	526	game/g_570000.c	715	pending		
-0x5713f8	FUN_005713f8	424	game/g_570000.c	785	pending		
-0x571c4d	AI_GroupVisibleEnemies	590	game/g_570000.c	1044	pending		
+0x5711ea	AI_TargetCost	526	game/g_570000.c	715	ported	think.ts:aiTargetCost	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x5713f8	FUN_005713f8	424	game/g_570000.c	785	ported	think.ts:fn_0x5713f8	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): custo só adjacentes
+0x571c4d	AI_GroupVisibleEnemies	590	game/g_570000.c	1044	ported	think.ts:aiGroupVisibleEnemies	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x571e9b	FUN_00571e9b	561	game/g_570000.c	1115	pending		
-0x57240b	AI_GroupAssignTargets	413	game/g_570000.c	1278	pending		
-0x5725a8	FUN_005725a8	335	game/g_570000.c	1360	pending		
-0x5726f7	AI_GuardEnterCombat	53	game/g_570000.c	1422	pending		
-0x57272c	AI_GuardLeaveCombat	51	game/g_570000.c	1439	pending		
-0x57275f	AI_GroupGuardState1	411	game/g_570000.c	1456	pending		
-0x5728fa	FUN_005728fa	1117	game/g_570000.c	1520	pending		
-0x572d57	FUN_00572d57	199	game/g_570000.c	1612	pending		
-0x572e1e	FUN_00572e1e	166	game/g_570000.c	1648	pending		
-0x572ec4	FUN_00572ec4	473	game/g_570000.c	1677	pending		
-0x57309d	FUN_0057309d	127	game/g_570000.c	1732	pending		
-0x57311c	FUN_0057311c	61	game/g_570000.c	1754	pending		
-0x573159	FUN_00573159	63	game/g_570000.c	1769	pending		
-0x573198	FUN_00573198	483	game/g_570000.c	1784	pending		
-0x573713	AI_WimpyOrWithdraw	71	game/g_570000.c	2018	pending		
-0x57375a	FUN_0057375a	35	game/g_570000.c	2041	pending		
-0x57377d	AI_GroupFlee	61	game/g_570000.c	2056	pending		
+0x57240b	AI_GroupAssignTargets	413	game/g_570000.c	1278	ported	think.ts:aiGroupAssignTargets	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x5725a8	FUN_005725a8	335	game/g_570000.c	1360	ported	think.ts:fn_0x5725a8	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x5726f7	AI_GuardEnterCombat	53	game/g_570000.c	1422	ported	think.ts:aiGuardEnterCombat	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): sorteio 0x572718
+0x57272c	AI_GuardLeaveCombat	51	game/g_570000.c	1439	ported	think.ts:aiGuardLeaveCombat	tradução direta (guardCommon; sorteio 0x57274d); exec 0 no corpus
+0x57275f	AI_GroupGuardState1	411	game/g_570000.c	1456	ported	think.ts:aiGroupGuardState1	tradução direta (comando 1); exec 0 no corpus (etapa 9 lote 2)
+0x5728fa	FUN_005728fa	1117	game/g_570000.c	1520	ported	think.ts:fn_0x5728fa	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): comando 0x12 (Guard da carga)
+0x572d57	FUN_00572d57	199	game/g_570000.c	1612	ported	think.ts:fn_0x572d57	tradução direta (comando 2); exec 0 no corpus (etapa 9 lote 2)
+0x572e1e	FUN_00572e1e	166	game/g_570000.c	1648	ported	think.ts:fn_0x572e1e	tradução direta (comando 5, enxame); exec 0 no corpus (etapa 9 lote 2)
+0x572ec4	FUN_00572ec4	473	game/g_570000.c	1677	ported	think.ts:fn_0x572ec4	tradução direta (comando 0x11); exec 0 no corpus (etapa 9 lote 2)
+0x57309d	FUN_0057309d	127	game/g_570000.c	1732	ported	think.ts:fn_0x57309d	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): comando 3
+0x57311c	FUN_0057311c	61	game/g_570000.c	1754	ported	think.ts:fn_0x57311c	tradução direta (comando 0x13); exec 0 no corpus (etapa 9 lote 2)
+0x573159	FUN_00573159	63	game/g_570000.c	1769	ported	think.ts:fn_0x573159	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): comando -1
+0x573198	FUN_00573198	483	game/g_570000.c	1784	ported	think.ts:fn_0x573198	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): comando 4 (andar do grupo)
+0x573713	AI_WimpyOrWithdraw	71	game/g_570000.c	2018	ported	think.ts:aiWimpyOrWithdraw	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x57375a	FUN_0057375a	35	game/g_570000.c	2041	ported	think.ts:fn_0x57375a	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
+0x57377d	AI_GroupFlee	61	game/g_570000.c	2056	ported	think.ts:aiGroupFlee	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x5737ba	FUN_005737ba	33	game/g_570000.c	2073	pending		
 0x57382c	AI_SetDefaultWimpy	259	game/g_570000.c	2107	pending		
 0x57393c	FUN_0057393c	508	game/g_570000.c	2154	pending		
@@ -1694,10 +1694,10 @@ addr	name	size	file	line	status	ts	note
 0x573fdc	FUN_00573fdc	457	game/g_570000.c	2494	pending		
 0x5741a5	FUN_005741a5	369	game/g_570000.c	2575	pending		
 0x57468d	FUN_0057468d	462	game/g_570000.c	2831	pending		
-0x57485b	FUN_0057485b	62	game/g_570000.c	2870	pending		
-0x574899	FUN_00574899	188	game/g_570000.c	2883	pending		
-0x574955	Script_ValueDispatcher	480	game/g_570000.c	2918	pending		
-0x574ba1	FUN_00574ba1	902	game/g_570000.c	3011	pending		
+0x57485b	FUN_0057485b	62	game/g_570000.c	2870	ported	think.ts:fn_0x56fe4d	contador +0xd720 e RemoveAll dos eventos inline em fn_0x56fe4d; o script (0x574899/0x574ba1) é game/src/script
+0x574899	FUN_00574899	188	game/g_570000.c	2883	out		script da missão (game/src/script); chamado por 0x57485b
+0x574955	Script_ValueDispatcher	480	game/g_570000.c	2918	out		Script_ValueDispatcher: script da missão (game/src/script)
+0x574ba1	FUN_00574ba1	902	game/g_570000.c	3011	out		script da missão (game/src/script); chamado por 0x57485b
 0x574f3f	FUN_00574f3f	1734	game/g_570000.c	3131	pending		
 0x576fb1	FUN_00576fb1	23	game/g_570000.c	4203	pending		
 0x576fc8	FUN_00576fc8	39	game/g_570000.c	4213	pending		
@@ -1776,23 +1776,23 @@ addr	name	size	file	line	status	ts	note
 0x579d62	FUN_00579d62	125	game/g_570000.c	6155	pending		
 0x579ddf	Spell_PrismaticTargets	1113	game/g_570000.c	6172	pending		
 0x57a307	FUN_0057a307	374	game/g_570000.c	6334	pending		
-0x57a47d	FUN_0057a47d	395	game/g_570000.c	6390	pending		
+0x57a47d	FUN_0057a47d	395	game/g_570000.c	6390	out		armadilhas do script: laço vazio no corpus (0x57a307 exec 0); gancho traps do pensamento (etapa 9 lote 2)
 0x57a769	AI_CasterOffensiveSpell	444	game/g_570000.c	6490	pending		
 0x57a951	FUN_0057a951	61	game/g_570000.c	6582	pending		
-0x57a999	AI_CasterShield	974	game/g_570000.c	6610	pending		
+0x57a999	AI_CasterShield	974	game/g_570000.c	6610	ported	think.ts:aiCasterShield	pares m10_start+m10_mage 240/240 (exe_think.ts; etapa 9 lote 2): sorteios 0x57aad9/0x57ac98
 0x57ad79	FUN_0057ad79	30	game/g_570000.c	6743	pending		
 0x57ad97	FUN_0057ad97	11	game/g_570000.c	6753	out		MFC: destrutor vazio do evento temporário de 0x57b210
 0x57aee0	AI_ProfileTimer2	157	game/g_570000.c	6819	pending		
 0x57af80	FUN_0057af80	42	game/g_570000.c	6842	pending		
 0x57afc0	Rand_UniformObject	16	game/g_570000.c	6865	ported	randUniformObject	exe/rand.ts; rand() cru pelo Rng do motor (site do chamador)
 0x57afd0	FUN_0057afd0	31	game/g_570000.c	6877	ported	fn_0x57afd0	exe/rand.ts; rand()*n/[mundo+0]
-0x57aff0	Rand_Range	42	game/g_570000.c	6889	pending		
+0x57aff0	Rand_Range	42	game/g_570000.c	6889	ported	rand.ts:randRange	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x57b020	FUN_0057b020	91	game/g_570000.c	6903	out		MFC: exe/mfc.ts:CListWord.find (lista de patrulha [IA+0xb4]); pares 6/6
 0x57b080	FUN_0057b080	91	game/g_570000.c	6930	pending		
 0x57b0e0	FUN_0057b0e0	25	game/g_570000.c	6952	pending		
-0x57b120	FUN_0057b120	19	game/g_570000.c	6972	pending		
-0x57b140	FUN_0057b140	19	game/g_570000.c	6982	pending		
-0x57b160	FUN_0057b160	78	game/g_570000.c	6992	pending		
+0x57b120	FUN_0057b120	19	game/g_570000.c	6972	out		MFC: exe/mfc.ts:CListPtr.first (GetHead)
+0x57b140	FUN_0057b140	19	game/g_570000.c	6982	out		MFC: exe/mfc.ts:CListPtr.first (GetHead)
+0x57b160	FUN_0057b160	78	game/g_570000.c	6992	out		MFC: exe/mfc.ts:CListPtr.nextAfter (Find + GetNext)
 0x57b1b0	FUN_0057b1b0	92	game/g_570000.c	7019	pending		
 0x57b210	FUN_0057b210	157	game/g_570000.c	7036	out		MFC: exe/mfc.ts:CListEvent.addTail (lista de eventos do mundo +0xbbec); pares 100%
 0x57b2b0	FUN_0057b2b0	115	game/g_570000.c	7074	out		MFC: exe/mfc.ts:CListEvent.removeAll (0x57485b, pensamento)
@@ -1815,12 +1815,12 @@ addr	name	size	file	line	status	ts	note
 0x57c590	FUN_0057c590	17	game/g_570000.c	8085	pending		
 0x57c5b0	FUN_0057c5b0	39	game/g_570000.c	8094	pending		
 0x57c5e0	FUN_0057c5e0	81	game/g_570000.c	8107	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x57c9a0	List_Construct	92	game/g_570000.c	8317	pending		
-0x57ca00	FUN_0057ca00	17	game/g_570000.c	8337	pending		
-0x57ca20	FUN_0057ca20	87	game/g_570000.c	8346	pending		
-0x57ca80	FUN_0057ca80	17	game/g_570000.c	8366	pending		
-0x57caa0	FUN_0057caa0	39	game/g_570000.c	8375	pending		
-0x57cad0	FUN_0057cad0	81	game/g_570000.c	8388	pending		
+0x57c9a0	List_Construct	92	game/g_570000.c	8317	out		MFC-like: lista local de magias candidatas (array em think.ts:aiCasterShield)
+0x57ca00	FUN_0057ca00	17	game/g_570000.c	8337	out		MFC-like: GetCount da lista local (think.ts:aiCasterShield)
+0x57ca20	FUN_0057ca20	87	game/g_570000.c	8346	out		MFC-like: AddTail da lista local (think.ts:aiCasterShield)
+0x57ca80	FUN_0057ca80	17	game/g_570000.c	8366	out		MFC-like: GetHeadPosition da lista local (think.ts:aiCasterShield)
+0x57caa0	FUN_0057caa0	39	game/g_570000.c	8375	out		MFC-like: GetNext da lista local (think.ts:aiCasterShield)
+0x57cad0	FUN_0057cad0	81	game/g_570000.c	8388	out		MFC-like: destrutor da lista local (think.ts:aiCasterShield)
 0x57ce90	FUN_0057ce90	43	game/g_570000.c	8619	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x57cec0	FUN_0057cec0	81	game/g_570000.c	8632	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x57cf20	FUN_0057cf20	43	game/g_570000.c	8655	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)

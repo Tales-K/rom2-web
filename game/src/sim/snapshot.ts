@@ -18,7 +18,7 @@
 import type { ScriptRuntimeState } from "../script";
 import type { HostState } from "../mission/host";
 import { Unit, type Loot, type PlayerAi, type Projectile, type SpellArea, type SpellDef, type Trap, type UnitInit, type World } from "./world";
-import { mapRecFromJson, mapRecToJson, unitRecFromJson, unitRecToJson, type MapRecJson, type UnitRecJson } from "./exe/recio";
+import { mapRecFromJson, mapRecToJson, scalarFields, structsFromJson, unitRecFromJson, unitRecToJson, type ExeGroupsJson, type MapRecJson, type UnitRecJson } from "./exe/recio";
 
 export const SNAPSHOT_VERSION = 2;
 /** Menor versão que ainda sabemos ler. */
@@ -105,7 +105,9 @@ export interface WorldSnapshot {
   exe?: MapRecJson;
   /** mundo do exe: rascunho do evento (+0xbd98, hex), a lista de eventos para a IA (+0xbbec, hex por evento) e as listas de
    *  candidatos do fim de caminho (+0xa68/+0xa88, endereços) — opcional */
-  exeWorld?: { evt: string; events: string[]; cand?: number[]; dead?: number[]; dip?: string };
+  exeWorld?: { evt: string; events: string[]; cand?: number[]; dead?: number[]; dip?: string; f?: Record<string, number> };
+  /** jogadores e grupos do exe (unidade+0x14/+0x70, comando aplicado) — ausente em saves antigos: refeitos das unidades */
+  exeGroups?: ExeGroupsJson;
   /** áreas de magia no chão (MOTOR-C) — opcional para saves antigos */
   areas?: SpellArea[];
   /** armadilhas do script (Set trap) — opcional */
@@ -154,7 +156,8 @@ export function snapshotWorld(world: World): WorldSnapshot {
     killsByType: [...world.killsByType],
     occ,
     exe: mapRecToJson(world.exe, world.exeBase),
-    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values(), dip: hex(world.exeWorld.dipTable) },
+    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values(), dip: hex(world.exeWorld.dipTable), f: scalarFields(world.exeWorld) },
+    exeGroups: world.exeGroupsToJson(),
     areas: world.areas.map(a => JSON.parse(JSON.stringify(a)) as SpellArea),
     traps: world.traps.map(t => JSON.parse(JSON.stringify(t)) as Trap),
     playerAi: world.playerAi.map(p => ({ ...p })),
@@ -217,6 +220,7 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   if (s.exe) {
     mapRecFromJson(world.exe, world.exeBase, s.exe);
     world.exeRestoreStructs();
+    structsFromJson(world.exe, s.exe);
     world.exe.units.clear();
     for (const u of world.units) world.exe.units.set(u.rec.addr, u.rec);
   }
@@ -230,7 +234,9 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
     for (const e of s.exeWorld.events) world.exeWorld.events.addTail(unhex(e));
     for (const a of s.exeWorld.cand ?? []) world.exeWorld.cand.addTail(a);
     for (const a of s.exeWorld.dead ?? []) world.exeWorld.dead.addTail(a);
+    if (s.exeWorld.f) Object.assign(world.exeWorld, s.exeWorld.f);   // campos escalares do mundo (+0xa4c pensamentos, +0xbbe8...)
   }
+  if (s.exeGroups) world.exeGroupsFromJson(s.exeGroups);
   world.exeRebuildLists();
   if (s.playerAi) s.playerAi.forEach((p, i) => { if (world.playerAi[i]) Object.assign(world.playerAi[i]!, p); });
   world.groupState.clear();

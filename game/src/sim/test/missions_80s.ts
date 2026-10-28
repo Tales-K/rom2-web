@@ -28,6 +28,7 @@ import { loadData, json, proc, run, startRun, type Run } from "./loader";
 import { availableMissions, availableTowns, enterLocation, getVar, innPatrons, isDone, newCampaign, onMissionResult, takePendingVideos, talkTo } from "../../campaign/engine";
 import type { CampaignData, CampaignState } from "../../campaign/types";
 
+import { TICKS_PER_SEC } from "../types";
 let passes = 0, failures = 0;
 function check(cond: unknown, msg: string): void {
   if (cond) { passes++; console.log(`  ok   ${msg}`); } else { failures++; console.log(`  FALHOU: ${msg}`); }
@@ -177,8 +178,11 @@ async function m80(): Promise<void> {
   check(w.diplomacyValue(4, 3) === 0 && w.diplomacyValue(3, 4) === 0, "trolls e orcs em paz até o xamã morrer");
   check(dragon.ai?.type === "patrol", `dragão (grupo 18) em patrulha (ai ${JSON.stringify(dragon.ai)})`);
   const x0 = dragon.x, y0 = dragon.y;
-  run(r, 20 * 20, () => keep(r));
-  console.log(`  info: dragão (${x0.toFixed(0)},${y0.toFixed(0)}) -> (${dragon.x.toFixed(0)},${dragon.y.toFixed(0)}) em 20 s`);
+  // conjurador em patrulha [exe 0x569b62 → AI_Task_Guard 0x56a5fc → 0x56afd9 → AI_IdleCasterSupport 0x56c592/AI_CasterShield 0x57a999]:
+  // com a mana cheia lança Haste num aliado do mesmo dono que ainda não a tem e, no pensamento seguinte, volta ao posto (que a patrulha
+  // pôs onde ele estava) antes de seguir — perto dos orcs anda pouco; depois de passar por eles, segue (medido: ~30 s para sair)
+  run(r, TICKS_PER_SEC * 60, () => keep(r));
+  console.log(`  info: dragão (${x0.toFixed(0)},${y0.toFixed(0)}) -> (${dragon.x.toFixed(0)},${dragon.y.toFixed(0)}) em 60 s`);
   check(dragon.alive && distTo(dragon, x0, y0) > 5, "o dragão anda na patrulha rumo a (39,129)");
   // xamã morto: trolls atacam os orcs, sub 1 cumprido e sub 2 (a coroa) ativo; a coroa fica no chão
   r = start(); w = r.b.world; h = r.b.hero;
@@ -392,7 +396,9 @@ async function m84(): Promise<void> {
   run(r, 20 * 20, () => keep(r));
   const dr = group(r, 8).filter(u => u.alive);
   console.log(`  info: dragões de Orakul (grupo 8): ${dr.length}, estados ${dr.map(u => u.state).join(",")}, a ${dr[0] ? dist(dr[0], h).toFixed(0) : "-"} células do herói`);
-  check(w.units.every(u => Number.isFinite(u.x)) && !r.outcome, "20 s junto aos dragões que guardam Tekel: o combate roda sem desfecho");
+  // com a guarda de grupo do exe (raio 20/24, visão com relevo) os dragões alcançam também Igles/Dina, que podem cair (falha 3/4 do script)
+  check(w.units.every(u => Number.isFinite(u.x)) && (!r.outcome || (!r.outcome.ok && (r.outcome.cause === 3 || r.outcome.cause === 4))),
+    `20 s junto aos dragões que guardam Tekel: o combate roda sem desfecho do herói (${JSON.stringify(r.outcome)})`);
   companionsFail(start);
   talenaChain();
 }

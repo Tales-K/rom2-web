@@ -55,25 +55,25 @@ export function listVals(l: CListWord): number[] {
 
 // ------------------------------------------------------------------------------------------- save
 
-/** Campos escalares da unidade, do tipo e do dono (o motor antigo os sincroniza em `World.dispatch`; vão no save para o estado
- *  carregado ser idêntico). */
-const UNIT_KEYS = ["addr", "vtbl", "f40", "size", "kind", "f4c", "speed", "f94", "f96", "f98", "mana", "f9c", "f9e", "fa2", "fa3", "fde", "fe2", "attackRange", "effects", "ready", "f58", "f5c", "f60", "f64", "f6c", "f138", "f13c"] as const;
-
 export interface UnitRecJson {
   m: [number, number, number, number]; act: number; task: number;
+  /** campos escalares da unidade (todos: os que o motor antigo sincroniza e os que só a porta escreve, +0x1a4...) */
   u?: Record<string, number>; t?: [number, number, number]; o?: number;
   w: Record<string, number>; a: Record<string, number>; ps: number[]; pd: number[];
   /** pontos da patrulha ([IA+0xb4]) — ausente em saves antigos */
   pt?: number[];
+  /** livro+0x18: último índice consultado (0x51c391) */
+  bl?: number;
 }
 
 export function unitRecToJson(r: UnitRec): UnitRecJson {
   const w = r.walk as unknown as Record<string, number>, a = r.ai as unknown as Record<string, number>;
   return {
     m: [r.mapObj.x, r.mapObj.y, r.mapObj.fx, r.mapObj.fy], act: r.act, task: r.task,
-    u: Object.fromEntries(UNIT_KEYS.map(k => [k, r[k]])), t: [r.type.stats.f20, r.type.stats.speedByte, r.type.stats.f45], o: r.owner.f2c,
-    w: Object.fromEntries(WALK_FIELDS.map(f => [f[2], w[f[2]]!])), a: Object.fromEntries(AI_FIELDS.map(f => [f[2], a[f[2]]!])),
-    ps: listVals(r.pathStatic), pd: listVals(r.pathDynamic), pt: listVals(r.ai.patrol),
+    u: scalarFields(r), t: [r.type.stats.f20, r.type.stats.speedByte, r.type.stats.f45], o: r.owner.f2c,
+    // andar e IA: todos os campos escalares (os de WALK_FIELDS/AI_FIELDS e os que só a porta escreve: IA+0x10, +0xa4, +0xa8...)
+    w: scalarFields(w), a: scalarFields(a),
+    ps: listVals(r.pathStatic), pd: listVals(r.pathDynamic), pt: listVals(r.ai.patrol), bl: r.book.last,
   };
 }
 
@@ -87,6 +87,7 @@ export function unitRecFromJson(r: UnitRec, j: UnitRecJson): void {
   if (j.o !== undefined) r.owner.f2c = j.o;
   Object.assign(r.walk, j.w); Object.assign(r.ai, j.a);
   listSet(r.pathStatic, j.ps); listSet(r.pathDynamic, j.pd); listSet(r.ai.patrol, j.pt ?? []);
+  r.book.last = j.bl ?? 0;
 }
 
 /** Estado do MapRec: trechos [deslocamento, hex] que diferem de `base` e a ocupação (baldes na ordem das cadeias). */
@@ -95,6 +96,8 @@ export interface MapRecJson {
   occ: { n: number; count: number; null: boolean; b: Record<string, [number, string][]> };
   /** lista-rascunho de 0x54ec6a (MapRec+0x54010): unidades da última busca em anéis */
   ring?: number[];
+  /** +0x42 de cada estrutura do mapa ([endereço, valor]; 0x55b507 escreve a cada pensamento) */
+  sf?: [number, number][];
 }
 
 const toHex = (b: Uint8Array): string => Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
@@ -111,7 +114,7 @@ export function mapRecToJson(m: MapRec, base: Uint8Array): MapRecJson {
   const b: Record<string, [number, string][]> = {};
   const t = m.occ.table;
   if (t) t.forEach((a, h) => { const c: [number, string][] = []; for (let p: CMapAssoc | null = a; p; p = p.next) c.push([p.key, toHex(p.value.b)]); if (c.length) b[h] = c; });
-  return { mem, occ: { n: m.occ.tableSize, count: m.occ.count, null: t === null, b }, ring: m.ringUnits.values() };
+  return { mem, occ: { n: m.occ.tableSize, count: m.occ.count, null: t === null, b }, ring: m.ringUnits.values(), sf: [...m.structs].map(([a, st]) => [a, st.f42]) };
 }
 
 /** Aplica trechos de memória sobre o buffer do MapRec. */
@@ -142,6 +145,12 @@ export function applyOccBuckets(occ: CMapShortOcc, s: { n?: number; count?: numb
   }
 }
 
+/** +0x42 das estruturas do save (as que não estão nele: 0). */
+export function structsFromJson(m: MapRec, j: MapRecJson): void {
+  const sf = new Map(j.sf ?? []);
+  for (const [a, st] of m.structs) st.f42 = sf.get(a) ?? 0;
+}
+
 export function mapRecFromJson(m: MapRec, base: Uint8Array, j: MapRecJson): void {
   m.mem.set(base);
   applyMemRuns(m, j.mem);
@@ -149,4 +158,30 @@ export function mapRecFromJson(m: MapRec, base: Uint8Array, j: MapRecJson): void
   applyOccBuckets(m.occ, { ...j.occ, full: 1 });
   m.ringUnits.removeAll();
   for (const p of j.ring ?? []) m.ringUnits.addTail(p);
+}
+
+/** Jogadores e grupos espelhados do exe (unidade+0x14, unidade+0x70; dono+0x28, grupo+0x3c): os registros pelo índice (o mesmo
+ *  objeto pode estar em vários mapas e há registros sem endereço), as listas na ordem e os mapas do mundo que apontam para eles. */
+export interface ExeGroupsJson {
+  /** jogadores: campos escalares e os endereços dos grupos (dono+0x28) */
+  p: { f: Record<string, number>; g: number[] }[];
+  /** grupos: endereço, membros na ordem, dados +0x3c, dono (índice em `p`, −1 nenhum) */
+  g: { a: number; m: number[]; s: Record<string, number>; o: number }[];
+  /** id da unidade → [grupo (índice em `g`; −1 = EMPTY_GROUP de 0x52b06f), dono (índice em `p`)] */
+  u: [number, number, number][];
+  /** mapas: grupo do motor → grupo, jogador → jogador, endereço → registro (índices) */
+  eg: [number, number][]; ep: [number, number][]; bg: [number, number][]; bp: [number, number][];
+  /** lista de jogadores do mundo (endereços, na ordem) */
+  pl: number[];
+  /** comando de grupo já aplicado por endereço do grupo (assinatura `World.exeGroupCmdKey`) e o próximo endereço de grupo */
+  ap: [number, string][]; next: number;
+  /** Guard do script já aplicado ao grupo de cada unidade do lado humano (por id; ausente nos saves antigos) */
+  hs?: [number, string][];
+}
+
+/** Os campos numéricos próprios de um registro (dados do grupo, jogador). */
+export function scalarFields(o: object): Record<string, number> {
+  const f: Record<string, number> = {};
+  for (const [k, v] of Object.entries(o)) if (typeof v === "number") f[k] = v;
+  return f;
 }

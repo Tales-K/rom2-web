@@ -80,7 +80,9 @@ console.log("\n[corpos] sangria (−1 a cada 4 s) e decomposição (−1 a cada 
   killTo(w, a, -3);
   check(corpseStage(a) === 1 && a.corpseHp === -3, `morto com sobra de dano: estado 1 (morrendo), vida do corpo ${a.corpseHp}`);
   const t2 = run(w, sec(40), () => corpseStage(a) >= 2);
-  check(corpseStage(a) === 2 && Math.abs(t2 - sec(28)) <= sec(1), `cadáver (estado 2) em ${(t2 / TICKS_PER_SEC).toFixed(1)} s (−3 → −10 a 1 ponto / 4 s = 28 s; morte consumada e 1º desgaste: −11)`);
+  // o 1º ponto sai no próximo laço de 1/s de um segundo múltiplo de 4 (0x52bbb7, tique ≡ 13 mod 64: de 0 a 4 s depois da queda) e os
+  // outros 6 a cada 4 s: 24–28 s conforme a fase (no original, medido do meio do ciclo: 28 s)
+  check(corpseStage(a) === 2 && t2 > sec(24) && t2 <= sec(28), `cadáver (estado 2) em ${(t2 / TICKS_PER_SEC).toFixed(1)} s (−3 → −10 a 1 ponto / 4 s = 24–28 s; morte consumada e 1º desgaste: −11)`);
   const t3 = run(w, sec(60), () => corpseStage(a) >= 3);
   check(corpseStage(a) === 3 && t3 <= sec(24), `ossos (estado 3) ${(t3 / TICKS_PER_SEC).toFixed(1)} s depois`);
   const t4 = run(w, sec(120), () => corpseStage(a) >= 4);

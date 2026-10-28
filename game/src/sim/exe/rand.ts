@@ -1,6 +1,6 @@
 /**
  * Porta literal do servidor do allods2.exe: o objeto de sorteio uniforme do mundo (mundo+0 = divisor, 0x8000 no jogo).
- * Portadas: 0x57afc0 Rand_UniformObject, 0x57afd0, 0x51fa25 Rand_Inclusive, 0x51fa4e Rand_One.
+ * Portadas: 0x57afc0 Rand_UniformObject, 0x57afd0, 0x51fa25 Rand_Inclusive, 0x51fa4e Rand_One, 0x57aff0 Rand_Range.
  * `site` = endereço de retorno no chamador do exe (rotulagem dos sorteios do `Rng`, sim/rng.ts; não é estado do exe).
  */
 import type { RandSite } from "../rng";
@@ -33,4 +33,11 @@ export function randInclusive(wd: WorldRec, n: number, site: RandSite): number {
 export function randOne(wd: WorldRec, n: number, site: RandSite): number {
   const iVar1 = randInclusive(wd, (n - 1) | 0, site);
   return (iVar1 + 1) | 0;
+}
+
+/** 0x57aff0 Rand_Range (thiscall; `this` = mundo): rand() × (b − a + 1) / [mundo+0] + a (imul/idiv com sinal). */
+export function randRange(wd: WorldRec, a: number, b: number, site: RandSite): number {
+  const iVar1 = randUniformObject(wd, site, ((b - a) + 1) | 0);
+  if ((wd.divisor | 0) === 0) throw new Error("0x57aff0: divisão por zero (#DE no exe)");
+  return (Math.trunc(Math.imul(iVar1, ((b - a) + 1) | 0) / (wd.divisor | 0)) + a) | 0;
 }

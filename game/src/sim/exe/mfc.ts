@@ -191,6 +191,25 @@ export class CListPtr {
     this.count = (this.count - 1) | 0;
   }
 
+  /** 0x55f220 / 0x57b140 / 0x57b120 (fastcall; → 0x53c9e0 / 0x53dbc0 / 0x53b930): o 1.º dado (GetHead) ou 0 na lista vazia. */
+  first(): number {
+    return this.head === null ? 0 : (this.head.data >>> 0);
+  }
+
+  /** 0x55f240 / 0x57b160 / 0x53da40 (thiscall): Find(v) a partir da cabeça (0x53b350 / 0x539fe0 / 0x53b3f0; 0x53b5c0 compara os
+   *  ponteiros), GetNext (0x5408a0) e o dado do nó seguinte (0x55fda0), ou 0 se `v` não está na lista ou é o último. */
+  nextAfter(v: number): number {
+    let local_8 = this.head;
+    while (local_8 !== null && (local_8.data >>> 0) !== (v >>> 0)) local_8 = local_8.next;
+    if (local_8 === null) return 0;
+    local_8 = local_8.next;
+    if (local_8 === null) return 0;
+    return local_8.data >>> 0;
+  }
+
+  /** 0x44fc20 GetCount (MFC). Os chamadores do pensamento (0x56fa63, 0x57240b…) tratam-no como byte. */
+  getCount(): number { return this.count | 0; }
+
   /** Dados do início ao fim (testes). */
   values(): number[] {
     const r: number[] = [];

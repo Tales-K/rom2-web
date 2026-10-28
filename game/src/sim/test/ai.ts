@@ -113,7 +113,7 @@ console.log("\n[IA] ogro vigia o posto, persegue dentro do raio e volta");
 {
   const w = makeWorld();
   const ogre = mon(w, 616, 2, 20, 20);
-  const h = heroFighter(w, 26, 20);  // 6 células: dentro do raio de guarda (8) do posto
+  const h = heroFighter(w, 25, 20);  // 5 células: no raio de guarda (8) e na visão do ogro (5: a de 0x552c28 não chega a 6)
   installMissionAi(w, { spells });
   h.hp = h.maxHp = 5000;              // herói "imortal" para medir
   let attacked = false;
@@ -131,14 +131,16 @@ console.log("\n[IA] ogro vigia o posto, persegue dentro do raio e volta");
   check(o2.cx === 20 && o2.cy === 20 && o2.order.type === "none", "herói a 11 células (fora do raio 8): ogro fica no posto");
 }
 
-console.log("\n[IA] alerta de grupo: quem apanha avisa os companheiros");
+// [exe 0x5700f3] AI_GroupVisibleEnemies 0x571c4d junta o que cada membro vê (0x552c28) e AI_GroupAssignTargets 0x57240b dá alvo a
+// todos: o grupo partilha os alvos. O "alerta" do motor antigo (quem apanha avisa os de outro grupo num raio de 6) não existe no exe.
+console.log("\n[IA] grupo: o que um membro vê, o grupo ataca");
 {
   const w = makeWorld();
-  const a = mon(w, 608, 2, 20, 20), b = mon(w, 608, 2, 23, 22);
-  const h = heroFighter(w, 33, 20);
+  const a = mon(w, 608, 2, 20, 20), b = mon(w, 608, 2, 16, 20);   // visão 6: só `a` vê o herói (b a 9)
+  const h = heroFighter(w, 25, 20);
   installMissionAi(w, { spells });
+  w.initGroupGuard(5, [a, b]);
   h.hp = h.maxHp = 5000;
-  w.damage(h, a, 1);
   run(w, sec(3));
   check(b.order.type === "attack" || b.order.type === "cast" || b.state === "attack", `o companheiro também ataca (${b.order.type})`);
 }
@@ -204,7 +206,8 @@ console.log("\n[fuga/recuo] Wimpy, Withdraw e Retreat Mode");
   h2.hp = h2.maxHp = 5000;
   w2.command(h2, { type: "attack", target: archer.id });
   let retreats = 0;
-  run(w2, sec(15), () => { if (archer.order.type === "retreat") retreats++; });
+  // o recuo do exe é AI_WithdrawAction 0x56ce0f → AI_MoveTo 0x56c8af (tarefa 1: a ordem vira "move"; o "retreat" era do motor antigo)
+  run(w2, sec(15), ev => { if (ev.some(e => e.type === "flee" && e.unit === archer.id)) retreats++; });
   check(retreats > 0, "arqueiro orc recua quando o herói encosta (kiting)");
 
   const w3 = makeWorld();
@@ -471,9 +474,10 @@ console.log("\n[IA do exe] guarda do grupo (0x57275f), pensamento 1×/s (0x57008
 {
   // golpe à distância: resolve o dano na hora em que sai, através de uma estrutura (sem linha de visão; a flecha é só desenho)
   const w = makeWorld(6);
-  const archer = mon(w, 14, 2, 10, 40), h = heroFighter(w, 14, 40);
+  // (y = 30: a visão do exe só vê dentro da área útil do mapa, borda de 8 — 0x559536; em y = 40 o herói ficava fora dela)
+  const archer = mon(w, 14, 2, 10, 30), h = heroFighter(w, 14, 30);
   h.hp = h.maxHp = 50000; h.stats = { ...h.stats, healthRegen: 0 };
-  w.grid.block[40 * 48 + 12]! |= BLOCK_STRUCTURE;
+  w.grid.block[30 * 48 + 12]! |= BLOCK_STRUCTURE;
   // (o 1º tiro pode errar: o rand() também é gasto pelo olhar em volta das unidades ociosas, 0x56e5bc — vale o tique do tiro que acertou)
   let hitTick = -1, shotTick = -1;
   run(w, sec(6), ev => {
