@@ -19,7 +19,13 @@ import { enterTown, routeTownArrival, townDef, type CampaignCtx } from "../campa
 import { getVar, leaveTown, stageOf, V_M10_TAKEN } from "../campaign/engine";
 import type { TownDef } from "../campaign/types";
 
-interface Region { name: string; x: number; y: number; w: number; h: number; cx: number; cy: number; top: number; speech?: string }
+interface Region {
+  name: string; x: number; y: number; w: number; h: number; cx: number; cy: number; top: number; speech?: string;
+  /** valor da máscara (townmask.bmp) */
+  mask?: number;
+  /** realce original (hili_*.bmp de Kaarg/acampamento) com posição própria; sem ele, o realce (se houver) cobre a região */
+  hili?: { x: number; y: number };
+}
 interface AnimMeta { x: number; y: number; group?: string; seq?: number; mode?: "loop" | "hover" | "once"; hover?: string; hoverTo?: number; rest?: number; fps?: number }
 interface BirdFlight { strip: string; cells: ([number, number, number, number, number] | null)[] }
 interface TownMeta {
@@ -165,7 +171,7 @@ export default class TownScene extends Scene {
     if (meta.birds || meta.overlay) await this.buildSky(view, BASE, meta);
     regionList.forEach(([id, r], i) => {
       const n = Number(id);
-      const h = spr(hiliTex[i], r.x, r.y);
+      const h = spr(hiliTex[i], r.hili?.x ?? r.x, r.hili?.y ?? r.y);
       h.alpha = 0;
       view.addChild(h);
       this.hili.set(n, h);
@@ -180,7 +186,7 @@ export default class TownScene extends Scene {
     view.on("pointermove", (e: FederatedPointerEvent) => {
       const p = view.local(e);
       this.setHover(this.tip ? 0 : this.readMask(p.x, p.y));
-      const text = this.tip ? "" : this.labelFor(this.regions.get(this.hover)?.name);
+      const text = this.tip ? "" : this.labelFor(this.regions.get(this.hover));
       if (text) this.hint.show(text, p.x + 4, p.y); else this.hint.hide();
     });
     view.on("pointerout", () => { this.setHover(0); this.hint.hide(); });
@@ -227,10 +233,21 @@ export default class TownScene extends Scene {
   /** Fecha a janela de dica (usado pelos cenários de captura). */
   closeTip(): void { this.tip?.close(); }
 
-  private labelFor(name?: string): string {
-    const t = this.texts;
-    return name === "inn" ? t.label(236, "Inn") : name === "shop" ? t.label(233, "Shop") : name === "statue" ? t.label(235, "Click to bring up the Main Menu")
-      : name === "trainer" ? t.label(234, "School of Magic and Martial Arts") : name === "gate" ? t.label(232, "Exit") : "";
+  /** Etiqueta do mouse por região (main.txt): Plagat = portão "Exit" 232; Kaarg e acampamento = "Start mission" 237; os moradores de
+   *  Kaarg têm etiqueta (refs/original/town_kaarg_hover_*: "Sleeping man" 362, "Guard" 361, "Girl" 359/360), os do acampamento não. */
+  private labelFor(r?: Region): string {
+    const t = this.texts, name = r?.name, plagat = this.town.art === "base";
+    if (name === "inn") return t.label(236, "Inn");
+    if (name === "shop") return t.label(233, "Shop");
+    if (name === "statue") return t.label(235, "Click to bring up the Main Menu");
+    if (name === "trainer") return t.label(234, "School of Magic and Martial Arts");
+    if (name === "gate") return plagat ? t.label(232, "Exit") : t.label(237, "Start mission");
+    if (name === "person" && this.town.key === "kaarg") {
+      if (r?.speech === "kaargman") return t.label(362, "Sleeping man");
+      if (r?.speech === "kaargguard") return t.label(361, "Guard");
+      if (r?.speech === "kaargwoman") return t.label(r.mask === 192 ? 360 : 359, "Girl");
+    }
+    return "";
   }
 
   private setHover(id: number): void {
