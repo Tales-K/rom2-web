@@ -16,7 +16,9 @@ import { partyForMission } from "../engine";
 import type { CampaignState } from "../types";
 import { loadData, run, startRun, type Run } from "../../sim/test/loader";
 import { campaignData, sceneVars, settle } from "../../sim/test/pilot";
+import { fxAuditor, type FxAudit } from "./fxaudit";
 
+import { TICKS_PER_SEC } from "../../sim/types";
 export interface PilotGame { state: { hero?: HeroState; progress: { campaign?: CampaignState } } }
 export interface PilotOpts { /** final da 110: 0 = cavaleiros (knights), 1 = druidas */ ending?: 0 | 1; fail?: boolean }
 export interface PilotResult {
@@ -26,6 +28,8 @@ export interface PilotResult {
   party: { companions: number[]; mercs: number; companionUnits: number[]; mercUnits: number };
   /** a execução da missão (mundo, host, desfecho) para inspeção */
   run: Run;
+  /** auditoria do desenho nos pilotos reais (campaign/test/fxaudit.ts): sprite de cada projétil, auras sobre a névoa */
+  fx: FxAudit;
 }
 
 /** Recompensa sintética dos pilotos forçados (nenhum script dá XP/ouro ao vencer): só para provar que ouro/XP persistem entre missões. */
@@ -77,9 +81,11 @@ export async function pilotMission(game: PilotGame, id: number, o: PilotOpts = {
   const { r, party, seed } = await buildMissionRun(game, id);
   const h = r.b.hero, w = r.b.world;
   let mode: PilotResult["mode"] = "forçado";
+  const fx = fxAuditor(w, r.data);
+  const audited = (each: (t: number) => boolean | void) => (t: number): boolean | void => { fx.tick(t); return each(t); };
   const out = (outcome: "complete" | "fail", vars: Record<string, number>, extra: { gold: number; exp: number }): PilotResult => ({
     id, outcome, mode, vars, gold: r.gold + h.gold + extra.gold, exp: h.exp + extra.exp, kills: killsOf(r), ticks: r.ticks,
-    cause: r.outcome && !r.outcome.ok ? r.outcome.cause : 0, party, run: r,
+    cause: r.outcome && !r.outcome.ok ? r.outcome.cause : 0, party, run: r, fx: fx.audit,
   });
 
   if (o.fail) {                                           // derrota: o herói morre (falha causa 2)
@@ -91,14 +97,17 @@ export async function pilotMission(game: PilotGame, id: number, o: PilotOpts = {
 
   if (id === 10) {
     mode = "real";
-    run(r, 20 * 60 * 6, walkToSkrakan(r));
+    run(r, TICKS_PER_SEC * 60 * 6, audited(walkToSkrakan(r)));
   } else if (id === 20) {
     mode = "real";
     // o bom bandido (unidade 62) abre o subobjetivo 1 e grava vars[772]=1 (libera a 21); depois a estrada até Kaarg
     const good = r.b.host.units.get(62);
     if (good) { w.teleport(h, good.cx + 2, good.cy); run(r, 20); w.teleport(h, 41, 67); }
-    run(r, 20 * 300, walkRoadToKaarg(r));
+    run(r, TICKS_PER_SEC * 300, audited(walkRoadToKaarg(r)));
   } else {
+    // grupo do jogador praticamente imortal: o fluxo de sorteios (rand() do exe) decide se um Blizzard da IA acerta o herói na 110, e um
+    // golpe só (> HP do mago) mata antes do `keep` restaurar a vida; o piloto forçado não testa combate
+    for (const u of r.b.world.units) if (u.player === h.player && u.alive) { u.maxHp = 1e6; u.hp = 1e6; }
     settle(r, 60);                                        // o script roda 3 s com o grupo vivo; sem falha, a vitória é declarada
     if (!r.outcome) r.outcome = { ok: true, cause: 0 };
   }

@@ -10,9 +10,11 @@
  */
 import { Assets, ColorMatrixFilter, Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type { Game } from "../core/game";
+import { listenerPlace } from "../core/sounds";
 import type { SimEvent } from "../sim/types";
 import type { Projectile, Unit, World } from "../sim/world";
 import { ANIM_UNIT_MS, dir16, type AnimTable } from "./animTiming";
+import { auraVisible, projectileSpriteId, spellSpriteId } from "./fxrules";
 import { GridAtlas, WORLD_BASE, loadWorldJson, type PrDef, type WorldJson } from "./worldanim";
 
 const TILE = 32;
@@ -29,13 +31,9 @@ export function spellSfx(id: number | string): number {
   return 508 + 2 * n;
 }
 
-/** Projétil/efeito do projectiles.reg usado pela magia `id` (sem sprite → undefined). */
+/** Projétil/efeito do projectiles.reg usado pela magia `id` (sem sprite → undefined). Regra em mission/fxrules.ts. */
 export function spellProjectile(id: number | string, wj?: WorldJson): string | undefined {
-  const n = Number(id);
-  const fixed: Record<number, string> = { 2: "12", 3: "15", 6: "21", 7: "23", 9: "27", 11: "30", 16: "40", 17: "43" };
-  if (fixed[n]) return fixed[n];
-  for (const k of [8 + 2 * n, 9 + 2 * n]) if (!wj || wj.projectiles[String(k)]) return String(k);
-  return undefined;
+  return spellSpriteId(id, k => !wj || !!wj.projectiles[k]);
 }
 
 /** Efeito de impacto/explosão por magia. */
@@ -45,7 +43,7 @@ interface FlyFx { sprite: Sprite; def: PrDef; atlas: GridAtlas; born: number; la
 interface OneShot { sprite: Sprite; atlas: GridAtlas; def: PrDef; born: number; frameMs: number; loops: number; }
 /** Aura persistente de uma magia sobre a unidade (Shield): nuvem de puffs do projétil 62 numa elipse em volta do corpo. */
 interface AuraFx { puffs: { s: Sprite; ang: number; r: number; off: number }[]; atlas: GridAtlas; def: PrDef; }
-interface AreaFx { sprites: { s: Sprite; off: number }[]; atlas: GridAtlas; def: PrDef; }
+interface AreaFx { sprites: { s: Sprite; off: number; cx: number; cy: number }[]; atlas: GridAtlas; def: PrDef; }
 
 export class Effects {
   readonly layer = new Container();
@@ -61,6 +59,10 @@ export class Effects {
   listener = { x: 0, y: 0 };
   /** altura do chão (px) no ponto em células — relevo (mission/relief.ts); 0 = plano */
   heightAt: (x: number, y: number) => number = () => 0;
+  /** unidade visível para o jogador (névoa de guerra; MapView.isVisible): auras só de quem se vê */
+  isVisible: (u: Unit) => boolean = () => true;
+  /** célula (coordenadas em células) visível para o jogador: projéteis, impactos e áreas na névoa não se desenham */
+  isCellVisible: (x: number, y: number) => boolean = () => true;
 
   constructor(private readonly game: Game, private readonly world: World, private readonly anim: AnimTable) {}
 
@@ -96,22 +98,18 @@ export class Effects {
     return { i: ph, flip: false };
   }
 
+  /** Sprite do projétil (regra pura em mission/fxrules.ts: magia, arma lançadora, golpe "fire", flecha do units.reg). */
   private projId(p: Projectile): string | undefined {
-    if (p.spell) return spellProjectile(p.spell.id, this.wj);
-    if (p.kind === "fire") return "10";
-    if (p.kind === "arrow") {
-      const from = this.world.get(p.from);
-      const n = from ? Number(this.anim[from.kind]?.Projectile ?? 1) : 1;
-      return String(n >= 1 && n <= 4 ? n : 1);
-    }
-    return undefined;
+    const from = this.world.get(p.from);
+    const pr = (kind: string): number | undefined => { const v = this.anim[kind]?.Projectile; return v === undefined || v === null ? undefined : Number(v); };
+    return projectileSpriteId(p, from, pr, k => !this.wj || !!this.wj.projectiles[k]);
   }
 
+  /** Som do efeito no ponto (células): sfx 500 + id do efeito (0x40d9b2 casos 0x86/0x8b/0x8c), posicional (0x41b1f8) com prioridade (10000−|vol|)/100. */
   private play(id: number, x: number, y: number, vol = 1): void {
-    const d = Math.hypot(x * TILE - this.listener.x, y * TILE - this.listener.y);
-    const v = Math.max(0, Math.min(1, 1.2 - d / 700)) * vol;
-    if (v <= 0.03) return;
-    try { this.game.audio.playSfx(id, v); } catch { /* sem áudio */ }
+    const p = listenerPlace(x, y, { x: this.listener.x - 424, y: this.listener.y - 384 });   // listener = centro da vista de 848×768 px
+    if (p.vol * vol <= 0.01) return;
+    try { this.game.audio.playSfx(id, p.vol * vol, { pan: p.pan, prio: p.prio, tag: "effect" }); } catch { /* sem áudio */ }
   }
 
   /** Efeito de uma vez no ponto (células). */
@@ -122,6 +120,7 @@ export class Effects {
     const s = new Sprite(atlas.frame(0));
     s.anchor.set(0.5);
     s.position.set(x * TILE, y * TILE - (opts.lift ?? 0) - this.heightAt(x, y));
+    s.visible = this.isCellVisible(x, y);
     this.layer.addChild(s);
     this.shots.push({ sprite: s, atlas, def, born: performance.now(), frameMs: opts.frameMs ?? ANIM_UNIT_MS, loops: opts.loops ?? 1 });
   }
@@ -179,6 +178,7 @@ export class Effects {
         this.flying.set(p.id, f);
         // flecha/virote: o som do disparo já sai no "attack" da unidade; magias: no "cast" da cena (MissionAudio)
       }
+      (f.g ?? f.sprite).visible = this.isCellVisible(p.x, p.y);   // projétil dentro da névoa: não se desenha sobre ela
       if (f.g) {
         f.g.position.set(p.x * TILE, p.y * TILE - FLY_H - this.heightAt(p.x, p.y));
         f.lastX = p.x; f.lastY = p.y;
@@ -239,7 +239,7 @@ export class Effects {
         s.anchor.set(0.5, def.ch > TILE * 1.5 ? 0.75 : 0.5);
         s.position.set((cx + 0.5) * TILE, (cy + 0.5) * TILE - this.heightAt(cx + 0.5, cy + 0.5));
         this.layer.addChild(s);
-        fx.sprites.push({ s, off: (cx * 7 + cy * 13) % 16 });
+        fx.sprites.push({ s, off: (cx * 7 + cy * 13) % 16, cx, cy });
       }
       this.areas.set(a.id, fx);
       this.play(spellSfx(a.spell), a.x, a.y, 0.8);
@@ -247,7 +247,10 @@ export class Effects {
     for (const [id, fx] of this.areas) {
       if (!live.has(id)) { for (const { s } of fx.sprites) s.destroy(); this.areas.delete(id); continue; }
       const k = Math.floor(now / ANIM_UNIT_MS);
-      for (const { s, off } of fx.sprites) s.texture = fx.atlas.frame((k + off) % (fx.def.phases * Math.max(1, fx.def.dirs)));
+      for (const { s, off, cx, cy } of fx.sprites) {
+        s.visible = this.isCellVisible(cx + 0.5, cy + 0.5);
+        s.texture = fx.atlas.frame((k + off) % (fx.def.phases * Math.max(1, fx.def.dirs)));
+      }
     }
   }
 
@@ -259,7 +262,7 @@ export class Effects {
   private updateAuras(now: number): void {
     const live = new Set<number>();
     for (const u of this.world.units) {
-      if (!u.active || !u.alive || u.phased || !u.buffs.some(b => b.spell === "27")) continue;
+      if (!auraVisible(u, this.isVisible)) continue;   // mission/fxrules.ts: viva, ativa, com Shield e VISÍVEL (nada sobre a névoa)
       live.add(u.id);
       let fx = this.auras.get(u.id);
       if (!fx) {

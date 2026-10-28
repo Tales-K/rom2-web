@@ -98,6 +98,8 @@ export class MapView {
   selectedId = 0;
   /** unidade visível para o jogador (névoa de guerra); padrão: todas */
   isVisible: (u: Unit) => boolean = () => true;
+  /** célula visível para o jogador (névoa de guerra); padrão: todas — projéteis, impactos, áreas e auras não se desenham sobre a névoa */
+  isCellVisible: (x: number, y: number) => boolean = () => true;
   hoverId = 0;
   /** tom médio de cada tile (para o minimapa) */
   tileColor: number[] = [];
@@ -117,6 +119,8 @@ export class MapView {
     this.light.visible = false;
     this.effects = new Effects(game, world, data.anim);
     this.effects.heightAt = (x, y) => this.relief.heightAt(x, y);
+    this.effects.isVisible = u => this.isVisible(u);
+    this.effects.isCellVisible = (x, y) => this.isCellVisible(x, y);
     this.fx.addChild(this.effects.layer);
     this.lit.addChild(this.terrain, this.ground, this.shadows, this.sorted, this.light);
     this.lit.filters = [this.litFilter];

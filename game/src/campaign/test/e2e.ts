@@ -24,13 +24,16 @@ import { GameState } from "../../core/state";
 import { SaveManager } from "../../core/save";
 import { restoreMission, snapshotMission, type MissionSnapshot } from "../../sim/snapshot";
 import { campaignData as D, check, summary } from "../../sim/test/pilot";
-import { json, proc, run } from "../../sim/test/loader";
+import { json, loadData, proc, run, startRun } from "../../sim/test/loader";
 import type { CampaignState, PoolItem, ShopsData } from "../types";
 import {
   E2E_VARIANTS, asGame, browserStorage, createCharacter, diffPaths, makeGame, persisted, resetBrowserStorage, roundTrip, stable, applyMissionResult,
   type FakeGame, type Variant,
 } from "./e2e_harness";
-import { buildMissionRun, pilotMission, walkToSkrakan } from "./e2e_pilot";
+import { buildMissionRun, pilotMission, walkToSkrakan, type PilotResult } from "./e2e_pilot";
+import { fxAuditor, visibleToPlayer, type FxSample } from "./fxaudit";
+import { ARROW_SPRITES, auraVisible, spellSpriteId } from "../../mission/fxrules";
+import type { Unit } from "../../sim/world";
 
 console.info = () => { /* mudo: o jogo registra cada autosave */ };
 const QUICK = proc.argv.includes("--rapido");
@@ -63,6 +66,29 @@ interface Report {
   sig: string; fame?: { rank: number; score: number }; gallery: string[]; missions: number;
   /** missões jogadas com Igles / Dina / ao menos um mercenário, e itens comprados */
   withIgles: number; withDina: number; withMercs: number; maxMercs: number; bought: number;
+}
+
+/**
+ * O que a tela desenharia (mission/fxrules.ts, auditado tique a tique em campaign/test/fxaudit.ts) nas missões reais 10 e 20:
+ *  - projétil por unidade/arma/magia: magia → projétil `8+2N`; arma lançadora (cajado do mago) → o da magia da arma, NUNCA flecha
+ *    (bug: o mago "atirava flechas" na cobra caída); golpe "fire" → 10; flecha → Projectile do units.reg (1..4);
+ *  - aura do Shield: nunca em unidade fora da visão do jogador (bug: aura do mago da 10 sobre a névoa).
+ */
+function checkFx(m: number, res: PilotResult, v: Variant, ex: (c: unknown, msg: string) => void): void {
+  const fx = res.fx;
+  const expect = (s: FxSample): string | undefined => s.spell ? spellSpriteId(s.spell) : s.weaponSpell ? spellSpriteId(s.weaponSpell) : s.kind === "fire" ? "10" : undefined;
+  const bad = fx.projectiles.filter(s => {
+    const e = expect(s);
+    if (e) return s.sprite !== e;
+    if (s.kind === "arrow") return !(ARROW_SPRITES as readonly string[]).includes(s.sprite ?? "");
+    return false;
+  });
+  ex(bad.length === 0, `missão ${m}: ${fx.projectiles.length} projéteis com o sprite da unidade/arma/magia; errados: ${bad.slice(0, 3).map(s => `${s.fromKind}/${s.kind}/${s.spell ?? s.weaponSpell ?? "-"}→${s.sprite}`)}`);
+  // o piloto só anda (o motor revida sozinho): quando o herói chega a disparar, o mago só solta fire bolt e o guerreiro nunca
+  const heroShots = fx.projectiles.filter(s => s.from === res.run.b.hero.id);
+  if (v.mage) ex(heroShots.every(s => s.sprite === "10"), `missão ${m}: o mago dispara ${heroShots.length} vezes, sempre o fire bolt (10): ${[...new Set(heroShots.map(s => s.sprite))]}`);
+  else ex(heroShots.every(s => s.sprite !== "10"), `missão ${m}: o guerreiro nunca dispara fire bolt (${heroShots.length} disparos)`);
+  ex(fx.aurasOverFog.length === 0, `missão ${m}: nenhuma aura do Shield desenhada sobre a névoa (${fx.aurasOverFog.length} ocorrências; ${fx.aurasShown} auras visíveis, ${fx.shieldedOutOfSight} tiques com Shield fora da visão)`);
 }
 
 async function playthrough(v: Variant, o: RunOpts): Promise<Report> {
@@ -296,6 +322,7 @@ async function playthroughInner(v: Variant, o: RunOpts): Promise<Report> {
       }
       ex(res.outcome === "complete", `missão ${m}: vitória do piloto ${res.mode} (${res.outcome}, causa ${res.cause}, ${res.ticks} tiques)`);
       if (res.outcome !== "complete") { scene = "end"; break; }
+      if (res.mode === "real") checkFx(m, res, v, ex);
       if (res.mode === "real") real++; else forced++;
       if (res.party.companions.includes(22)) withIgles++;
       if (res.party.companions.includes(23)) withDina++;
@@ -472,6 +499,50 @@ if (!QUICK) {
   console.log(`  (${((Date.now() - t1) / 1000).toFixed(0)} s)`);
 }
 
+/**
+ * [E2E-C] Cena do bug relatado (28/10): o mago da campanha ataca uma cobra da missão 10 que foge e cai (vida ≤ 0, inconsciente); o golpe
+ * no alvo caído sai pela máquina de ação SEM a magia da arma (sim/world.ts hookStrikeBorn exige alvo ativo) e o desenho dava a flecha
+ * genérica. Regra da tela (mission/fxrules.ts): quem tem arma lançadora dispara sempre o projétil da magia da arma. E a aura do Shield:
+ * nunca desenhada em unidade fora da visão do jogador (Skrakan com Shield longe do herói; visível só quando o herói chega perto).
+ */
+async function drawingScenarios(): Promise<void> {
+  console.log("\n[E2E-C. desenho: projétil por unidade/arma/magia (mago × cobra caída) e aura do Shield fora da visão]");
+  const g = makeGame();
+  const hero = await createCharacter(g, E2E_VARIANTS[2]);
+  const data = await loadData(10);
+  const r = startRun(data, hero);
+  const h = r.b.hero, w = r.b.world;
+  const fx = fxAuditor(w, data);
+  const snake = w.units.find(u => u.kind === "75")!;
+  check(!!snake && !!h.weaponSpell && h.stats.range > 1, `mago com arma lançadora (magia ${h.weaponSpell?.id}, alcance ${h.stats.range}) e cobra ${snake?.id} na missão 10`);
+  snake.wimpyHp = 29;                                    // foge ao 1º golpe (como a cobra do relato)
+  w.teleport(h, snake.cx + 4, snake.cy);
+  w.command(h, { type: "attack", target: snake.id });
+  let downedAt = -1, strikesOnDowned = 0;
+  run(r, TICKS_PER_SEC * 60, t => {
+    fx.tick(t);
+    if (t === 30) w.teleport(snake, Math.max(2, snake.cx - 9), snake.cy);   // some na névoa (fora do alcance 7 da magia): o herói persegue
+    if (!snake.alive && downedAt < 0) downedAt = t;
+    if (!snake.alive && h.order.type !== "attack") w.command(h, { type: "attack", target: snake.id, forced: true });
+    if (snake.bodyDead) return true;
+  });
+  const shots = fx.audit.projectiles.filter(s => s.from === h.id);
+  strikesOnDowned = shots.filter(s => downedAt >= 0 && s.tick > downedAt).length;
+  check(downedAt > 0 && strikesOnDowned > 0, `a cobra cai (tique ${downedAt}) e o mago ainda a golpeia ${strikesOnDowned} vezes (golpes físicos da máquina, sem magia: ${shots.filter(s => !s.spell).length})`);
+  check(shots.length > 0 && shots.every(s => s.sprite === "10"), `${shots.length} projéteis do mago, todos com o sprite do fire bolt (10): ${[...new Set(shots.map(s => `${s.kind}/${s.spell ?? "-"}→${s.sprite}`))]}`);
+  check(fx.audit.projectiles.filter(s => s.kind === "arrow" && !s.weaponSpell).every(s => (ARROW_SPRITES as readonly string[]).includes(s.sprite ?? "")), "flechas de quem não tem arma lançadora usam o Projectile do units.reg (1..4)");
+
+  // aura: Skrakan (unidade 32, em (64,36)) ganha Shield enquanto o herói está longe → nada na tela; herói ao lado → aura visível
+  const sk = w.units.find(u => u.scriptId === 32 || u.id === 32)!;
+  sk.buffs.push({ kind: "absorption", amount: 10, until: w.tick + 10_000, spell: "27" });
+  const vis = (u: Unit) => visibleToPlayer(w, u);
+  check(!visibleToPlayer(w, sk) && !auraVisible(sk, vis), `Skrakan com Shield fora da visão do herói (${Math.hypot(sk.x - h.x, sk.y - h.y).toFixed(0)} células): aura NÃO desenhada`);
+  w.teleport(h, sk.cx + 2, sk.cy);
+  check(visibleToPlayer(w, sk) && auraVisible(sk, vis), "herói ao lado: aura desenhada");
+  check(!auraVisible({ active: true, alive: true, phased: false, buffs: [{ spell: "27" }] }, () => false) && !auraVisible({ active: true, alive: true, phased: false, buffs: [] }, () => true), "regra pura: sem visão ou sem Shield → sem aura");
+}
+
+await drawingScenarios();
 await midMissionResume();
 
 proc.exitCode = summary();

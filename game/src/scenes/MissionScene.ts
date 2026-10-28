@@ -205,6 +205,7 @@ export default class MissionScene extends Scene {
     this.fog = new Fog(this.data.map.w, this.data.map.h, this.view.relief);
     this.view.root.addChildAt(this.fog.sprite, this.view.root.getChildIndex(this.view.fx));
     this.view.isVisible = u => u.player === 1 || this.fog.isVisible(u.x, u.y);
+    this.view.isCellVisible = (x, y) => this.fog.isVisible(x, y);
     this.fog.update(this.world);
 
     // camada do mundo recortada à área de jogo
