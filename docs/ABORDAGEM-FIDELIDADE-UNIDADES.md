@@ -228,7 +228,7 @@ oráculo, commit, relatório de 10 linhas; 2 em paralelo quando não compartilha
 sessões (emulador + aproximação + andar) o resíduo `pos` 508 deve cair pela metade. O original real só volta a rodar para **despejar
 imagens** (uma por missão e uma por episódio de interesse), nunca para traçar.
 
-### 7.1 Resultado das etapas 1–8a (2026-10-27)
+### 7.1 Resultado das etapas 1–9 (2026-10-28)
 
 - **Etapa 1, oráculo** (commits 61d920b, 64b8b4b; `tools/re/oracle/`, `notes/oracle-resume.md`): portão passou nos 3 episódios
   (traço de 960 tiques + `rand` a cada 16 tiques idênticos ao golden), ~430–530 tiques/s por instância, HLE de ~12 APIs. Dois
@@ -285,10 +285,16 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   Golden 56,9 % → **61,6 %**, **`--ci` verde** pela primeira vez desde a integração. Resíduo nomeado: `task`/`target` ~5 % e `rng` 6 %
   = pensamento da IA (`0x569321`, `0x57240b`, `0x56acc8`, `0x5728fa`) e tratador de ordens do cliente; `hp` 1–3 % = regeneração
   (`0x50fc5a`) e magias; `act` = golpe que o pensamento troca por magia (`0x56b059`).
-- **Próximo**: etapa 9 (`docs/briefings/ETAPA9-PENSAMENTO.md`): pensamento do jogador de IA (`0x56fe4d` → `AI_PlayerThink 0x570087`,
-  grupo `0x5700f3`/`0x5728fa`/`AI_GroupAssignTargets`), tarefas da unidade (`AI_TaskDispatcher 0x569321`: parada, Stand ground, ataque,
-  guarda, patrulha, fuga), visão (`Vision_Compute 0x552c28`), regeneração e os `case` executados do tratador de ordens
-  (`Server_PacketDispatcher 0x4f515d`); magos da IA em gancho até a 8b (magias), que passa para depois.
+- **Etapa 9, lote 1: regeneração e laço de 1/s** (commit d6de030; `exe/regen.ts`: `Unit_Regen 0x50fc5a` 6 026 pares, `World_SecondTick
+  0x52bbb7`; `notes/pensamento.md`): a regeneração roda no tique ≡ 0xc mod 16 (pré-incremento) antes das máquinas; o contador de 1/s é
+  ⌊relógio÷16⌋ (a âncora "≡ 13" do importador saiu); a conta é inteira truncada a short, como no exe (testes "imortais" zeram a regeneração);
+  cadáveres e desgaste das invocações pelas listas do contentor `[0x68d2dc]` na ordem dos baldes do `CMap`. Apagados `World.regen`,
+  `secPhase`/`secBase`, `stepCorpses`/`stepSummons`. Estado inteiro 86,9 / 85,1 / 85,5 % → **87,9 / 87,2 / 87,9 %**; golden 61,6 → **63,1 %**,
+  `--ci` verde. `hp`/`mana` 100 % fora de magia. Lote 2 (pensamento do grupo): porta de 38 funções a 100 % dos pares em `exe/think.ts`/
+  `exe/vision.ts` (`Vision_Compute` incluído), integração na `World` em curso, **não commitada** (nota de passagem em `notes/pensamento.md`).
+- **Próximo**: retomar a etapa 9 pelo lote 2 (integração: `rng` diverge em T=1 por `casterSupport`/`rollProc` duplicados nos ganchos),
+  depois lotes 3 (tarefas da unidade `AI_TaskDispatcher 0x569321`) e 4 (`case` executados de `Server_PacketDispatcher 0x4f515d`); magos
+  da IA em gancho até a 8b (magias).
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
