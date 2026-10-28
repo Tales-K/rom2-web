@@ -126,6 +126,9 @@ export default class GlobalMapScene extends Scene {
     }
     if (gm.map === "uimoir" && gm.hero) this.flag(smallFlag, { kind: "town", id: st.lastTown, x: gm.hero.x, y: gm.hero.y }, { x: -10, y: -24 });   // estandarte xadrez (pequeno) em Plagat
     f.addChild(this.title, this.body);
+        // clique DURANTE a viagem: o original pula o resto da animação e entra no local na hora (sonda no allods2.exe, mapa de Yases,
+        // 28/10: 2º clique ~140 ms após o 1º → missão carregada em ~0,3 s em vez de ~1,5 s; notes/bugs-2026-10-28.md)
+        if (this.walk) { this.walk.t = this.walk.total; return; }
 
     this.restoreCursor = applyThemeCursor(game.app, "default");
     game.app.renderer.events.cursorStyles.select = cursorCss("select");
