@@ -105,7 +105,7 @@ export interface WorldSnapshot {
   exe?: MapRecJson;
   /** mundo do exe: rascunho do evento (+0xbd98, hex), a lista de eventos para a IA (+0xbbec, hex por evento) e as listas de
    *  candidatos do fim de caminho (+0xa68/+0xa88, endereços) — opcional */
-  exeWorld?: { evt: string; events: string[]; cand?: number[]; dead?: number[] };
+  exeWorld?: { evt: string; events: string[]; cand?: number[]; dead?: number[]; dip?: string };
   /** áreas de magia no chão (MOTOR-C) — opcional para saves antigos */
   areas?: SpellArea[];
   /** armadilhas do script (Set trap) — opcional */
@@ -154,7 +154,7 @@ export function snapshotWorld(world: World): WorldSnapshot {
     killsByType: [...world.killsByType],
     occ,
     exe: mapRecToJson(world.exe, world.exeBase),
-    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values() },
+    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values(), dip: hex(world.exeWorld.dipTable) },
     areas: world.areas.map(a => JSON.parse(JSON.stringify(a)) as SpellArea),
     traps: world.traps.map(t => JSON.parse(JSON.stringify(t)) as Trap),
     playerAi: world.playerAi.map(p => ({ ...p })),
@@ -235,6 +235,9 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   if (s.playerAi) s.playerAi.forEach((p, i) => { if (world.playerAi[i]) Object.assign(world.playerAi[i]!, p); });
   world.groupState.clear();
   for (const [g, v] of s.groupState ?? []) world.groupState.set(g, { ...v });
+  world.syncRecs();   // campos derivados dos registros do exe (atributos de combate, modelo, dono), como depois de um passo
+  // a tabela de diplomacia do exe por último: 0x57977a escreve nela fora de `dip` (diagonal, jogadores fora da matriz)
+  if (s.exeWorld?.dip) world.exeWorld.dipTable.set(unhex(s.exeWorld.dip));
   world.events.length = 0;
 }
 

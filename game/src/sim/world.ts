@@ -20,6 +20,28 @@
  * (unidades vivas mundo+4, tipo+0 por (dono, modelo), diplomacia +0xa8bc, eventos +0xbbec) são mantidas pela World (spawn, setState,
  * step, command). Único adaptador restante: tarefa 9 (0x56ec3f, exec 0: ordens com `near` > 0 — seguir, defender, magia no chão —
  * só o ramo de andar); a magia no chão lança pelo motor antigo.
+ *
+ * DANO FÍSICO (etapa 8a, lote 1, notes/maquina-de-acao.md): o golpe físico é calculado pela porta de Unit_PhysicalDamage 0x516f6f
+ * (sim/exe/combat.ts) sobre os atributos de combate do registro (`syncCombat`: toHit, dano, tipo de arma, elemental, defesa, absorção,
+ * proteções, resistências, bits +0x4c, efeitos +0x144 a partir de `stats`/`buffs`); 0x56e6b8 marca na vítima quem bateu (IA+0x54, +0x94,
+ * +0x98 relógio de 16/s absoluto, +0x9c ponto de fuga: `hitClock16`/`fleeCell` são vistas) e 0x57977a declara a guerra na tabela do exe,
+ * que volta para `dip` em `syncDiplomacyBack`. Bless/Curse (lista de efeitos do exe, 0x5106f4) vêm dos `buffs` pelo gancho `effectPower`.
+ *
+ * MÁQUINA DE AÇÃO (etapa 8a, lote 2): `act(u)` traduz a ordem para a tarefa do exe e chama UMA vez por tique a máquina portada
+ * 0x50f12c (`machine`: efeitos → queda/morte → despachante 0x56dca2 → golpe/magia por fases +0x58/+0x6c). O golpe físico é inteiro do
+ * exe (0x516c1f → 0x516ceb → 0x516f6f: a vida +0x94 — `hp` é uma vista — cai na porta); a magia sai pelos ganchos `spellSpendMana`/
+ * `spellRelease`/`spellApply` (motor antigo, etapa 8b) no ponto exato (0x519998/0x519d7f/0x519db8); os efeitos (`buffs`) andam no gancho
+ * `effectsTick` (laço +0x20). A queda (vida < 1: +0x13c = 1, defesa ÷ 2, contador da animação) e a morte (vida < −9) são decididas na
+ * máquina; a World só faz a apresentação nos ganchos `fell`/`die` (estado dying/dead, eventos, `onDeath`, saque em `consumeDeath`).
+ * Adaptadores do pensamento (etapa 8b): `thinkAfterDispatch` (magia escolhida no livro / de chance / da arma no lugar do golpe, 0x56b059/
+ * 0x56acc8) e a magia no chão (tarefa 9, exec 0) como sub-ação 2 na célula; `actionDone` fecha a ordem de magia do motor antigo.
+ *
+ * MORTE (etapa 8a, lote 3): a máquina chama Unit_Die 0x510a70 portada (sim/exe/death.ts): sai das células, ouro/item do modelo
+ * (`tpl.arr[0x26..0x2c]` de `stats.treasure`, sorteios 0x510cbc/0x510cf3/0x510d19), saco, herói do dono (vida −50) e o 1º desgaste
+ * (0x5110b8, depois 1×/s em `stepCorpses`); mochila, loja de itens, saco, efeitos e equipamento ficam no motor antigo pelos ganchos
+ * `DieHooks` (`packDrop`, `lootItem`, `packCount`, `sackDrop`, `effectsOnDie`, `onDieHuman`) e a apresentação em `died` (`consumeDeath`).
+ * O dano de magia (Spell_Release/Spell_Apply → vtable +0x54) também é o de 0x516f6f, com a struct da magia (dano B = min + rand(max − min)
+ * contra a proteção do elemento; sorteios 0x5170f8 e 0x5172b7).
  */
 import { BLOCK_BORDER, BLOCK_SPELL, BLOCK_STRUCTURE, Grid, MAP_BORDER } from "./grid";
 import { skillExp, skillFromExp } from "./stats";
@@ -28,7 +50,10 @@ import { CellStructRec, MapRec, OccRec, UnitRec, WorldRec } from "./exe/types";
 import { listSet } from "./exe/recio";
 import { CListPtr, CListWord, type ListPos } from "./exe/mfc";
 import { mapRecFromGrid, exeMaskOf } from "./exe/mapbuild";
-import { unitActionDispatcher, type DispatchHooks } from "./exe/action";
+import { unitActionMachine, type MachineHooks } from "./exe/action";
+import { unitPhysicalDamage, unitStrikeBegin } from "./exe/combat";
+import { corpseDecay, unitDie } from "./exe/death";
+import { DmgRec, ItemRec, TemplateRec } from "./exe/types";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
 import { fn_0x55be86 } from "./exe/wave";
@@ -36,7 +61,7 @@ import { EXE_GLOBALS } from "./exe/types";
 import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
 import { aiThink, heroThink } from "./ai";
-import { canRevive, healDying, onConsumed, onFell, raiseDead, stepCorpses, stepSummons, summonCreature, CORPSE } from "./necro";
+import { canRevive, healDying, onFell, raiseDead, stepCorpses, stepSummons, summonCreature, CORPSE } from "./necro";
 import { selectedSpellRange, spellAttack } from "./spellattack";
 import {
   EXE_TPS, SPELL, isOffensive, prismaticRays, spellKey, spellLayer, stoneCurseTicksMax, type BuffKind, type SpellDef, type SpellEffect, type SpellTable,
@@ -111,6 +136,15 @@ export const MINIMAL_GUARD_RANGE = 8;
  *  todas as unidades. É o raio do gatilho do Wimpy (raio + 5, 0x56cb0c), dos inimigos de quem se foge (0x56cb8c) e da tarefa Guard
  *  da unidade (0x56a5fc → 0x567988). O raio do GRUPO (`grupo+0x3c +0x2d`, ≥ MinimalGuardRange) é outro: ver ai.ts `guardRadius`. */
 export const UNIT_GUARD_RADIUS = 5;
+/** Tipo de arma (+0xb6 do exe = índice na tabela de 6 resistências físicas +0xce..): 0 sem arma (garras/mordidas), 1..5 as habilidades. */
+const WTYPE_KEYS = ["none", "blade", "axe", "bludgeon", "pike", "shooting"] as const;
+const WTYPE_INDEX: Record<string, number> = { none: 0, blade: 1, axe: 2, bludgeon: 3, pike: 4, shooting: 5 };
+/** Elemento do dano B (+0xbb do exe; proteções +0xc4..+0xcc): 1 fogo, 2 água, 3 ar, 4 terra, 5 astral. */
+const ELEMENT_INDEX: Record<string, number> = { fire: 1, water: 2, air: 3, earth: 4, astral: 5 };
+/** a máquina de ação já rodou neste `World.act` (roda exatamente uma vez por tique por unidade, como no exe); rascunho do módulo */
+let machineRan = false;
+/** endereço sintético → definição da magia (World.spellAddr): rascunho do módulo, determinístico por (id, poder, mana) */
+const SPELL_BY_ADDR = new Map<number, SpellDef>();
 /** orçamento da janela 41×41 da visão (World.markVision), reaproveitado */
 const VIS_BUDGET = new Int32Array(41 * 41);
 let VIS_SEEN = new Uint8Array(0);
@@ -162,15 +196,18 @@ export const unitAddr = (id: number): number => (0x10000000 + id * 0x200) >>> 0;
 function initUnitRec(u: Unit): void {
   const r = u.rec;
   r.addr = unitAddr(u.id);
-  r.vtbl = u.isHero ? 0x5d0fb8 : 0x5d0eb0;
+  // vtable: humanos (modelos < 0x40, kind "hero" no despejo) e o herói usam 0x5d0fb8; monstros 0x5d0eb0 (0x5d0f40 não aparece no corpus)
+  r.vtbl = u.isHero || (u.typeId > 0 && u.typeId < 0x40) ? 0x5d0fb8 : 0x5d0eb0;
   r.size = Math.max(1, u.stats.size ?? 1) & 0xff;
   r.kind = u.stats.movement ?? (u.flying ? 3 : 1);
   r.walk.passMask = r.kind === 3 ? 0x82 : r.kind === 2 ? 0x44 : 0x41;
   r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
   r.walk.f09 = 0xff;
   r.speed = Math.round(u.stats.speed * 16);
-  r.f94 = u.hp; r.mana = u.mana;
+  r.mana = u.mana;
   r.type.stats.f45 = 1;
+  r.tpl = new TemplateRec();
+  r.tpl.arr[0x21] = u.timing.dyingTicks;   // duração da queda (vtable +0x74 → modelo[0x21] / [0x17]): a da animação do motor
   r.type.stats.f20 = u.isHero ? 4 : 0x12;
   r.owner.f2c = u.isHero ? 0 : 1;
   r.ai.f16 = -36;   // +0x1c4+0x16 = 0xffdc em todas as unidades das imagens do oráculo ("nunca")
@@ -187,9 +224,13 @@ export class Unit {
   scriptId: number;
   npc: number;
   isHero: boolean;
-  hp: number;
+  /** vida (+0x94) e vida máxima (+0x96) do registro do exe: a porta do golpe (0x516ceb) e a máquina (0x50f12c) as escrevem. São shorts:
+   *  valores fora de −32768..32767 (testes "imortais", console) saturam. */
+  get hp(): number { return (this.rec.f94 << 16) >> 16; }
+  set hp(v: number) { this.rec.f94 = Math.max(-32768, Math.min(32767, Math.round(v) | 0)); }
+  get maxHp(): number { return (this.rec.f96 << 16) >> 16; }
+  set maxHp(v: number) { this.rec.f96 = Math.max(-32768, Math.min(32767, Math.round(v) | 0)); }
   mana: number;
-  maxHp: number;
   maxMana: number;
   /** registro espelhado do servidor do exe (sim/exe/types.ts): FONTE DE VERDADE da posição, da direção e do andar (caminhos,
    *  passo em curso, tarefa IA+8/+9). Os campos abaixo são vistas sobre ele. */
@@ -233,7 +274,6 @@ export class Unit {
   home: Cell;
   target = 0;
   cooldown = 0;
-  hitDone = false;
   phased = false;
   suspended = false;
   /** "vida 0" do script/mapa (ogro meio morto da missão 74, refém da 50, druida da 101): a unidade está inconsciente de verdade
@@ -251,8 +291,11 @@ export class Unit {
    *  (`+0x9c`: 10 células a partir de quem bateu; 0 = nunca) */
   get unreachSec(): number { return this.rec.ai.f16 & 0xffff; }
   set unreachSec(v: number) { this.rec.ai.f16 = ((v & 0xffff) << 16) >> 16; }
-  hitClock16 = -100000;
-  fleeCell = 0;
+  /** relógio de 16/s ABSOLUTO do último golpe/magia recebido (IA+0x98, 0x56e6b8; 0 = nunca) e o ponto de fuga (IA+0x9c) */
+  get hitClock16(): number { return this.rec.ai.f98 >>> 0; }
+  set hitClock16(v: number) { this.rec.ai.f98 = v >>> 0; }
+  get fleeCell(): number { return this.rec.ai.f9c & 0xffff; }
+  set fleeCell(v: number) { this.rec.ai.f9c = v & 0xffff; }
   /** alvo da última perseguição que acabou sem o alcançar (fim de caminho, 0x56ed4e) e o tique: a IA não o escolhe de novo por 5 s
    *  [est: evita a unidade presa a um alvo inalcançável (cerca, casa) sendo re-escolhido a cada pensamento; o exe guarda o segundo
    *  em IA+0x16 (0x54d76e) e o pensamento do grupo pesa isso de outro modo] */
@@ -264,12 +307,6 @@ export class Unit {
   castY = 0;
   /** a magia em lançamento foi decidida pela IA/autocast (não gasta a ordem do jogador) */
   castAuto = false;
-  /** magia em lançamento: `stateTime` em que ela sai (fim da carga) e em que a unidade volta a agir (fim da espera); 0 = tempos da
-   *  animação [exe 0x50f12c, ver `castTiming`] */
-  castHit = 0;
-  castEnd = 0;
-  /** fase 7 do ciclo do exe sem o rand(0..3): relax + nível da magia + espera da arma (tiques de 16/s; World.beginCycle) */
-  cycleRest = 0;
   /** tique em que a ordem mudou ou foi armada (a sub-tarefa recomeça) e em que a unidade chegou ao centro de uma célula: a magia só
    *  começa no tique SEGUINTE a qualquer um dos dois (World.act; medido no golden: Heal/magias da IA 1 tique depois) */
   decideTick = -99;
@@ -308,8 +345,9 @@ export class Unit {
   resume: Order | null = null;
   /** criada durante a missão (invocação): o snapshot guarda os dados estáticos dela */
   dynamic = false;
-  /** vida do corpo depois da morte (a vida +0x94 do original continua caindo: sangria, decomposição) — sim/necro.ts */
-  corpseHp = 0;
+  /** vida do corpo depois da queda = a própria vida +0x94 (continua caindo: sangria, decomposição) — sim/necro.ts */
+  get corpseHp(): number { return this.hp; }
+  set corpseHp(v: number) { this.hp = v; }
   /** morte consumada (fim da animação e vida do corpo ≤ −10): a partir daqui o corpo só se decompõe e não volta com Heal */
   bodyDead = false;
   /** id de quem invocou (Summon, +0x148 do original); 0 = não invocada */
@@ -508,6 +546,7 @@ export class World {
     const u = new Unit(this.nextId++, init);
     const c = this.grid.nearestFree(u.cx, u.cy, u.flying) ?? { x: u.cx, y: u.cy };
     u.x = c.x + 0.5; u.y = c.y + 0.5; u.home = { x: c.x, y: c.y };
+    this.syncCombat(u);
     this.units.push(u);
     this.byId.set(u.id, u);
     this.exe.units.set(u.rec.addr, u.rec);
@@ -595,8 +634,12 @@ export class World {
    *  (a lista veio do despejo). */
   private exeSyncWorld(): void {
     const w = this.exeWorld;
-    for (let a = 0; a < this.dip.length && a < 0x46; a++) for (let b = 0; b < this.dip.length && b < 0x46; b++) w.dipTable[8 + a * 0x46 + b] = this.hostile(a, b) ? 1 : 0;
-    for (const u of this.units) u.rec.owner.f04 = u.player;
+    for (let a = 0; a < this.dip.length && a < 0x46; a++) for (let b = 0; b < this.dip.length && b < 0x46; b++) {
+      w.dipTable[8 + a * 0x46 + b] = a === b ? 0 : (this.dip[a]?.[b] ?? 0) & 3;   // bit 0 guerra, bit 1 aliança (0x57977a testa & 3)
+    }
+    const heroOf = new Map<number, number>();
+    for (const u of this.units) if (u.isHero) heroOf.set(u.player, u.rec.addr);
+    for (const u of this.units) { u.rec.owner.f04 = u.player; u.rec.owner.f38 = heroOf.get(u.player) ?? 0; }
     if (this.exeExact) return;
     w.liveUnits.removeAll();
     for (const u of this.units) if (u.state !== "dead" && u.state !== "dying") w.liveUnits.addTail(u.rec.addr);
@@ -812,16 +855,68 @@ export class World {
    *  do pensamento calibrada em `thinkPhaseFor`), ou seja, k ≤ t ⇔ 1,25·k + 0,5 < t + 1 */
   clock16(t = this.tick): number { return Math.ceil(((2 * t + 1) * SERVER_TICKS_PER_SEC) / (2 * TICKS_PER_SEC)) - 1; }
 
-  /** 0x56e6b8 (chamada em todo golpe físico — acerto ou não — e em magias com dano): marca o tique de 16/s e o ponto de fuga da
-   *  vítima = célula da vítima + 10 × (vítima − atacante) / max(|dx|,|dy|) em coordenadas finas, truncado (ftol), palavra y<<8 + x. */
-  noteAttacked(a: Unit, t: Unit): void {
-    t.hitClock16 = this.clock16();
-    t.rec.ai.f54 = 1;   // IA+0x54 = 1: a próxima olhada em volta (0x56e5bc, tarefa 0xb) gira sem o sorteio de 204
-    const dx = Math.floor(t.x * 256) - Math.floor(a.x * 256), dy = Math.floor(t.y * 256) - Math.floor(a.y * 256);
-    const m = Math.max(Math.abs(dx), Math.abs(dy));
-    if (!m) { t.fleeCell = 0; return; }
-    const X = Math.trunc(Math.floor(t.x) + dx * (10 / m)), Y = Math.trunc(Math.floor(t.y) + dy * (10 / m));
-    t.fleeCell = ((Y << 8) + X) & 0xffff;
+  /** relógio de 16/s absoluto do exe ([[0x6044c4]+4]): o do estado importado (`t16base`) mais o nosso */
+  absClock16(): number { return (this.t16base ?? 0) + this.clock16(); }
+
+  /** Atributos de combate da unidade no registro do exe (0x516f6f lê os da vítima e do agressor): toHit +0xa6, dano +0xb4/+0xb5, tipo de
+   *  arma +0xb6 (índice da tabela de resistências +0xce: 0 sem arma, 1 blade, 2 axe, 3 bludgeon, 4 pike, 5 shooting), dano elemental
+   *  +0xb7..+0xbb, defesa +0xbe (÷ 2 caída), absorção +0xc0, proteções +0xc4..+0xcc, resistências físicas +0xce.., bit 0x10 de +0x4c
+   *  (acerta sempre), vida e vida máxima, bits de efeito +0x144 (1 << id da magia) dos `buffs`. No estado importado do oráculo
+   *  (`exeExact`) os efeitos já vêm do original. */
+  syncCombat(u: Unit): void {
+    const r = u.rec, s = u.stats, d = r.dmg;
+    d.atk = ((this.attackOf(u) | 0) << 16) >> 16;
+    d.dmin = s.damage.min & 0xff;
+    d.dadd = Math.max(0, s.damage.max - s.damage.min) & 0xff;
+    d.wtype = WTYPE_INDEX[s.attackType ?? "none"] ?? 0;
+    const el = s.elemental;
+    d.elA0 = (el?.aBase ?? 0) & 0xff; d.elA1 = (el?.aRange ?? 0) & 0xff; d.elB0 = (el?.bBase ?? 0) & 0xff; d.elB1 = (el?.bRange ?? 0) & 0xff;
+    d.elK = (el?.element ?? 0) & 0xff;
+    r.fbe = ((this.defenseOf(u) | 0) << 16) >> 16;
+    r.fc0 = ((this.absorptionOf(u) | 0) << 16) >> 16;
+    r.prot[1] = this.resistOf(u, "fire"); r.prot[2] = this.resistOf(u, "water"); r.prot[3] = this.resistOf(u, "air");
+    r.prot[4] = this.resistOf(u, "earth"); r.prot[5] = this.resistOf(u, "astral");
+    const rp = s.resistPhysical;
+    for (let i = 0; i < WTYPE_KEYS.length; i++) r.resist[i] = rp ? Math.min(100, rp[WTYPE_KEYS[i]!] ?? 0) & 0xff : 0;
+    r.f4c = (r.f4c & ~0x10) | (s.alwaysHit ? 0x10 : 0);
+    r.f04 = u.id >>> 0; r.f0e = u.typeId & 0xffff;
+    r.vtbl = u.isHero || (u.typeId > 0 && u.typeId < 0x40) ? 0x5d0fb8 : 0x5d0eb0;   // humanos/herói × monstros (os testes mudam `isHero` depois do spawn)
+    { const mv = s.movement ?? (u.flying ? 3 : 1); r.kind = u.flying && mv < 2 ? 3 : mv; }   // +0x4a (> 1: some ao morrer); os testes mudam `flying` depois do spawn
+    r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (0x516ceb: distância ≤ alcance; AI_AttackRange 0x56ac5b sem magia escolhida)
+    r.f1a0 = u.dynamic ? 1 : 0; r.f148 = u.summoner ? unitAddr(u.summoner) : 0;
+    // modelo (+0x3c): nome (0x510a70 procura "NPC": `noDrop`) e o saque [0x26] chance de ouro, [0x27] mín., [0x28] faixa, [0x29] chance
+    // de item, [0x2a]/[0x2b] preço mín./máx., [0x2c] máscara (−1 sem tesouro, como nos modelos do oráculo)
+    const tpl = r.tpl!, tr = s.treasure;
+    tpl.name = (s.noDrop ? "NPC " : "") + s.name;
+    // ouro mínimo negativo nos nossos dados = sem ouro (o original só sorteia com chance ≥ 0) [est: derive.py]
+    const goldOk = !!tr && tr.goldMin >= 0;
+    tpl.arr[0x26] = goldOk ? tr.goldChance | 0 : -1; tpl.arr[0x27] = goldOk ? tr.goldMin | 0 : -1; tpl.arr[0x28] = goldOk ? Math.max(0, tr.goldMax | 0) : -1;
+    tpl.arr[0x29] = tr ? (tr.itemChance ?? 0) | 0 : -1; tpl.arr[0x2a] = tr ? (tr.itemMin ?? 0) | 0 : -1; tpl.arr[0x2b] = tr ? (tr.itemMax ?? 0) | 0 : -1;
+    tpl.arr[0x2c] = tr ? (tr.itemMask ?? 0) | 0 : -1;
+    r.f86 = ((s.reaction ?? 30) << 16) >> 16;
+    // charge/relax (+0x134/+0x135) do data.bin; sem eles (dados antigos/genéricos dos testes) os tempos da animação, como antes (castTiming)
+    r.f134 = (s.charge ?? Math.max(1, u.timing.hitTick)) & 0xff; r.f135 = (s.relax ?? Math.max(1, u.timing.attackTicks - u.timing.hitTick)) & 0xff;
+    // arma equipada (+0x74): só o peso +0x4a conta na espera (a magia da arma, `weaponSpell`, entra pelo adaptador do pensamento)
+    if (s.weaponWeight !== undefined) { r.f74 ??= new ItemRec(); r.f74.f4a = (s.weaponWeight << 16) >> 16; } else r.f74 = null;
+    if (!this.exeExact) {
+      let e = 0;
+      for (const b of u.buffs) { const id = Number(b.spell); if (id >= 1 && id < 32) e |= 1 << id; }
+      r.effects = e >>> 0;
+    }
+  }
+
+  /** Os campos derivados dos registros de todas as unidades (atributos de combate, modelo, dono): depois de um restore. */
+  syncRecs(): void {
+    this.exeSyncWorld();
+    for (const u of this.units) this.syncCombat(u);
+  }
+
+  /** A guerra que 0x57977a declarou na tabela do exe (mundo+0xa8bc, bit 0) entra na diplomacia do motor (`dip`: evento, alvos largados). */
+  private syncDiplomacyBack(): void {
+    const t = this.exeWorld.dipTable, n = Math.min(this.dip.length, 0x46);
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+      if (a !== b && (t[8 + a * 0x46 + b]! & 1) !== 0 && !this.hostile(a, b)) this.setDiplomacy(a, b, 1);
+    }
   }
   /** mapa de células vistas (zerado) do tamanho do mapa (rascunho do módulo: não faz parte do estado do mundo) */
   private visionScratch(): Uint8Array {
@@ -946,6 +1041,11 @@ export class World {
       this.exeWorld.events.removeAll();
     }
     this.exeSyncWorld();
+    EXE_GLOBALS.clock16 = this.absClock16();
+    for (const u of this.units) this.syncCombat(u);
+    // o passo de 1/s do exe (World_SecondTick: regeneração/sangria 0x50fc5a, decomposição 0x5110b8) vem ANTES das máquinas das unidades:
+    // a vida que chega a −10 na sangria morre (Unit_Die) no mesmo tique
+    stepCorpses(this);
     // ordem do servidor: jogadores em ordem e, em cada um, as unidades por id (sonda rngprobe: a posição dos sorteios do olhar em volta
     // bate 9/9 com (jogador, id)); `regenSlot` = id do original nos estados importados
     const order = this.serverOrder();
@@ -960,13 +1060,14 @@ export class World {
     this.rng.shift = 0;
     for (const u of order) {
       u.stateTime++;
-      if (u.state === "dead") continue;
-      if (u.state === "dying") {
-        if (u.stateTime >= u.timing.dyingTicks) this.setState(u, "dead");
+      if (u.phased) continue;
+      if (!u.alive) {
+        // caída: a máquina 0x50f12c conta a animação da queda e decide a morte (vida < −9 → ação 0x10, gancho `die`); a animação do
+        // motor (dying → dead) acompanha; consumada a morte (ação 0x10) a máquina não faz mais nada
+        if (u.state === "dying" && u.stateTime >= u.timing.dyingTicks) this.setState(u, "dead");
+        if (u.rec.act !== 0x10) this.machine(u);
         continue;
       }
-      if (u.phased) continue;
-      if (u.buffs.length) this.expireBuffs(u);
       this.regen(u);
       if (!u.active) continue;
       if (u.cooldown > 0) u.cooldown--;
@@ -985,15 +1086,17 @@ export class World {
     this.stepProjectiles();
     if (this.areas.length) this.stepAreas();
     if (this.traps.length) this.stepTraps();
-    stepCorpses(this);   // sangria/decomposição dos corpos [exe 0x50fc5a/0x5110b8] (sim/necro.ts)
     stepSummons(this);   // desgaste das invocações [exe 0x52bbb7]
   }
 
   /** Levanta quem estava morrendo (Heal que passa a vida de 0) [exe 0x510534]: volta ao estado normal com `hp`. */
   revive(u: Unit, hp: number, quiet = false): void {
     if (u.alive) return;
+    const r = u.rec;
+    // 0x510534: estado do corpo 0, defesa × 2 de volta, vida ≥ 1; ação/fase zeradas
+    r.f13c = 0; r.fbe = ((((r.fbe << 16) >> 16) * 2) << 16) >> 16; r.act = 0; r.f58 = 0; r.f6c = 0;
     u.hp = Math.max(1, Math.min(u.maxHp, Math.round(hp)));
-    u.corpseHp = 0; u.bodyDead = false; u.felledBy = 0; u.silentFall = false;
+    u.bodyDead = false; u.felledBy = 0; u.silentFall = false;
     this.walkAbort(u); u.order = { type: "none" }; u.target = 0; u.castSpell = null;
     const c = this.grid.nearestFree(u.cx, u.cy, u.flying, 6, u.id) ?? { x: u.cx, y: u.cy };
     u.x = c.x + 0.5; u.y = c.y + 0.5;
@@ -1011,6 +1114,8 @@ export class World {
     u.silentFall = true;
     onFell(u, 0);
     u.hp = 0;
+    // como a queda da máquina 0x50f12c (que não deve cair de novo): +0x13c = 1, contador 0, tarefa/ação 0
+    u.rec.f13c = 1; u.rec.f6c = 0; u.rec.task = 0; u.rec.act = 0;
     this.release(u);
     this.walkAbort(u); u.order = { type: "none" }; u.target = 0; u.castSpell = null;
     this.setState(u, "dead");
@@ -1062,6 +1167,7 @@ export class World {
       if (b.spell !== "aura") this.events.push({ type: "effect", unit: u.id, spell: b.spell, kind: b.kind, on: false });
     }
     u.buffs = keep;
+    this.syncCombat(u);
   }
 
   // ------------------------------------------------------------------------------------------- atributos efetivos
@@ -1161,11 +1267,8 @@ export class World {
 
   private act(u: Unit): void {
     const r = u.rec;
-    // golpe/magia fora da sub-ação do exe (magia no chão: tarefa 9, sem porta): só a máquina de ação do motor antigo
-    if (r.ai.sub === 0 && (u.state === "attack" || u.state === "cast")) { this.progressAttack(u); return; }
-    // máquina parada com a sub-ação 1/2 ainda contando (estado importado a meio golpe/magia sem a máquina, ou golpe abortado): o
-    // pedido fica pronto para o despachante soltar a sub-ação (+0x136)
-    if ((r.ai.sub === 1 || r.ai.sub === 2) && r.ai.f15 > 0 && u.state !== "attack" && u.state !== "cast") r.ready = 1;
+    machineRan = false;
+    try {
     // ordem de andar: o pensamento (0x569321, tique ≡ 7) larga a tarefa 1 (IA+8 = 0) quando a CÉLULA já é a do destino, mesmo a meio
     // passo; a classe da tarefa (+0x50) só vira "parado" no pensamento em que a unidade já está no centro (medido: herói da m10_start
     // no centro em T=49 → as duas em T=50; da m10_mage a meio passo em T=97 → IA+8 = 0 em T=98, classe 1 até o pensamento seguinte)
@@ -1182,7 +1285,7 @@ export class World {
     // qualquer ordem; a máquina de ação (0x50f12c = o golpe/a magia do motor antigo, `progressAttack`) roda depois dele no mesmo
     // tique. No fim (pronto = 1 no tique E) o despachante solta o pedido em E + 1 (ação 0) e a tarefa volta em E + 2 (sonda c1/c2:
     // Skrakan, Lightning a cada charge + relax + nível + rand(0..3) + 2 = 24–27 tiques)
-    if (r.ai.sub !== 0) { this.dispatch(u); if (u.state === "attack" || u.state === "cast") this.progressAttack(u); return; }
+    if (r.ai.sub !== 0) { this.machine(u); return; }
     const o = u.order;
     switch (o.type) {
       case "none":
@@ -1190,7 +1293,7 @@ export class World {
         // tique (0x56e5bc: sorteios 0x56e629/0x56e656, giro por 0x556454); a tarefa importada do oráculo vale até o pensamento.
         // A tarefa 6 (fim de caminho 0x56ed4e: atacar quem está ao alcance, 0x56eff3) também segue no despachante
         if (this.idleTask(u) && this.thinkNow && r.ai.task !== 0xb) r.ai.task = 0xb;
-        if ((r.ai.task === 0xb && this.idleTask(u)) || r.ai.task === 6) { this.dispatch(u); return; }
+        if ((r.ai.task === 0xb && this.idleTask(u)) || r.ai.task === 6) { this.machine(u); return; }
         this.stop(u);
         return;
       case "hold":
@@ -1286,8 +1389,8 @@ export class World {
           // pensamento 0x56acc8 e 0x56d969 o põem); nem magia nem golpe à distância pedem linha de visão (0x50f12c → 0x519998 só
           // confere mana; o Skrakan do original lança no herói de trás da torre, sonda c2)
           if (o.type === "attack") { if (!this.exeExact || r.ai.task !== 5) { r.ai.task = 5; r.ai.f0c = t.rec.addr; r.ai.range = this.attackRange(u) & 0xff; } }
-          else if (!this.exeExact || r.ai.task !== 8) { r.ai.task = 8; r.ai.f28 = t.rec.addr; r.ai.range = spell!.range & 0xff; }
-          this.dispatch(u);
+          else if (!this.exeExact || r.ai.task !== 8) { r.ai.task = 8; r.ai.f28 = t.rec.addr; r.ai.range = spell!.range & 0xff; r.ai.f30 = this.spellAddr(spell!); }
+          this.machine(u);
           // a perseguição acabou sem alcançar o alvo (fim de caminho, 0x56ed4e: a tarefa virou 0, 0xb ou 6). Ataque de jogador de IA:
           // a ordem antiga acaba (o pensamento do exe decide a seguinte) e o alvo fica fora da escolha da IA por uns segundos
           // (Unit.unreachTarget); lado humano e magias: a ordem fica e a tarefa volta a 5/8 no tique seguinte (no exe, no pensamento)
@@ -1295,17 +1398,16 @@ export class World {
           if (o.type === "attack" && r.ai.task !== 5 && sub !== 1 && sub !== 2 && this.isAiPlayerUnit(u)) { u.unreachTarget = t.id; u.unreachTick = this.tick; this.resumeOrNone(u); }
           return;
         }
-        // magia no chão (tarefa 9 do exe, 0x56ec3f: exec 0 no corpus, sem porta): anda até o alcance e lança pelo motor antigo
+        // magia no chão (tarefa 9 do exe, 0x56ec3f: exec 0 no corpus, sem porta): anda até o alcance e, ao alcance e de frente, começa
+        // a sub-ação 2 na célula (o que 0x56e906 faria: IA+9 = 2, ação 0xe, +0x60 = célula, +0x64 = magia); a máquina portada faz o resto
         const tx = o.type === "cast" ? o.x ?? u.cx : u.cx, ty = o.type === "cast" ? o.y ?? u.cy : u.cy;
         const range = spell!.range;
         if (this.inRange(u, tx, ty, range)) {
-          if (u.cooldown > 0) { this.stop(u); return; }
-          // começa no tique seguinte ao da ordem nova/armada ou da chegada ao centro [medido no golden, DIFF-FUZZ fase 7]
-          if (u.decideTick === this.tick || u.arriveTick === this.tick - 1) { this.stop(u); return; }
           if (this.turning(u, tx, ty)) { this.stop(u); return; }
-          if (u.mana < spell!.mana) { if (u.isHero) this.events.push({ type: "message", text: "Not enough mana" }); this.command(u, { type: "none" }); this.stop(u); return; }
-          this.beginCast(u, spell!, undefined, tx, ty, false);
-          u.hitDone = false;
+          r.ai.task = 0;
+          r.ai.sub = 2; r.ai.f15 = 0; r.act = 0xe; r.ai.f5c = 0; r.f5c = 0; r.f60 = (((ty & 0xff) << 8) | (tx & 0xff)) >>> 0;
+          r.f64 = this.spellAddr(spell!); r.ready = 0; u.castAuto = false;
+          this.machine(u);
           return;
         }
         const near = range <= 1 ? 1 : Math.max(1, Math.floor(range * 0.7));
@@ -1313,77 +1415,10 @@ export class World {
         return;
       }
     }
-  }
-
-  /** Começo do golpe (sub-ação 1 recém-nascida: 0x56e8c3 pôs ação 3 e +0x5c = alvo; no exe Unit_ActionMachine 0x50f12c →
-   *  Unit_StrikeBegin 0x516c1f, no mesmo tique, depois do despachante): a máquina de golpe do motor antigo. Magia escolhida no livro
-   *  (0x56b059) ou magia de chance (0x56acc8) no lugar do golpe → a sub-ação vira 2 (magia), como 0x56e906 faria no pensamento. */
-  private strikeBegin(u: Unit): void {
-    const r = u.rec, t = this.unitByAddr(r.f5c);
-    const abort = () => { r.ai.sub = 0; r.act = 0; };
-    if (!t || !t.targetable || t === u || u.cooldown > 0) { abort(); return; }
-    const asCast = (spell: SpellDef, tgt: Unit | undefined, x: number, y: number) => {
-      this.beginCast(u, spell, tgt, x, y, true);
-      r.ai.sub = 2; r.ai.f15 = 0; r.act = 0xd; r.ai.f5c = 1; r.f5c = tgt ? tgt.rec.addr : 0; r.ready = 0;
-    };
-    // unidade do jogador com magia escolhida no livro: lança a magia no lugar do golpe [exe 0x56b059] (sim/spellattack.ts)
-    const sa = t.active && u.selectedSpell ? spellAttack(this, u, t) : null;   // em quem caiu só o golpe da arma
-    if (sa === "stop") { this.command(u, { type: "none" }); abort(); return; }
-    if (sa && (sa.target === u || !sa.target || Math.hypot(sa.target.cx - u.cx, sa.target.cy - u.cy) <= sa.spell.range + 0.5)) { asCast(sa.spell, sa.target, sa.x, sa.y); return; }
-    // magia de chance no lugar do golpe [exe 0x56acc8] (sorteada a cada golpe; ver notes/ai-behaviors.md)
-    const proc = t.active ? this.rollProc(u, t) : null;
-    if (proc) { asCast(proc, t, t.cx, t.cy); return; }
-    u.castSpell = null;
-    u.target = t.id;
-    this.setState(u, "attack");
-    this.beginCycle(u, 0);     // golpe pela máquina de ação do exe (charge, relax + rand(0..3) + arma) [GAME_DIFFS #54]
-    u.lastActionTick = this.tick;
-    this.breakInvisibility(u);
-    this.events.push({ type: "attack", unit: u.id, target: t.id });
-    u.hitDone = false;
-    r.ready = 0;
-  }
-
-  /** Começo da magia na unidade (sub-ação 2 recém-nascida: 0x56e906 pôs ação 0xd, +0x5c = alvo, +0x64 = magia IA+0x30; no exe a
-   *  máquina 0x50f12c gasta a mana na fase 0, 0x519998): a magia vem da ordem de lançar do motor antigo (o registro só tem o endereço
-   *  do livro do exe). Começa no tique seguinte ao da ordem nova/armada ou da chegada ao centro [medido no golden, DIFF-FUZZ fase 7:
-   *  1º Heal/magia da janela 1 tique depois em 81/92 casos]: a sub-ação é desfeita e a tarefa 8 a refaz no tique seguinte. */
-  private castBegin(u: Unit): void {
-    const r = u.rec, t = this.unitByAddr(r.f5c), o = u.order;
-    const abort = () => { r.ai.sub = 0; r.act = 0; };
-    const spell = o.type === "cast" ? u.spells.find(s => s.id === o.spell) : undefined;
-    if (!spell || !t) { abort(); return; }
-    if (u.decideTick === this.tick || u.arriveTick === this.tick - 1 || u.cooldown > 0) { abort(); return; }
-    if (u.mana < spell.mana) { if (u.isHero) this.events.push({ type: "message", text: "Not enough mana" }); this.command(u, { type: "none" }); abort(); return; }
-    this.beginCast(u, spell, t, t.cx, t.cy, false);
-    u.hitDone = false;
-    r.ready = 0;
-  }
-
-  /** Ciclo da máquina de ação do exe (0x50f12c, 16 tiques/s) para golpe e magia: fase 5 = `charge` tiques até o golpe/a magia sair;
-   *  então (0x50f7b7) fase 7 = relax + rand(0..3) + nível da magia + espera da arma. O rand(0..3) sai NO GOLPE (depois do dano), não
-   *  no início; aqui o fim provisório é sem ele e `strikeCycle` o fixa no tique do golpe. Sem `charge` (dados antigos): animação. */
-  private beginCycle(u: Unit, level: number): void {
-    const ct = castTiming(u.stats.charge, u.stats.relax, level, 0, u.stats.weaponWait ?? 0);
-    u.castHit = ct?.hit ?? 0; u.castEnd = ct?.end ?? 0;    u.cycleRest = Math.max(0, u.stats.relax ?? 0) + Math.max(0, level | 0) + Math.max(0, u.stats.weaponWait ?? 0);
-  }
-
-  /** Estado importado do original (teste diferencial): golpe em curso na fase 5 (faltam `cnt` tiques de 16/s para o golpe) ou 7 (já
-   *  golpeou; faltam `cnt` para acabar a espera). */
-  importStrike(u: Unit, t: Unit, phase: number, cnt: number): void {
-    const k = TICKS_PER_SEC / SERVER_TICKS_PER_SEC;
-    u.target = t.id; u.castSpell = null;
-    this.setState(u, "attack");
-    this.beginCycle(u, 0);
-    if (phase === 5) { u.hitDone = false; u.stateTime = Math.max(0, u.castHit - Math.round(cnt * k)); }
-    else { u.hitDone = true; u.castHit = 0; u.stateTime = 0; u.castEnd = Math.max(1, Math.round(cnt * k)); }
-  }
-
-  /** No tique do golpe/da magia: rand(0..3) do exe (Unit_ActionMachine, Rand_Inclusive(3) em 0x50f7b7) e o fim do ciclo. */
-  private strikeCycle(u: Unit): void {
-    const roll = this.rng.exe(3, 0x50f7b7);
-    const k = TICKS_PER_SEC / SERVER_TICKS_PER_SEC;
-    u.castEnd = Math.max(u.castHit + 1, Math.round(((u.stats.charge ?? 0) + u.cycleRest + roll) * k));
+    } finally {
+      // a máquina de ação do exe (0x50f12c) roda uma vez por tique para toda unidade, com a tarefa que a ordem deixou (0 = parada)
+      if (!machineRan) this.machine(u);
+    }
   }
 
   /** Começa a lançar `spell` (gasta a mana já aqui). `auto` = decidida pela IA/autocast (a ordem do jogador continua). */
@@ -1395,8 +1430,6 @@ export class World {
     u.castX = tx; u.castY = ty;
     if (tx !== u.cx || ty !== u.cy) u.dir = dirFromDelta(tx - u.cx, ty - u.cy);
     this.setState(u, "cast");
-    this.beginCycle(u, spell.level);
-    u.hitDone = false;
     u.lastActionTick = this.tick;
     if (spell.kind !== "buff" && spell.kind !== "shield" && spell.kind !== "heal") this.breakInvisibility(u);
     this.events.push({ type: "cast", unit: u.id, spell: spell.id });
@@ -1417,6 +1450,7 @@ export class World {
   private breakInvisibility(u: Unit): void {
     if (!u.buffs.length || !u.hasBuff("invisible")) return;
     u.buffs = u.buffs.filter(b => b.kind !== "invisible");
+    this.syncCombat(u);
     this.events.push({ type: "effect", unit: u.id, spell: String(SPELL.Invisibility), kind: "invisible", on: false });
   }
 
@@ -1425,8 +1459,10 @@ export class World {
     return Math.hypot(tx - u.cx, ty - u.cy) <= range + 0.5;
   }
 
+  /** Parada: a tarefa do exe fica 0 (o despachante não faz nada e deixa a ação 0), como o pensamento ao largar a ordem. */
   private stop(u: Unit): void {
     if (u.state === "move") this.setState(u, "idle");
+    u.rec.ai.task = 0;
     u.rec.act = 0;
   }
 
@@ -1457,13 +1493,52 @@ export class World {
   }
 
   /** Adaptador da tarefa 9 do exe (0x56ec3f, exec 0 no corpus: só o ramo de andar; ver o cabeçalho deste arquivo). */
-  private readonly exeHooks: DispatchHooks = {
+  private readonly exeHooks: MachineHooks = {
     task: r => {
       switch (r.ai.task) {
         case 9: unitWalkNear(this.exeWorld, r, r.ai.f3c & 0xffff, r.ai.range & 0xff); r.act = 1; return true;   // ramo de andar de 0x56ec3f
       }
       return false;
     },
+    // 0x5106f4: o efeito Bless (0x14) / Curse (0x1c) da lista de efeitos do exe → o poder; os efeitos são os `buffs` do motor antigo
+    effectPower: (r, type) => {
+      const u = this.unitByAddr(r.addr), kind = type === 0x14 ? "bless" : type === 0x1c ? "curse" : null;
+      const b = u && kind ? u.buffs.find(x => x.kind === kind) : undefined;
+      return b ? b.amount | 0 : null;
+    },
+    // laço dos efeitos (+0x20) no começo da máquina: os `buffs` expiram aqui
+    effectsTick: r => { const u = this.unitByAddr(r.addr); if (u && u.buffs.length) this.expireBuffs(u); },
+    // 0x516b2f: os efeitos 0xc (Invisibility) acabam no golpe
+    effectExpire: (r, type) => { const u = this.unitByAddr(r.addr); if (u && type === 0xc) this.breakInvisibility(u); },
+    spellSpendMana: (sp, r, t, x, y) => this.hookSpendMana(sp, r, t, x, y),
+    spellRelease: (sp, r, t) => this.hookRelease(sp, r, t, 0, 0),
+    spellApply: (sp, r, _t, x, y) => this.hookRelease(sp, r, null, x, y),
+    spellLevel: (r, sp) => { const u = this.unitByAddr(r.addr); return u ? (this.spellFor(u, sp)?.level ?? 0) | 0 : 0; },
+    clientHit: (a, t, dmg) => this.hookHit(a, t, dmg),
+    xpOnHit: (a, t, dmg) => this.hookXp(a, t, dmg),
+    fell: r => this.hookFell(r),
+    actionDone: r => this.hookDone(r),
+    thinkAfterDispatch: r => this.hookStrikeBorn(r),
+    // Unit_Die 0x510a70: mochila, loja, saco, efeitos e equipamento vivem no motor antigo
+    packDrop: r => { const u = this.unitByAddr(r.addr); if (u) { u.gold = 0; u.items = []; } },
+    lootItem: (r, min, max) => {
+      const u = this.unitByAddr(r.addr);
+      if (!u || !this.itemPool?.length) return;
+      // Shop_Init/Shop_Gen (0x5254e7/0x525f67): a loja dos itens de preço em [min, max] (máscara [est]); 1 sorteado (0x510ddf), marcado +0x42 = 1
+      const pool = this.itemPool.filter(([, price]) => price >= min && price <= max);
+      if (pool.length) u.items.push(pool[this.rng.exe(pool.length - 1, 0x510ddf)]![0]);
+    },
+    packCount: r => this.unitByAddr(r.addr)?.items.length ?? 0,
+    sackDrop: (r, gold) => {
+      const u = this.unitByAddr(r.addr);
+      if (!u) return;
+      // Sack_Create 0x52acf6 (o saco se junta ao da célula, 0x52ab07): o herói morto não deixa saco no motor antigo [est]
+      if (!u.isHero) { this.addLoot(u.cx, u.cy, u.gold + gold, [...u.items]); this.events.push({ type: "loot", x: u.cx, y: u.cy, gold: u.gold + gold }); }
+      u.gold = 0; u.items = [];
+    },
+    effectsOnDie: r => { const u = this.unitByAddr(r.addr); if (u) u.buffs = []; },
+    onDieHuman: () => { /* 0x512697: o equipamento já está na mochila do motor antigo */ },
+    died: r => { const u = this.unitByAddr(r.addr); if (u) this.consumeDeath(u); },
   };
 
   /** Ponto seguinte da patrulha (adaptador do pensamento 0x569b62: a mesma volta pela lista IA+0xb4 que a cauda de 0x56dca2 faz —
@@ -1475,17 +1550,18 @@ export class World {
     r.ai.f02 = pos.p === null ? r.ai.patrol.getHead() : CListWord.getNext(pos);
   }
 
-  /** Um tique do despachante portado (0x56dca2) para a unidade e a sincronização do motor: `grid.occ` (célula do chão), estado de
-   *  animação (ação 1 = andar/girar), chegada ao centro (saque automático). Campos que o motor antigo ainda calcula (velocidade com
-   *  Haste/Slow, vida, dono, classe da tarefa) entram no registro antes, salvo no tique importado do oráculo
-   *  (`exeExact`). */
-  private dispatch(u: Unit): void {
+  /** Um tique da máquina de ação portada (0x50f12c: efeitos, queda/morte, despachante 0x56dca2, golpe/magia) para a unidade e a
+   *  sincronização do motor: `grid.occ` (célula do chão), estado de animação (ação 1 andar/girar, 3 golpe, 0xd/0xe magia), chegada ao
+   *  centro (saque automático). Campos que o motor antigo ainda calcula (velocidade com Haste/Slow, mana, dono, classe da tarefa) entram
+   *  no registro antes, salvo no tique importado do oráculo (`exeExact`). */
+  private machine(u: Unit): void {
+    machineRan = true;
     const r = u.rec, cx0 = u.cx, cy0 = u.cy;
     const f0 = (r.mapObj.x << 24) | (r.mapObj.y << 16) | (r.mapObj.fx << 8) | r.mapObj.fy;
     if (!this.exeExact) {
       r.speed = Math.round(this.speedOf(u) * 16);
       r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
-      r.f94 = u.hp; r.mana = u.mana;
+      r.mana = u.mana;
       r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (AI_AttackRange 0x56ac5b sem magia escolhida no registro)
       r.owner.f04 = u.player;                         // o dono pode mudar (script: unidade passa a outro jogador)
       // grupo dormindo (tipo+0x45): quem dorme no motor antigo não recebe ordem de andar (a IA não pensa por ele); o teste do
@@ -1496,7 +1572,7 @@ export class World {
     }
     EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff;
     try {
-      unitActionDispatcher(this.exeWorld, r, this.exeHooks);
+      unitActionMachine(this.exeWorld, r, this.exeHooks);
     } catch (e) {
       if (!(e instanceof NotPorted)) throw e;
       // ramo do exe ainda não portado (exec 0 no corpus): a unidade para em vez de derrubar o jogo
@@ -1513,14 +1589,127 @@ export class World {
       this.grid.occ[this.grid.idx(u.cx, u.cy)] = u.id;
     }
     const moved = ((r.mapObj.x << 24) | (r.mapObj.y << 16) | (r.mapObj.fx << 8) | r.mapObj.fy) !== f0;
-    // ação 1 = andar/girar; o giro do olhar em volta (tarefa 0xb) fica no estado ocioso do motor (a IA antiga decide sobre "idle")
-    if (r.act === 1 && r.ai.task !== 0xb) { this.setState(u, "move"); u.lastActionTick = this.tick; if (moved) u.walkTime++; }
-    else if (u.state === "move") this.setState(u, "idle");
+    // estado de animação pela ação do exe: 1 andar/girar (o giro do olhar em volta, tarefa 0xb, fica no estado ocioso: a IA antiga
+    // decide sobre "idle"), 3 golpe, 0xd/0xe magia; o alvo do golpe/da magia (+0x5c) para a apresentação
+    if (!u.alive) { /* caída/morta: o estado dying/dead é da apresentação (ganchos fell/die) */ }
+    else if (r.act === 1 && r.ai.task !== 0xb) { this.setState(u, "move"); u.lastActionTick = this.tick; if (moved) u.walkTime++; }
+    else if (r.act === 3) { if (u.state !== "attack") this.setState(u, "attack"); u.target = this.unitByAddr(r.f5c)?.id ?? 0; }
+    else if (r.act === 0xd || r.act === 0xe) { if (u.state !== "cast") this.setState(u, "cast"); if (r.act === 0xd) u.target = this.unitByAddr(r.f5c)?.id ?? 0; }
+    else if (u.state === "move" || u.state === "attack" || u.state === "cast") this.setState(u, "idle");
     if (moved && mapObjSubCellCenter(r.mapObj) !== 0) { this.autoPickup(u); u.arriveTick = this.tick; }
-    // a máquina de ação do exe (0x50f12c) corre depois do despachante no mesmo tique: a sub-ação de golpe (1) ou magia (2) que
-    // acabou de nascer (IA+0x15 = 0: 0x56e8c3 / 0x56e906 correram agora) entra na máquina do motor antigo
-    if (r.ai.sub === 1 && r.ai.f15 === 0) this.strikeBegin(u);
-    else if (r.ai.sub === 2 && r.ai.f15 === 0) this.castBegin(u);
+  }
+
+  // ------------------------------------------------------------------------------- ganchos da máquina de ação (magia, HUD, pensamento)
+
+  /** magias que a máquina portada referencia por endereço (+0x64 = IA+0x30 do exe): as nossas ganham um endereço sintético determinístico
+   *  por (id, poder, mana) — estável entre save/restore e entre corridas (a definição é função deles: `buildSpell`); o mapa é rascunho
+   *  do módulo (não é estado do mundo) */
+  private spellAddr(s: SpellDef): number {
+    let h = 0x811c9dc5 | 0;
+    const mix = (v: number) => { h = Math.imul(h ^ (v | 0), 0x01000193) | 0; };
+    for (let i = 0; i < s.id.length; i++) mix(s.id.charCodeAt(i));
+    mix(Math.round(s.power ?? 0)); mix(Math.round(s.mana));
+    const a = (0x70000000 + (h & 0x0fffffff)) >>> 0;
+    SPELL_BY_ADDR.set(a, s);
+    return a;
+  }
+  /** a magia do endereço `addr`; estado importado (endereço do original): a da ordem de lançar ou a em curso */
+  private spellFor(u: Unit, addr: number): SpellDef | undefined {
+    const s = SPELL_BY_ADDR.get(addr >>> 0);
+    if (s) return s;
+    const o = u.order;
+    return (o.type === "cast" ? u.spells.find(x => x.id === o.spell) : undefined) ?? u.castSpell ?? undefined;
+  }
+  /** a magia (do livro, de chance ou da arma) no lugar do golpe: a sub-ação 1 recém-nascida vira 2 (o que 0x56e906 faria no exe). */
+  private asCast(u: Unit, spell: SpellDef, t: Unit | undefined, x: number, y: number): void {
+    const r = u.rec;
+    r.ai.sub = 2; r.ai.f15 = 0; r.act = t ? 0xd : 0xe; r.ai.f5c = t ? 1 : 0; r.f5c = t ? t.rec.addr : 0;
+    r.f60 = (((y & 0xff) << 8) | (x & 0xff)) >>> 0; r.f64 = this.spellAddr(spell); r.ready = 0;
+    u.castAuto = true;
+  }
+  /** Magia decidida pela IA/autocast fora de uma ordem (apoio aos aliados, Heal/Shield): começa a sub-ação 2 do exe como 0x56e906
+   *  faria (IA+9 = 2, ação 0xd/0xe, +0x5c/+0x60/+0x64); a máquina gasta a mana no mesmo tique e lança depois da carga; a ordem fica. */
+  castNow(u: Unit, spell: SpellDef, t: Unit | undefined, x = t?.cx ?? u.cx, y = t?.cy ?? u.cy): void {
+    this.asCast(u, spell, t, x, y);
+  }
+  /** Adaptador do pensamento (0x56b059 magia escolhida no livro, 0x56acc8 magia de chance; a magia da arma): logo depois do
+   *  despachante, no tique em que a sub-ação 1 nasce (IA+0x15 = 0, ação 3, fase 0), decide lançar no lugar do golpe. */
+  private hookStrikeBorn(r: UnitRec): void {
+    if (!(r.ai.sub === 1 && r.ai.f15 === 0 && r.act === 3 && r.f58 === 0)) return;
+    const u = this.unitByAddr(r.addr), t = this.unitByAddr(r.f5c);
+    if (!u || !t) return;
+    const sa = t.active && u.selectedSpell ? spellAttack(this, u, t) : null;   // em quem caiu só o golpe da arma
+    if (sa === "stop") { this.command(u, { type: "none" }); r.ai.sub = 0; r.act = 0; return; }
+    if (sa && (sa.target === u || !sa.target || Math.hypot(sa.target.cx - u.cx, sa.target.cy - u.cy) <= sa.spell.range + 0.5)) { this.asCast(u, sa.spell, sa.target, sa.x, sa.y); return; }
+    const proc = t.active ? this.rollProc(u, t) : null;
+    if (proc) { this.asCast(u, proc, t, t.cx, t.cy); return; }
+    if (u.weaponSpell && t.active) { this.asCast(u, u.weaponSpell, t, t.cx, t.cy); return; }
+    u.castSpell = null;
+    u.lastActionTick = this.tick;
+    this.breakInvisibility(u);
+    this.events.push({ type: "attack", unit: u.id, target: t.id });
+  }
+  /** 0x519998 Spell_SpendMana (motor antigo): a magia começa (mana gasta, estado "cast", eventos) ou não (sem mana: a ordem acaba e
+   *  a sub-ação é desfeita — no exe a máquina tentaria de novo a cada tique). */
+  private hookSpendMana(sp: number, r: UnitRec, tr: UnitRec | null, x: number, y: number): number {
+    const u = this.unitByAddr(r.addr);
+    if (!u) return 0;
+    const spell = this.spellFor(u, sp), t = tr ? this.unitByAddr(tr.addr) : undefined;
+    const abort = () => { r.ai.sub = 0; r.act = 0; r.f58 = 0; };
+    if (!spell) { abort(); return 0; }
+    if (u.mana < spell.mana) { if (u.isHero) this.events.push({ type: "message", text: "Not enough mana" }); this.command(u, { type: "none" }); abort(); return 0; }
+    this.beginCast(u, spell, t, t ? t.cx : x, t ? t.cy : y, u.castAuto);
+    return 1;
+  }
+  /** 0x519d7f Spell_Release / 0x519db8 Spell_Apply (motor antigo): a magia sai. */
+  private hookRelease(sp: number, r: UnitRec, tr: UnitRec | null, x: number, y: number): void {
+    const u = this.unitByAddr(r.addr);
+    if (!u) return;
+    const spell = this.spellFor(u, sp) ?? u.castSpell, t = tr ? this.unitByAddr(tr.addr) : undefined;
+    if (!spell) return;
+    this.releaseSpell(u, spell, t, t ? t.cx : x, t ? t.cy : y);
+  }
+  /** 0x504b1d ('s' ao cliente) depois do golpe de `a` em `t` (a vida já caiu na porta): evento de HUD, flecha só de desenho, alerta. */
+  private hookHit(ar: UnitRec, tr: UnitRec, dmg: number): void {
+    const a = this.unitByAddr(ar.addr), t = this.unitByAddr(tr.addr);
+    if (!a || !t) return;
+    if (a.stats.range > 1) this.launch(a, t, null, a.typeId === 70 ? "sonic" : a.stats.attackSkill === "fire" ? "fire" : "arrow", true);
+    if (dmg <= 0) { this.events.push({ type: "miss", unit: a.id, target: t.id }); return; }
+    t.lastHurtTick = this.tick;
+    t.lastAttacker = a.id;
+    this.events.push({ type: "hit", unit: a.id, target: t.id, amount: dmg, element: undefined });
+    if (t.hp <= 0) t.felledBy = a.id;
+    else if (a.player !== t.player && t.alive) this.alertGroup(t, a);
+  }
+  /** 0x513128 Unit_XPOnHit (motor antigo): experiência do herói pelo golpe (`gainExp`); `dmg` já saiu da vida. */
+  private hookXp(ar: UnitRec, tr: UnitRec, dmg: number): void {
+    const a = this.unitByAddr(ar.addr), t = this.unitByAddr(tr.addr);
+    if (!a || !t || !a.heroInfo) return;
+    const hpBefore = t.hp + dmg;
+    if (t.alive && !t.stats.noXp && !t.dynamic && t.player !== a.player && !t.isHero) {
+      const skill = a.heroInfo.mage ? "" : (a.stats.attackType ?? "");
+      if (skill) this.gainExp(a, skill, Math.floor(t.stats.exp * 0.5 * Math.min(dmg, Math.max(0, hpBefore)) / t.maxHp + 1), t.typeId);
+    }
+  }
+  /** queda (Server_Event 0x4001): a apresentação da queda. */
+  private hookFell(r: UnitRec): void {
+    const u = this.unitByAddr(r.addr);
+    if (u) this.fall(u, u.felledBy ? this.get(u.felledBy) : undefined);
+  }
+  /** fim da espera (+0x136 = 1): fecha a ordem de magia do motor antigo (a IA relança a magia escolhida; a ordem do jogador acaba). */
+  private hookDone(r: UnitRec): void {
+    const u = this.unitByAddr(r.addr);
+    if (!u) return;
+    const wasCast = r.act === 0xd || r.act === 0xe;
+    const auto = u.castAuto, finished = u.castSpell, finishedTarget = u.target;
+    u.cooldown = 0;
+    u.castAuto = false;
+    // a sub-tarefa de ataque da IA relança a magia escolhida no mesmo alvo assim que a espera acaba (sonda c1/c2); a ordem do jogador
+    // só se cumpre se for a desta magia (a IA pode ter dado outra durante o lançamento: fuga, outro alvo, outra magia)
+    if (wasCast && !auto && u.order.type === "cast" && u.order.spell === finished?.id && (u.order.target ?? 0) === finishedTarget) {
+      const o = u.order, sdef = u.spells.find(x => x.id === o.spell);
+      if (!(this.isAiPlayerUnit(u) && o.target && o.target !== u.id && sdef && isOffensive(sdef) && sdef.kind !== "summon")) this.command(u, { type: "none" });
+    }
   }
   private readonly notPortedSeen = new Set<string>();
 
@@ -1535,7 +1724,7 @@ export class World {
     if (near > 0) {
       if (!this.exeExact || r.ai.task !== 9) { r.ai.task = 9; r.ai.f3c = cell; r.ai.range = near & 0xff; }
     } else if (!this.exeExact || r.ai.task !== 1) { r.ai.task = 1; r.ai.f0a = cell; }
-    this.dispatch(u);
+    this.machine(u);
     if (r.walk.f90 !== 0 && r.ai.sub !== 3 && Math.max(Math.abs(tx - u.cx), Math.abs(ty - u.cy)) > near) { u.waitTicks++; return u.waitTicks < 20; }
     u.waitTicks = 0;
     return true;
@@ -1632,43 +1821,6 @@ export class World {
 
   // ------------------------------------------------------------------------------------------- combate
 
-  private progressAttack(u: Unit): void {
-    const t = u.target ? this.get(u.target) : undefined;
-    const exeCast = (u.state === "cast" || u.state === "attack") && u.castEnd > 0;
-    if (!u.hitDone && u.stateTime >= (exeCast ? u.castHit : u.timing.hitTick)) {
-      u.hitDone = true;
-      if (u.state === "cast" && u.castSpell) this.releaseSpell(u, u.castSpell, t, u.castX, u.castY);
-      else if (t && t.targetable) {
-        if (u.weaponSpell) this.launch(u, t, u.weaponSpell, u.weaponSpell.element);
-        else if (u.stats.range > 1) {
-          // golpe à distância [exe 0x50f52e → 0x50f58d → 0x516c1f → 0x516ceb]: fora as armas que lançam magia (0x542580 → ação 0xd), o
-          // golpe se resolve NA HORA em que sai (vida −= dano em 0x516d98) — não há objeto de projétil no servidor, nem colisão com
-          // estrutura/unidade no caminho, nem linha de visão; a flecha que voa é só desenho
-          this.launch(u, t, null, u.typeId === 70 ? "sonic" : u.stats.attackSkill === "fire" ? "fire" : "arrow", true);
-          this.resolveHit(u, t, null);
-        }
-        else if (Math.max(Math.abs(t.cx - u.cx), Math.abs(t.cy - u.cy)) <= 1) this.resolveHit(u, t, null);
-      }
-      if (exeCast) this.strikeCycle(u);     // depois do dano (Unit_StrikeBegin/Spell_Release), como no exe
-    }
-    if (u.stateTime >= (exeCast ? u.castEnd : u.timing.attackTicks)) {
-      const wasCast = u.state === "cast";
-      const auto = u.castAuto, finished = u.castSpell, finishedTarget = u.target;
-      this.setState(u, "idle");
-      u.cooldown = exeCast ? 0 : u.timing.attackDelay;
-      u.rec.ready = 1;   // pedido pronto (+0x136): o despachante 0x56dca2 solta a sub-ação 1/2 no tique seguinte (IA+0x15 > 2)
-      u.castHit = u.castEnd = 0;
-      u.castAuto = false;
-      // a sub-tarefa de ataque da IA relança a magia escolhida no mesmo alvo assim que a espera acaba (sonda c1/c2: Lightning a cada
-      // 24–27 tiques sem esperar o pensamento de 1×/s); quem decide trocar de magia/alvo é o pensamento seguinte [exe 0x56acc8/0x57a769]
-      // a ordem só se cumpre se for a desta magia (a IA pode ter dado outra durante o lançamento: fuga, outro alvo, outra magia)
-      if (wasCast && !auto && u.order.type === "cast" && u.order.spell === finished?.id && (u.order.target ?? 0) === finishedTarget) {
-        const o = u.order, s = u.spells.find(x => x.id === o.spell);
-        if (!(this.isAiPlayerUnit(u) && o.target && o.target !== u.id && s && isOffensive(s) && s.kind !== "summon")) this.command(u, { type: "none" });
-      }
-    }
-  }
-
   /** Efeito da magia no momento em que sai da mão (tique `hitTick` da animação). */
   releaseSpell(u: Unit, s: SpellDef, t: Unit | undefined, x: number, y: number): void {
     const id = Number(spellKey(s));
@@ -1723,8 +1875,8 @@ export class World {
         this.command(u, { type: "none" });
         this.events.push({ type: "teleport", unit: u.id, x: u.cx, y: u.cy, fromX: fx, fromY: fy });
         // salto feito: a espera fica só relax + rand(0..3), sem o nível da magia (sonda c2: fase 7 com 5–7 tiques logo após o pouso;
-        // Teleport que falha — c1 — espera os 24–27 completos)
-        if (u.castEnd > 0 && (u.cx !== fx || u.cy !== fy)) u.cycleRest = Math.max(0, u.cycleRest - Math.max(0, s.level | 0));
+        // Teleport que falha — c1 — espera os 24–27 completos): a máquina 0x50f12c só soma o nível com +0x64 ≠ 0 — o salto o zera [est]
+        if (u.cx !== fx || u.cy !== fy) u.rec.f64 = 0;
         this.supportExp(u, s);
         return;
       }
@@ -1754,6 +1906,7 @@ export class World {
     if (effects.some(e => e.kind === "stone") && (who.state === "attack" || who.state === "cast" || who.state === "move")) {
       this.setState(who, "idle");
     }
+    this.syncCombat(who);
   }
 
   /** Heal [exe 0x51a2b8]: só em unidade viva (vida > −10) que regenera (período ≠ 0, +0x98); cura dmin + rand1(dmax−dmin), até a vida máxima. */
@@ -1834,7 +1987,7 @@ export class World {
         const src = this.get(p.from);
         if (p.visual) continue;
         if (p.spell?.kind === "ball") { if (src) this.blast(src, p.spell, gx, gy); }
-        else if (src && t) this.resolveHit(src, t, p.spell);
+        else if (src && t && p.spell) this.resolveHit(src, t, p.spell);
       } else { p.x += dx / d * v; p.y += dy / d * v; }
     }
     if (this.projectiles.length > 64) {
@@ -2002,70 +2155,41 @@ export class World {
   /** Summon [exe 0x51a595]: Squirrel/Turtle/Foot_Animated do nível Astral÷25+1, sem duração (desgaste em `stepSummons`) — sim/necro.ts. */
   private summon(u: Unit, s: SpellDef, _x: number, _y: number): void { summonCreature(this, u, s); }
 
-  /** Resolve um golpe/projétil/explosão. Fórmulas [exe] (docs/DATA.md, seção DADOS):
-   *  físico: dano bruto = rand[min,max] (Bless no atacante: chance = poder % → máximo; Curse: chance → mínimo [exe 0x516ceb]);
-   *  r = rand(0..200) − 100; acerta se ataque + r > defesa do alvo, ou r ≥ 90, ou `alwaysHit`;
-   *  dano −= absorção (mín. 0; `alwaysHit` ignora); dano = int(dano × (100 − resistFísica[tipo da arma]) / 100 + 0,75).
-   *  magia: sem teste de acerto nem absorção; dano = int(d × (100 − proteção da escola)/100 + 0,75). Drain Life devolve o dano. */
-  resolveHit(a: Unit, t: Unit, spell: SpellDef | null): void {
+  /** Um golpe físico de `a` em `t` fora da máquina de ação (testes, console): o mesmo caminho da fase 5 da máquina (0x516c1f →
+   *  0x516ceb → 0x516f6f) sobre os registros sincronizados, com os ganchos de HUD/experiência. */
+  strike(a: Unit, t: Unit): void {
+    this.syncCombat(a); this.syncCombat(t);
+    EXE_GLOBALS.clock16 = this.absClock16();
+    unitStrikeBegin(this.exeWorld, a.rec, t.rec, this.exeHooks);
+    this.syncDiplomacyBack();
+  }
+
+  /** Resolve o dano de uma magia (projétil/explosão/jato) [exe]: sem teste de acerto nem absorção; dano = int(d × (100 − proteção da
+   *  escola)/100 + 0,75); Drain Life devolve o dano. O golpe físico é inteiro da máquina de ação portada (0x516ceb → 0x516f6f). */
+  resolveHit(a: Unit, t: Unit, spell: SpellDef): void {
     if (!t.targetable) return;
     // golpe em quem caiu só vale com guerra; e o golpe de uma ordem de ataque comum que chega depois da paz (feras da 53, no meio do
     // golpe) não reabre a guerra: só o ataque forçado (Ctrl+clique), a magia e a área insistem
     if (a.player !== t.player && !this.hostile(a.player, t.player) && !this.hostile(t.player, a.player)
       && !(a.order.type === "attack" && a.order.forced) && (!t.active || (!spell && !this.splash && a.order.type === "attack"))) return;
-    let dmg: number;
-    if (spell) {
-      if (spell.max <= 0 && spell.kind !== "drain") return;
-      const res = this.resistOf(t, spell.element);
-      dmg = Math.floor(this.rng.int(spell.min, spell.max) * (100 - res) / 100 + 0.75);
-      if (dmg > 0) this.noteAttacked(a, t);
-    } else {
-      this.noteAttacked(a, t);   // 0x516f6f → 0x56e6b8 em todo golpe (acerto ou não)
-      // 0x516f6f: Bless (rand(0..100) < poder → dano máximo) e Curse (→ só o mínimo) sorteiam ANTES; a parte aleatória
-      // (rand(0..faixa)) só sai se nenhum dos dois passou — Bless vence o Curse
-      let roll = true;
-      dmg = a.stats.damage.min;
-      if (a.buffs.length) {
-        const bless = a.buffs.find(b => b.kind === "bless"), curse = a.buffs.find(b => b.kind === "curse");
-        if (bless && this.rng.exe(100, 0x517057) < bless.amount) { dmg = a.stats.damage.max; roll = false; }
-        if (curse && this.rng.exe(100, 0x5170b6) < curse.amount) roll = false;
-      }
-      if (roll) dmg = this.rng.int(a.stats.damage.min, a.stats.damage.max, 0x5170d3);
-      const r = this.rng.exe(200, 0x5170f8) - 100;
-      const hit = !!a.stats.alwaysHit || r >= 90 || this.attackOf(a) + r > this.defenseOf(t);
-      // dano elemental extra da arma/criatura [exe 0x516f6f, struct +0x11..+0x15]: A = base + rand(faixa) (0x5171fd) SEMPRE, contra a
-      // proteção de água; B = base + rand(faixa) (0x5172b7) só com acerto (ou sem dano físico), contra a proteção do elemento (1 fogo,
-      // 2 água, 3 ar, 4 terra, 5 astral); cada parte: trunc(v × (100 − prot)/100 + 0,75), mín. 0
-      const el = a.stats.elemental;
-      let extra = 0;
-      if (el) {
-        const res = (v: number, key: string) => { const p = this.resistOf(t, key); return p ? Math.max(0, Math.trunc(v * (100 - p) / 100 + 0.75)) : v; };
-        if (el.aRange + el.aBase) extra += res(this.rng.exe(el.aRange, 0x5171fd) + el.aBase, "water");
-        if (el.bRange + el.bBase && (hit || a.stats.damage.max <= 0))
-          extra += res(this.rng.exe(el.bRange, 0x5172b7) + el.bBase, ["fire", "water", "air", "earth", "astral"][el.element - 1] ?? "fire");
-      }
-      if (!hit) {
-        if (extra <= 0) { this.events.push({ type: "miss", unit: a.id, target: t.id }); this.provoke(a, t); return; }
-        dmg = 0;
-      } else {
-        if (!a.stats.alwaysHit) dmg = Math.max(0, dmg - this.absorptionOf(t));
-        const at = a.stats.attackType;
-        // golpe sem tipo de arma (garras/mordidas: índice 0 da tabela de 6 resistências do exe) usa a chave "none" — só o +god do console
-        // (mission/console.ts, exe 0x5175fc) a preenche
-        const rp = t.stats.resistPhysical ? Math.min(100, t.stats.resistPhysical[at ?? "none"] ?? 0) : 0;
-        dmg = Math.floor(dmg * (100 - rp) / 100 + 0.75);
-      }
-      dmg += extra;
-    }
+    if (spell.max <= 0 && spell.kind !== "drain") return;
+    // Spell_Release/Spell_Apply → vtable +0x54 (0x516f6f) com a struct da magia: sem dano físico, dano B = min + rand(max − min) contra a
+    // proteção do elemento (sorteios 0x5170f8 e 0x5172b7); marca o agressor na vítima e chama 0x56e6b8 (IA+0x54, evento, diplomacia)
+    const info = new DmgRec();
+    info.elB0 = spell.min & 0xff; info.elB1 = Math.max(0, spell.max - spell.min) & 0xff; info.elK = ELEMENT_INDEX[spell.element] ?? 0;
+    this.syncCombat(a); this.syncCombat(t);
+    EXE_GLOBALS.clock16 = this.absClock16();
+    const dmg = unitPhysicalDamage(this.exeWorld, t.rec, info, a.rec, this.exeHooks);
+    this.syncDiplomacyBack();
     if (dmg <= 0) { this.events.push({ type: "miss", unit: a.id, target: t.id }); this.provoke(a, t); return; }
     // unidade invocada/levantada (+0x1a0) não dá experiência [exe 0x512900]
     if (a.heroInfo && t.alive && !t.stats.noXp && !t.dynamic && t.player !== a.player && !t.isHero) {   // golpe em quem já caiu não dá experiência
-      const skill = spell ? spell.element : a.heroInfo.mage ? "" : (a.stats.attackType ?? "");
+      const skill = spell.element;
       if (skill) this.gainExp(a, skill, Math.floor(t.stats.exp * 0.5 * Math.min(dmg, Math.max(0, t.hp)) / t.maxHp + 1), t.typeId);
     }
     const dealt = Math.min(dmg, Math.max(0, t.hp));
-    this.damage(a, t, dmg, spell?.element);
-    if (spell?.kind === "drain" && a.active && dealt > 0) {
+    this.damage(a, t, dmg, spell.element);
+    if (spell.kind === "drain" && a.active && dealt > 0) {
       a.hp = Math.min(a.maxHp, a.hp + dealt);
       this.events.push({ type: "heal", unit: a.id, amount: dealt });
     }
@@ -2122,7 +2246,8 @@ export class World {
     t.lastHurtTick = this.tick;
     if (a && !quiet) { t.lastAttacker = a.id; this.provoke(a, t); }
     this.events.push({ type: "hit", unit: a?.id ?? 0, target: t.id, amount: dmg, element });
-    if (t.hp <= 0) this.fall(t, a);
+    // vida ≤ 0: a queda é decidida pela máquina de ação da própria unidade (0x50f12c, próximo tique dela) — gancho `fell`
+    if (t.hp <= 0) { if (a) t.felledBy = a.id; }
     else if (a && !quiet && a.player !== t.player) this.alertGroup(t, a);
   }
 
@@ -2149,17 +2274,35 @@ export class World {
    *  é consumada NA HORA (saque, abate, `death`), sem a espera do fim da animação nem a janela de Heal. A morte por golpe passa pelo caminho
    *  completo: queda (`fall`) → sangria → `consumeDeath` em sim/necro.ts `stepCorpses`. */
   kill(t: Unit, killer?: Unit): void {
+    const r = t.rec;
+    this.syncCombat(t);   // modelo/saque/dono no registro (Unit_Die lê +0x0e, +0x3c, +0x1a0, dono+0x38)
     if (!t.alive) {
-      // inconsciente/sangrando: a morte decretada leva o corpo a −10 e a consuma
+      // inconsciente/sangrando: a morte decretada leva o corpo a −10 e a consuma (Unit_Die)
       if (!t.downed) return;
       t.corpseHp = Math.min(t.corpseHp, CORPSE.DEATH);
       if (killer) t.felledBy = killer.id;
-      this.consumeDeath(t);
+      r.act = 0x10;
+      EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff;
+      unitDie(this.exeWorld, r, this.exeHooks);
       return;
     }
     t.hp = Math.min(t.hp, CORPSE.DEATH);
+    // o que a máquina 0x50f12c faria na queda e no fim da animação: +0x13c = 1, defesa ÷ 2, tarefa/ação 0 e, consumada, Unit_Die
+    r.f13c = 1; r.f6c = 0; r.fbe = (Math.trunc(((r.fbe << 16) >> 16) / 2) << 16) >> 16; r.task = 0; r.act = 0;
     this.fall(t, killer);
-    this.consumeDeath(t);
+    r.act = 0x10;
+    EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff;
+    unitDie(this.exeWorld, r, this.exeHooks);
+  }
+
+  /** Estado importado do original: unidade caída (vida ≤ 0, sem 0x10) com `cnt` tiques do contador da animação (+0x6c) por andar. */
+  importFallen(t: Unit, cnt: number): void {
+    const r = t.rec;
+    r.f13c = 1; r.f6c = cnt & 0xff; r.task = 0; r.act = 0;
+    t.silentFall = true;
+    this.fall(t, undefined);
+    t.silentFall = false;
+    t.stateTime = Math.max(0, t.timing.dyingTicks - 1 - (cnt & 0xff));
   }
 
   /** Queda [exe 0x50f12c: vida ≤ 0 → +0x13c = 1, defesa ÷ 2, animação]: a unidade deita. Vida exatamente 0 = inconsciente estável; < 0 =
@@ -2168,12 +2311,12 @@ export class World {
    *  original o herói com a vida zerada dá "Mission Failed" ~3 s depois (notes/original-capture.md, `run_defeat.py`). */
   private fall(t: Unit, killer?: Unit): void {
     if (!t.alive) return;
-    onFell(t, t.hp);   // vida depois do golpe (≤ 0, sem limite) = vida do corpo
-    t.hp = 0;
+    onFell(t, t.hp);   // vida depois do golpe (≤ 0, sem limite) = vida do corpo (+0x94 segue negativa, como no exe)
     t.felledBy = killer?.id ?? 0;
-    this.release(t);
-    this.walkAbort(t); t.order = { type: "none" };
+    // a unidade caída continua nas células do exe até a morte consumada (0x510a70 → 0x553891); o passo em curso fica onde está
+    t.order = { type: "none" };
     this.setState(t, "dying");
+    if (t.silentFall) return;   // "vida 0" do script (knockOut): sem evento nem falha de missão
     this.events.push({ type: "fall", unit: t.id, killer: killer?.id ?? 0 });
     this.onDeath?.(t, killer);
   }
@@ -2182,31 +2325,14 @@ export class World {
    *  evento `death` (hall da fama) e saque; o corpo passa a se decompor (`onConsumed`). */
   consumeDeath(t: Unit): void {
     if (t.alive || t.bodyDead) return;
-    onConsumed(t);
+    // Unit_Die 0x510a70 já saiu das células do exe e voltou ao centro; aqui só a ocupação do motor antigo e o corpo
+    const i = this.grid.idx(t.cx, t.cy);
+    if (this.grid.occ[i] === t.id) this.grid.occ[i] = 0;
+    t.bodyDead = true;
     const killer = t.felledBy ? this.get(t.felledBy) : undefined;
     if (t.silentFall) { t.silentFall = false; this.onDeath?.(t, killer); }   // caiu por "vida 0" do script (knockOut): as regras de falha só agora
     this.events.push({ type: "death", unit: t.id, killer: t.felledBy });
     if (killer?.isHero) this.killsByType.set(t.typeId, (this.killsByType.get(t.typeId) ?? 0) + 1);
-    // saque [exe 0x510a70]: template com "NPC" no nome (ou unidade invocada, +0x1a0) perde o que carrega; monstro (tipo ≥ 0x40) sorteia
-    // ouro (goldChance > rand(100): goldMin + rand(goldMax)) e um item (itemChance > rand(100): preço em [itemMin, itemMax]; máscara [est]);
-    // o saco cai na célula da unidade e SE JUNTA ao saco que já estiver lá (um por célula) [exe 0x52ab07]
-    const tr = t.stats.treasure;
-    if (!t.isHero && (t.stats.noDrop || t.dynamic)) { t.gold = 0; t.items = []; }
-    let gold = t.gold;
-    const items = [...t.items];
-    if (!t.isHero && !t.dynamic && tr && t.typeId >= 0x40) {
-      // o rand(100) do ouro sai SEMPRE (0x510cbc), mesmo sem ouro no template
-      if (tr.goldChance > this.rng.exe(100, 0x510cbc) && tr.goldMin >= 0) gold += Math.min(100000, tr.goldMin + this.rng.exe(Math.max(0, tr.goldMax), 0x510cf3));
-      if ((tr.itemChance ?? 0) > this.rng.exe(100, 0x510d19) && this.itemPool?.length) {
-        const pool = this.itemPool.filter(([, price]) => price >= (tr.itemMin ?? 0) && price <= (tr.itemMax ?? 0));
-        if (pool.length) items.push(pool[this.rng.exe(pool.length - 1, 0x510ddf)]![0]);
-      }
-    }
-    if (!t.isHero && (gold > 0 || items.length)) {
-      this.addLoot(t.cx, t.cy, gold, items);
-      this.events.push({ type: "loot", x: t.cx, y: t.cy, gold });
-      t.gold = 0; t.items = [];
-    }
   }
 
   private autoPickup(u: Unit): void { if (u.isHero) this.pickupAt(u); }

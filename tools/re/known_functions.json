@@ -2148,6 +2148,180 @@
    "name": "CRT_strstr",
    "desc": "strstr (CString::Find)",
    "source": "notes/cheats.md"
+  },
+  {
+   "va": "0x56e6b8",
+   "name": "Unit_NoteAttacked",
+   "desc": "Golpe recebido: IA+0x54/+0x58/+0x94/+0x98/+0x9c, evento 1 para a IA, guerra 0x57977a",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x57977a",
+   "name": "Diplomacy_WarOnAttack",
+   "desc": "Guerra por agressao na tabela mundo+0xa8bc (bit 0; & 3)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x5106d2",
+   "name": "Unit_HasEffectBit",
+   "desc": "Bit 1<<n dos efeitos +0x144",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x5106f4",
+   "name": "Unit_FindEffect",
+   "desc": "Efeito do tipo n na lista +0x20 (+0xc == n)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x5169de",
+   "name": "Unit_DistanceCells",
+   "desc": "Distancia Chebyshev entre centros menos os lados, em celulas (1 se < 0x181 finos)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x542560",
+   "name": "Unit_NoTemplate",
+   "desc": "+0x3c (modelo) nulo",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x50fc3e",
+   "name": "Unit_TicksSinceBusy",
+   "desc": "Relogio de 16/s menos +0x138",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x50ff2d",
+   "name": "Unit_NotifyMoveOrTurn",
+   "desc": "Depois do despachante: aviso de giro ('m') ou passo ao cliente; +0x138",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x558b3d",
+   "name": "Walk_TurnTargetChanged",
+   "desc": "Rumo desejado (+1) mudou: devolve os tiques de giro (+0xa4)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x5040c4",
+   "name": "Server_SendUnitAction",
+   "desc": "Pacote de acao da unidade ao cliente; +0x138 = relogio + p3",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x504155",
+   "name": "Server_SendStrikeRanged",
+   "desc": "Pacote 0x72 (golpe a distancia); +0x138 = relogio + charge + relax",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x504ab8",
+   "name": "Server_SendStrikeStart",
+   "desc": "Comeco do golpe para o cliente ('q' ou 0x72)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x504b1d",
+   "name": "Server_SendHit",
+   "desc": "Aviso 's' do golpe (0x503672)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x503672",
+   "name": "Server_TokenChange",
+   "desc": "Envio de mudanca de objeto aos jogadores (unidades: tabela +0x114 por jogador)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x5039e2",
+   "name": "Server_SendToClients",
+   "desc": "Envio de pacote aos jogadores que veem a unidade",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x510745",
+   "name": "Unit_CancelItemSpell",
+   "desc": "Cancela a magia de item em uso (+0x68) e devolve o item a mochila",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x53bff0",
+   "name": "Item_Class",
+   "desc": "(+0x40 >> 8) & 0xf (0xe = consumivel)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x50f048",
+   "name": "Unit_DyingTicks",
+   "desc": "vtable +0x74 (monstro): modelo[0x21] = duracao da queda",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x512526",
+   "name": "Unit_DyingTicksHuman",
+   "desc": "vtable +0x74 (humano/heroi): modelo[0x17], -1 -> 8",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x542410",
+   "name": "Unit_CanBeStruck",
+   "desc": "vtable +0x2c: 1 (golpe de perto)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x542720",
+   "name": "Unit_CanBeStruckHuman",
+   "desc": "vtable +0x2c: 1 (golpe de perto)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x542420",
+   "name": "Unit_HasEquipmentNo",
+   "desc": "vtable +0x30 (monstro): 0",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x542730",
+   "name": "Unit_HasEquipmentYes",
+   "desc": "vtable +0x30 (humano/heroi): 1",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x542030",
+   "name": "Unit_RangedStrikeNo",
+   "desc": "vtable +0x34: 0 (0x516ea0 nunca)",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x5423f0",
+   "name": "Unit_XPOnHitNone",
+   "desc": "vtable +0x6c (monstro): nada",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x5423a0",
+   "name": "Unit_OnDieNone",
+   "desc": "vtable +0x4c (monstro): nada",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x512697",
+   "name": "Unit_OnDieDropEquipment",
+   "desc": "vtable +0x4c (humano/heroi): equipamento para a mochila",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x5128cb",
+   "name": "Hero_GainExp",
+   "desc": "Experiencia do heroi (vtable +0x64) por golpe/magia",
+   "source": "notes/maquina-de-acao.md"
+  },
+  {
+   "va": "0x4f8d3d",
+   "name": "Unit_FreeId",
+   "desc": "Libera o id da unidade no mapa de bits DAT_006c9628",
+   "source": "notes/maquina-de-acao.md"
   }
  ]
 }

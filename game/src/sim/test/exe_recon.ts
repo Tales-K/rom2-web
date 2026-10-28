@@ -1,11 +1,17 @@
 /**
- * Infraestrutura comum dos testes de porta contra o oráculo (exe_path.ts, exe_walk.ts, exe_wave.ts, exe_walkaction.ts): leitura dos pares gravados por
- * tools/re/oracle/fnprobe.py e reconstrução das entradas de uma chamada só pelos acessos que ela mesma fez.
+ * Infraestrutura comum dos testes de porta contra o oráculo (exe_path.ts, exe_walk.ts, exe_wave.ts, exe_walkaction.ts, exe_combat.ts):
+ * leitura dos pares gravados por tools/re/oracle/fnprobe.py e reconstrução das entradas de uma chamada só pelos acessos que ela mesma
+ * fez. A segunda metade (campos espelhados por offset, `unitFrom`/`checkUnit`, o contexto `Ctx` e `run`/`done`) é o arnês das
+ * funções que recebem unidades/mundo: exige igualdade exata em 100 % das chamadas — retorno na largura declarada; rand() com a mesma
+ * contagem e a mesma semente final; mapa, unidades tocadas (cada campo espelhado igual ao final se o original o escreveu, intocado
+ * senão; nenhuma escrita do original fora do espelho), listas, mundo (evento, listas, diplomacia) e dono.
  */
-import { CListNode, CListPtr, CListPtrNode, CListWord, CMapAssoc, CMapShortOcc } from "../exe/mfc";
+import { CListEvent, CListEventNode, CListNode, CListPtr, CListPtrNode, CListWord, CMapAssoc, CMapShortOcc } from "../exe/mfc";
 import {
-  BookSpellRec, CellStructRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MapObjRec, MapRec, OccRec, SpellBookRec, UnitRec,
+  BookSpellRec, CellStructRec, DmgRec, EVENT_SIZE, EXE_GLOBALS, ItemRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MAP_WORLD_OFF, MapObjRec, MapRec,
+  OccRec, SpellBookRec, TemplateRec, UnitRec, WorldRec,
 } from "../exe/types";
+import { Rng } from "../rng";
 
 interface NodeProc { exitCode?: number; getBuiltinModule(name: string): unknown; }
 export const proc = (globalThis as unknown as { process: NodeProc }).process;
@@ -394,3 +400,341 @@ export function checkMap(cm: CallMem, m: TestMap, before: Uint8Array): string | 
   return checkOccMap(cm, base + MAP_OCC_MAP_OFF, m.occ) ?? checkPtrList(cm, base + RINGS_LO, m.ringUnits, "mapa+0x54010");
 }
 
+// ------------------------------------------------------------------------------------------- campos espelhados por offset
+
+export type Field = [off: number, size: 1 | 2 | 4, key: string, signed?: boolean];
+export const UNIT_FIELDS: Field[] = [
+  [0x00, 4, "vtbl"], [0x04, 4, "f04"], [0x0e, 2, "f0e"], [0x40, 4, "f40"], [0x43, 1, "f43"], [0x48, 1, "f48"], [0x49, 1, "size"], [0x4a, 1, "kind"],
+  [0x4c, 1, "f4c"], [0x50, 4, "task"], [0x54, 4, "act"], [0x58, 4, "f58"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x64, 4, "f64"],
+  [0x6c, 1, "f6c"], [0x86, 2, "f86", true], [0x8c, 2, "speed", true], [0x94, 2, "f94", true], [0x96, 2, "f96", true], [0x9a, 2, "mana"],
+  [0xbe, 2, "fbe", true], [0xc0, 2, "fc0", true], [0x12c, 1, "attackRange"], [0x134, 1, "f134"], [0x135, 1, "f135"], [0x136, 1, "ready"],
+  [0x138, 4, "f138"], [0x13c, 1, "f13c"], [0x144, 4, "effects"], [0x148, 4, "f148"], [0x14c, 2, "f14c"], [0x1a0, 4, "f1a0"],
+];
+/** Ponteiros da unidade espelhados como objetos (o valor conferido é o endereço). */
+const UNIT_PTRS: [off: number, key: "tpl" | "f68" | "f74" | "f78"][] = [[0x3c, "tpl"], [0x68, "f68"], [0x74, "f74"], [0x78, "f78"]];
+/** Sub-registros da unidade conferidos byte a byte: atributos do golpe +0xa6 (0x16), proteções +0xc2 (6 × i16), resistências +0xce (6). */
+const DMG_OFF = 0xa6, DMG_SIZE = 0x16, PROT_OFF = 0xc2, RESIST_OFF = 0xce;
+/** Dono da unidade (+0x14): id, IA, herói, +0x40 e mortes. */
+export const PLAYER_FIELDS: Field[] = [[0x04, 2, "f04", true], [0x2c, 4, "f2c"], [0x38, 4, "f38"], [0x40, 1, "f40"], [0xa54, 4, "fa54"]];
+export const WALK_FIELDS: Field[] = [
+  [0x00, 1, "dir"], [0x01, 1, "dirTarget"], [0x05, 1, "passMask"], [0x06, 2, "nextCell"], [0x09, 1, "f09"], [0x0a, 1, "turnRate"],
+  [0x6c, 4, "f6c"], [0x70, 2, "stepFrom"], [0x72, 2, "f72"], [0x74, 2, "dest"], [0x76, 2, "f76"], [0x78, 1, "f78"],
+  [0x7c, 4, "chaseTarget"], [0x80, 2, "footCell"], [0x82, 1, "f82"], [0x83, 1, "f83"], [0x84, 1, "f84"], [0x85, 1, "f85"],
+  [0x86, 1, "f86"], [0x87, 1, "f87"], [0x88, 1, "f88"], [0x89, 1, "f89"], [0x8a, 2, "f8a"], [0x8c, 2, "f8c"], [0x90, 4, "f90"],
+  [0x94, 2, "f94"], [0x96, 2, "f96"], [0x98, 4, "f98"], [0x9c, 1, "f9c"], [0x9d, 1, "f9d"], [0xa0, 4, "turning"],
+  [0xa4, 1, "turnTicks"], [0xa8, 2, "stepSpeed"], [0xaa, 2, "stepTicks"], [0xac, 2, "stepTick"], [0xae, 2, "stepDir"],
+  [0xb0, 1, "stepDx", true], [0xb1, 1, "stepDy", true],
+];
+export const AI_FIELDS: Field[] = [
+  [0x00, 2, "f00"], [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"],
+  [0x14, 1, "range"], [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x30, 4, "f30"], [0x3c, 2, "f3c"],
+  [0x50, 4, "f50"], [0x54, 4, "f54"], [0x58, 2, "f58"], [0x5a, 1, "f5a"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x71, 1, "f71"],
+  [0x78, 1, "spellSlot"], [0x94, 4, "f94"], [0x98, 4, "f98"], [0x9c, 2, "f9c"], [0xac, 4, "fac"], [0xb0, 2, "fb0"],
+];
+/** Mundo: lista das unidades vivas (+4), candidatos (+0xa68), caídos (+0xa88), tabela de diplomacia (+0xa8bc). */
+export const WORLD_LIVE_OFF = 0x4, WORLD_CAND_OFF = 0xa68, WORLD_DEAD_OFF = 0xa88, WORLD_DIP_OFF = 0xa8bc, WORLD_DIP_SIZE = 8 + 0x46 * 0x46;
+/** Mundo: lista de eventos (+0xbbec, cabeçalho 0x1c) e rascunho do evento (+0xbd98, 0x54 bytes). */
+export const WORLD_EVENTS_OFF = 0xbbec, WORLD_EVT_OFF = 0xbd98;
+
+/** O rand() do CRT a partir da semente da chamada, contando os sorteios (prova da ordem: contagem e semente final iguais). */
+export class CountingRng extends Rng {
+  n = 0;
+  override raw(): number { this.n++; return super.raw(); }
+}
+export const UNIT_LISTS: [number, "pathStatic" | "pathDynamic"][] = [[0x1c8, "pathStatic"], [0x1e4, "pathDynamic"]];
+
+export type Rec = Record<string, number>;
+const rd = (mem: { u8(a: number): number; u16(a: number): number; u32(a: number): number }, a: number, f: Field): number => {
+  const [, s, , sg] = f;
+  const v = s === 1 ? mem.u8(a) : s === 2 ? mem.u16(a) : mem.u32(a);
+  return sg ? (s === 1 ? (v << 24) >> 24 : (v << 16) >> 16) : v;
+};
+const mask = (v: number, s: 1 | 2 | 4): number => (s === 1 ? v & 0xff : s === 2 ? v & 0xffff : v >>> 0);
+
+export function fill(rec: Rec, cm: CallMem, base: number, fields: Field[]): void {
+  for (const f of fields) rec[f[2]] = rd(cm, base + f[0], f);
+}
+
+/** Unidade remontada da memória da chamada (memoizada por endereço: argumentos e mapa compartilham o registro). */
+export function unitFrom(cm: CallMem, a: number, memo: Map<number, UnitRec>): UnitRec {
+  let u = memo.get(a >>> 0);
+  if (u) return u;
+  u = new UnitRec();
+  memo.set(a >>> 0, u);
+  u.addr = a >>> 0;
+  fill(u as unknown as Rec, cm, a, UNIT_FIELDS);
+  u.mapObj = mapObjFrom(cm, cm.u32(a + 0x10));
+  fill(u.owner as unknown as Rec, cm, cm.u32(a + 0x14), PLAYER_FIELDS);
+  u.tpl = templateFrom(cm, cm.u32(a + 0x3c));
+  u.f68 = itemFrom(cm, cm.u32(a + 0x68)); u.f74 = itemFrom(cm, cm.u32(a + 0x74)); u.f78 = itemFrom(cm, cm.u32(a + 0x78));
+  u.dmg = dmgFrom(cm, a + DMG_OFF);
+  for (let i = 0; i < 6; i++) { u.prot[i] = cm.u16(a + PROT_OFF + 2 * i); u.resist[i] = cm.u8(a + RESIST_OFF + i); }
+  u.type.members = ptrListFrom(cm, cm.u32(a + 0x70));
+  const stats = cm.u32(cm.u32(a + 0x70) + 0x3c);
+  u.type.stats.f20 = cm.u8(stats + 0x20);
+  u.type.stats.speedByte = cm.u8(stats + 0x44);
+  u.type.stats.f45 = cm.u8(stats + 0x45);
+  u.book = bookFrom(cm, cm.u32(a + 0x140));
+  fill(u.walk as unknown as Rec, cm, cm.u32(a + 0x1c0), WALK_FIELDS);
+  fill(u.ai as unknown as Rec, cm, cm.u32(a + 0x1c4), AI_FIELDS);
+  u.ai.patrol = listFrom(cm, cm.u32(cm.u32(a + 0x1c4) + 0xb4));   // IA+0xb4 = ponteiro para o CList<WORD>
+  for (const [off, k] of UNIT_LISTS) u[k] = listFrom(cm, a + off);
+  return u;
+}
+
+/** Modelo da unidade em `p` (+4 nome; +8 CArray<int>: dados em [+0xc], tamanho em +0x10), pelos bytes lidos. */
+export function templateFrom(cm: CallMem, p: number): TemplateRec | null {
+  if (p === 0) return null;
+  const t = new TemplateRec();
+  t.addr = p >>> 0;
+  // +4 é um CString (ponteiro para os caracteres)
+  const sp = cm.u32(p + 4);
+  let name = "";
+  for (let i = 0; i < 64 && sp !== 0 && cm.has(sp + i); i++) { const c = cm.u8(sp + i); if (c === 0) break; name += String.fromCharCode(c); }
+  t.name = name;
+  t.arrSize = cm.u32(p + 0x10) | 0;
+  const data = cm.u32(p + 0xc);
+  for (let i = 0; i < t.arr.length; i++) if (cm.has(data + 4 * i)) t.arr[i] = cm.u32(data + 4 * i) | 0;
+  return t;
+}
+/** Item em `p` (+0x40, +0x42, +0x44, +0x4a, magia +0x84), pelos bytes lidos. */
+export function itemFrom(cm: CallMem, p: number): ItemRec | null {
+  if (p === 0) return null;
+  const it = new ItemRec();
+  it.addr = p >>> 0;
+  it.f40 = cm.u16(p + 0x40); it.f42 = (cm.u16(p + 0x42) << 16) >> 16; it.f44 = cm.u8(p + 0x44); it.f4a = (cm.u16(p + 0x4a) << 16) >> 16;
+  const sp = cm.u32(p + 0x84);
+  it.spell = sp === 0 ? null : spellFrom(cm, sp);
+  const itpl = cm.u32(p + 0x3c);
+  if (itpl !== 0 && cm.has(cm.u32(itpl + 0xc) + 0xf * 4)) it.tplF0f = cm.u32(cm.u32(itpl + 0xc) + 0xf * 4) | 0;
+  return it;
+}
+/** Magia do livro em `p` (+8 id, +9 alcance, +0xc custo; definição [+4] → CArray em +8: elemento 0). */
+export function spellFrom(cm: CallMem, p: number): BookSpellRec {
+  const s = new BookSpellRec();
+  s.addr = p >>> 0; s.id = cm.u8(p + 8); s.range = cm.u8(p + 9); s.cost = (cm.u16(p + 0xc) << 16) >> 16;
+  const def = cm.u32(p + 4);
+  if (def !== 0 && cm.has(def + 0xc)) s.def0 = cm.u32(cm.u32(def + 0xc)) | 0;
+  return s;
+}
+/** Atributos do golpe em `p` (unidade+0xa6 ou struct avulsa). */
+export function dmgFrom(cm: CallMem, p: number): DmgRec {
+  const d = new DmgRec();
+  d.atk = (cm.u16(p) << 16) >> 16; d.dmin = cm.u8(p + 0xe); d.dadd = cm.u8(p + 0xf); d.wtype = cm.u8(p + 0x10);
+  d.elA0 = cm.u8(p + 0x11); d.elA1 = cm.u8(p + 0x12); d.elB0 = cm.u8(p + 0x13); d.elB1 = cm.u8(p + 0x14); d.elK = cm.u8(p + 0x15);
+  return d;
+}
+function packDmg(d: DmgRec): Uint8Array {
+  const b = new Uint8Array(DMG_SIZE);
+  b[0] = d.atk & 0xff; b[1] = (d.atk >> 8) & 0xff;
+  b[0xe] = d.dmin; b[0xf] = d.dadd; b[0x10] = d.wtype; b[0x11] = d.elA0; b[0x12] = d.elA1; b[0x13] = d.elB0; b[0x14] = d.elB1; b[0x15] = d.elK;
+  return b;
+}
+function packProt(u: UnitRec): Uint8Array {
+  const b = new Uint8Array(12);
+  for (let i = 0; i < 6; i++) { b[2 * i] = u.prot[i]! & 0xff; b[2 * i + 1] = (u.prot[i]! >> 8) & 0xff; }
+  return b;
+}
+
+/** Só os bytes espelhados do bloco do golpe (+0xa6: ataque +0..1 e dano +0xe..+0x15; as habilidades +0xa8..+0xb3 ficam no meio). */
+const DMG_BYTES = [0, 1, 0xe, 0xf, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15];
+function checkBytes(cm: CallMem, base: number, offs: number[], before: Uint8Array, after: Uint8Array, what: string): string | null {
+  for (const i of offs) {
+    const a = base + i;
+    if (cm.written.has(a)) { if (after[i] !== cm.fin.get(a)) return `${what}+0x${i.toString(16)}: porta ${after[i]} ≠ original ${cm.fin.get(a)}`; }
+    else if (before[i] !== after[i]) return `${what}+0x${i.toString(16)}: porta mudou ${before[i]}→${after[i]}, original não escreveu`;
+  }
+  return null;
+}
+
+function packMapObj(o: MapObjRec): Uint8Array {
+  const b = new Uint8Array(12);
+  b[0] = o.x; b[1] = o.y; b[2] = o.cell & 0xff; b[3] = (o.cell >> 8) & 0xff; b[4] = o.fx; b[5] = o.fy;
+  for (let i = 0; i < 4; i++) b[8 + i] = Math.floor((o.owner >>> 0) / 2 ** (8 * i)) & 0xff;
+  return b;
+}
+
+export function checkFields(cm: CallMem, base: number, rec: Rec, fields: Field[], what: string): string | null {
+  const f = finView(cm);
+  for (const fl of fields) {
+    const [off, s, key] = fl;
+    let wrote = false;
+    for (let i = 0; i < s; i++) if (cm.written.has(base + off + i)) wrote = true;
+    const got = mask(rec[key], s);
+    if (wrote) {
+      const e = eq(`${what}.${key} (+0x${off.toString(16)})`, got, mask(rd(f, base + off, fl), s));
+      if (e) return e;
+    } else if (got !== mask(rd(cm, base + off, fl), s)) {
+      return `${what}.${key} (+0x${off.toString(16)}): porta mudou ${mask(rd(cm, base + off, fl), s)}→${got}, original não escreveu`;
+    }
+  }
+  return null;
+}
+
+/** Unidade, andar, IA, objeto de mapa e listas da unidade em `a` iguais ao original (e nada escrito fora do espelho). */
+export function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string | null {
+  const w = cm.u32(a + 0x1c0), ai = cm.u32(a + 0x1c4), mo = cm.u32(a + 0x10);
+  const own = cm.u32(a + 0x14);
+  let e = checkFields(cm, a, u as unknown as Rec, UNIT_FIELDS, "unidade")
+    ?? checkFields(cm, w, u.walk as unknown as Rec, WALK_FIELDS, "andar")
+    ?? checkFields(cm, ai, u.ai as unknown as Rec, AI_FIELDS, "ia")
+    ?? checkFields(cm, own, u.owner as unknown as Rec, PLAYER_FIELDS, "dono")
+    ?? cm.checkRecord(mo, packMapObj(mapObjFrom(cm, mo)), packMapObj(u.mapObj))
+    ?? checkBytes(cm, a + DMG_OFF, DMG_BYTES, packDmg(dmgFrom(cm, a + DMG_OFF)), packDmg(u.dmg), "golpe")
+    ?? cm.checkRecord(a + PROT_OFF, cm.bytes(a + PROT_OFF, 12), packProt(u))
+    ?? cm.checkRecord(a + RESIST_OFF, cm.bytes(a + RESIST_OFF, 6), u.resist);
+  if (e) return e;
+  for (const [off, key] of UNIT_PTRS) {
+    const got = (u[key] as { addr: number } | null)?.addr ?? 0;
+    let wrote = false;
+    for (let i = 0; i < 4; i++) if (cm.written.has(a + off + i)) wrote = true;
+    if (wrote) { e = eq(`unidade.${key} (+0x${off.toString(16)})`, got, finView(cm).u32(a + off)); if (e) return e; }
+    else if (got !== cm.u32(a + off)) return `unidade.${key} (+0x${off.toString(16)}): porta mudou o ponteiro, original não escreveu`;
+  }
+  const covered = (base: number, fields: Field[], x: number) => fields.some(([off, s]) => x >= base + off && x < base + off + s);
+  for (const [wa, size] of d.writes) {
+    for (let x = wa; x < wa + size; x++) {
+      if (x >= a && x < a + 0x200) {
+        if (UNIT_LISTS.some(([off]) => x >= a + off && x < a + off + 0x1c) || covered(a, UNIT_FIELDS, x)) continue;
+        if (UNIT_PTRS.some(([off]) => x >= a + off && x < a + off + 4)) continue;
+        if ((x >= a + DMG_OFF && x < a + DMG_OFF + DMG_SIZE) || (x >= a + PROT_OFF && x < a + RESIST_OFF + 6)) continue;
+        if (x >= a + 0x114 && x < a + 0x154) continue;   // tabela por jogador do cliente (0x503672 's', 0x5039e2): fora do espelho
+        // experiência do herói pelo golpe (0x513128 → 0x5128cb, motor antigo: gancho `xpOnHit`): +0x18, habilidades +0xa8.., +0x130, +0x240
+        if ((x >= a + 0x18 && x < a + 0x1a) || (x >= a + 0xa8 && x < a + 0xb4) || (x >= a + 0x130 && x < a + 0x134) || (x >= a + 0x240 && x < a + 0x244)) continue;
+        return `escrita do original em unidade+0x${(x - a).toString(16)} não espelhada`;
+      }
+      if (x >= own && x < own + 0xb00 && !covered(own, PLAYER_FIELDS, x) && !(x >= own + 0xad8 && x < own + 0xae0)) return `escrita do original em dono+0x${(x - own).toString(16)} não espelhada`;   // +0xad8/+0xadc: estatísticas do cliente (Server_Event)
+      if (x >= w && x < w + 0xb4 && !covered(w, WALK_FIELDS, x)) return `escrita do original em andar+0x${(x - w).toString(16)} não espelhada`;
+      if (x >= ai && x < ai + 0xb4 && !covered(ai, AI_FIELDS, x)) return `escrita do original em ia+0x${(x - ai).toString(16)} não espelhada`;
+    }
+  }
+  for (const [off, k] of UNIT_LISTS) {
+    e = checkList(cm, a + off, u[k], `unidade+0x${off.toString(16)}`);
+    if (e) return e;
+  }
+  return null;
+}
+
+// --------------------------------------------------------------------------------------------------------- chamadas
+
+export interface Ctx {
+  d: Pair; cm: CallMem; memo: Map<number, UnitRec>; map: TestMap | null; mapBefore: Uint8Array | null; rng: CountingRng | null;
+  world: WorldRec | null; worldAddr: number; events: CListEvent | null; eventsAddr: number; ptrList: CListPtr | null; ptrListAddr: number;
+}
+
+export function ctx(d: Pair, cm: CallMem): Ctx {
+  return { d, cm, memo: new Map(), map: null, mapBefore: null, rng: null, world: null, worldAddr: 0, events: null, eventsAddr: 0, ptrList: null, ptrListAddr: 0 };
+}
+/** Lista de eventos em `hdr` pela memória da chamada: contagem e, da cauda (o único nó que a chamada lê), o evento. */
+export function eventListFrom(cm: CallMem, hdr: number): CListEvent {
+  const l = new CListEvent();
+  if (!cm.has(hdr + 0xc)) return l;
+  l.count = cm.u32(hdr + 0xc) | 0;
+  const tail = cm.u32(hdr + 8);
+  if (tail !== 0) {
+    const n = new CListEventNode();
+    if (cm.has(tail + 8)) n.data.set(cm.bytes(tail + 8, EVENT_SIZE));
+    l.head = l.tail = n;
+  }
+  return l;
+}
+/** Lista: contagem e o evento da cauda iguais à memória final (os ponteiros dos nós não são espelhados). */
+export function checkEventList(cm: CallMem, hdr: number, l: CListEvent, what: string): string | null {
+  const f = finView(cm);
+  if (f.has(hdr + 0xc)) { const e = eq(`${what}.count`, l.count, f.u32(hdr + 0xc) | 0); if (e) return e; }
+  if (!f.has(hdr + 8)) return null;
+  const tail = f.u32(hdr + 8);
+  if ((tail === 0) !== (l.tail === null)) return `${what}: cauda nula ${l.tail === null} ≠ original`;
+  if (tail === 0 || !f.has(tail + 8)) return null;
+  for (let i = 0; i < EVENT_SIZE; i++) {
+    if (!f.has(tail + 8 + i)) continue;
+    if (l.tail!.data[i] !== f.u8(tail + 8 + i)) return `${what}.cauda+0x${i.toString(16)}: porta ${l.tail!.data[i]} ≠ original ${f.u8(tail + 8 + i)}`;
+  }
+  return null;
+}
+/** Mundo em `w` com o gerador na semente da chamada, o divisor do sorteio (mundo+0), a lista de eventos e o rascunho lidos pela chamada. */
+export function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
+  const wr = new WorldRec(m);
+  c.rng = new CountingRng(c.d.rng0);
+  wr.rng = c.rng;
+  if (c.cm.has(w)) wr.divisor = c.cm.u32(w) | 0;
+  wr.events = eventListFrom(c.cm, w + WORLD_EVENTS_OFF);
+  wr.evt.set(c.cm.bytes(w + WORLD_EVT_OFF, EVENT_SIZE));
+  // listas do fim de caminho: unidades vivas ([mapa+0xa456c] = o mundo), candidatos e caídos; tabela de diplomacia (bytes lidos)
+  const base = (m as { base?: number }).base;
+  const live = base !== undefined && c.cm.has(base + 0xa456c) ? c.cm.u32(base + 0xa456c) : w;
+  wr.liveUnits = ptrListFrom(c.cm, live + WORLD_LIVE_OFF);
+  wr.cand = ptrListFrom(c.cm, w + WORLD_CAND_OFF);
+  wr.dead = ptrListFrom(c.cm, w + WORLD_DEAD_OFF);
+  for (let i = 0; i < WORLD_DIP_SIZE; i++) if (c.cm.has(w + WORLD_DIP_OFF + i)) wr.dipTable[i] = c.cm.u8(w + WORLD_DIP_OFF + i);
+  // o objeto global [0x6044c4]: contador de 1/s (+0), relógio de 16/s (+4), jogo local (+0x74)
+  const g = c.cm.u32(0x6044c4);
+  if (g !== 0) {
+    if (c.cm.has(g)) EXE_GLOBALS.w6044c4 = c.cm.u16(g);
+    if (c.cm.has(g + 4)) EXE_GLOBALS.clock16 = c.cm.u32(g + 4);
+    EXE_GLOBALS.f74 = c.cm.has(g + 0x74) ? c.cm.u32(g + 0x74) : 1;
+  }
+  c.world = wr;
+  c.worldAddr = w;
+  return wr;
+}
+/** Rascunho do evento e lista de eventos do mundo iguais ao original (e nada mudado no rascunho que o original não escreveu). */
+export function checkWorld(c: Ctx): string | null {
+  if (!c.world) return null;
+  const cm = c.cm, w = c.worldAddr, f = finView(cm);
+  for (let i = 0; i < EVENT_SIZE; i++) {
+    const a = w + WORLD_EVT_OFF + i, got = c.world.evt[i]!;
+    if (cm.written.has(a)) { if (got !== f.u8(a)) return `mundo+0x${(WORLD_EVT_OFF + i).toString(16)}: porta ${got} ≠ original ${f.u8(a)}`; }
+    else if (got !== cm.u8(a)) return `mundo+0x${(WORLD_EVT_OFF + i).toString(16)}: porta mudou ${cm.u8(a)}→${got}, original não escreveu`;
+  }
+  for (let i = 0; i < WORLD_DIP_SIZE; i++) {
+    const a = w + WORLD_DIP_OFF + i, got = c.world.dipTable[i]!;
+    if (cm.written.has(a)) { if (got !== f.u8(a)) return `diplomacia[${i}]: porta ${got} ≠ original ${f.u8(a)}`; }
+    else if (cm.has(a) && got !== cm.u8(a)) return `diplomacia[${i}]: porta mudou ${cm.u8(a)}→${got}, original não escreveu`;
+  }
+  return checkEventList(cm, w + WORLD_EVENTS_OFF, c.world.events, "mundo+0xbbec")
+    ?? checkPtrList(cm, w + WORLD_CAND_OFF, c.world.cand, "mundo+0xa68") ?? checkPtrList(cm, w + WORLD_DEAD_OFF, c.world.dead, "mundo+0xa88");
+}
+export const U = (c: Ctx, a: number): UnitRec => unitFrom(c.cm, a, c.memo);
+export function M(c: Ctx, base: number): TestMap {
+  const m = mapFrom(c.cm, base, (a) => unitFrom(c.cm, a, c.memo));
+  m.world = new WorldRec(m);
+  c.map = m;
+  c.mapBefore = m.mem.slice();
+  return m;
+}
+/** Mapa do mundo `w` (+0xa50), conferindo que o mapa aponta de volta para o mesmo mundo quando a chamada leu +0x58d80. */
+export function W(c: Ctx, w: number): WorldRec {
+  const base = c.cm.u32(w + 0xa50);
+  const m = M(c, base);
+  if (c.cm.has(base + MAP_WORLD_OFF) && c.cm.u32(base + MAP_WORLD_OFF) !== (w >>> 0)) throw new Error("mapa+0x58d80 ≠ mundo");
+  return worldRec(c, w, m);
+}
+/** Mundo sem o mapa remontado (funções que só sorteiam: 0x57afc0, 0x57afd0). */
+export const WR = (c: Ctx, w: number): WorldRec => worldRec(c, w, new MapRec());
+
+/** Confere mapa, todas as unidades tocadas e o retorno. */
+export function done(c: Ctx, r: number | null, ret?: (v: number) => number): string | null {
+  if (c.map && c.mapBefore) {
+    const e = checkMap(c.cm, c.map, c.mapBefore);
+    if (e) return e;
+  }
+  for (const [a, u] of c.memo) {
+    const e = checkUnit(c.cm, c.d, a, u);
+    if (e) return `unidade 0x${a.toString(16)}: ${e}`;
+  }
+  const e = (c.rng ? eq("rand(): sorteios", c.rng.n, c.d.nrand) ?? eq("rand(): semente final", c.rng.state, c.d.rng1 >>> 0)
+    : c.d.nrand !== 0 || c.d.rng0 !== c.d.rng1 ? "rand() chamado no original" : null) ?? checkWorld(c)
+    ?? (c.events ? checkEventList(c.cm, c.eventsAddr, c.events, "lista") : null)
+    ?? (c.ptrList ? checkPtrList(c.cm, c.ptrListAddr, c.ptrList, "lista") : null);
+  if (e) return e;
+  return r !== null && ret ? eq("retorno", r, ret(c.d.eax)) : null;
+}
+
+export const EAX = (v: number) => v | 0, AL = (v: number) => v & 0xff, AX = (v: number) => v & 0xffff;
+export type Check = (d: Pair, cm: CallMem) => string | null;
+export const run = (f: (c: Ctx, d: Pair) => number | null, ret?: (v: number) => number): Check => (d, cm) => {
+  const c = ctx(d, cm);
+  return done(c, f(c, d), ret);
+};
+export const A = (d: Pair, i: number) => d.args[i];

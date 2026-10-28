@@ -105,13 +105,8 @@ function origFields(o: Any): Record<string, Val | undefined> {
 /** Campos da nossa unidade (u) no formato do original; `rev` = id nosso → id do original. */
 function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record<string, Val | undefined> {
   const s = u.stats;
-  let act: number;
-  if (!u.alive || u.hp <= 0) act = 16;
-  else if (!w.awake(u)) act = 27;
-  else if (u.state === "attack") act = 3;
-  else if (u.state === "cast") act = 13;
-  else if (u.state === "move" || u.rec.act === 1) act = 1;
-  else act = 0;
+  // a ação é a do registro do exe (a máquina 0x50f12c portada a escreve; 0x10 na morte consumada); grupo dormindo pelo motor antigo
+  const act = !w.awake(u) ? 27 : u.rec.act;
   const o = u.order;
   const tc = o.type === "attack" ? "attack" : o.type === "cast" ? "cast" : o.type === "move" || o.type === "pickup" || o.type === "follow" || o.type === "retreat" || o.type === "patrol" ? "move" : "idle";
   const armed = u.orderArmed;
@@ -128,7 +123,7 @@ function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record
     speed_eff: Math.round(s.speed * 16), scan: Math.floor(s.sight), toHit: s.attack, dmin: s.damage.min, dmax: s.damage.max, defense: s.defense, absorb: s.absorption,
     range: s.range, turn: s.turnSpeed ?? Math.round(s.speed * 16), withdraw: u.withdrawHp, wimpy: u.wimpyHp, charge: s.charge ?? 0, relax: s.relax ?? 0,
     eldmg: el.join(","), hpregen: s.healthRegen ?? 0, manaregen: s.manaRegen ?? 0, effects, summoner: oid(u.summoner),
-    post: cellCode(u.home), unreach: u.unreachSec, flee_cell: u.fleeCell, hit_clock16: u.hitClock16 < -99999 ? 0 : u.hitClock16 + base, look_hit: u.rec.ai.f54 ? 1 : 0,
+    post: cellCode(u.home), unreach: u.unreachSec, flee_cell: u.fleeCell, hit_clock16: u.hitClock16, look_hit: u.rec.ai.f54 ? 1 : 0,
     walk_static: listVals(r.pathStatic).join(","), walk_dynamic: listVals(r.pathDynamic).join(","), walk_goal: r.walk.dest, walk_final: r.walk.f76,
     walk_c9: r.walk.f09, walk_track: trackOf(w, r.walk.chaseTarget >>> 0, rev, st), walk_slen: r.walk.f8a, walk_tcell: r.walk.f8c,
   };

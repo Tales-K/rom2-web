@@ -71,6 +71,9 @@ export interface UnitStats {
   turnSpeed?: number;
   /** espera extra de quem tem arma, em tiques de 16/s: `clamp((peso da arma + (30 − Reaction)×5) div 12, 0, 12)` [exe 0x50f6ba] */
   weaponWait?: number;
+  /** peso da arma equipada (item +0x4a) e Reaction (unidade +0x86): a máquina de ação portada (0x50f12c) refaz a espera com eles */
+  weaponWeight?: number;
+  reaction?: number;
 }
 
 /** Espera extra da arma [exe 0x50f6ba]: `(arma+0x4a + (30 − Reaction(+0x86))×5) / 12` truncado, limitado a 0..12 tiques de 16/s;

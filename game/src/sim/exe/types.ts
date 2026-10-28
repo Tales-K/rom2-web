@@ -11,6 +11,10 @@
  * Etapa 7 (sim/exe/action.ts, rand.ts): olhar em volta (IA +0x54), o sorteio do mundo (mundo +0 divisor, `rng`); golpe/magia como
  * sub-ação (unidade +0x4c/+0x5c/+0x60/+0x64, IA +0x00/+0x30/+0x50/+0x5c/+0x60, a lista de eventos do mundo +0xbbec e o evento +0xbd98);
  * fim de caminho (0x56ed4e: listas do mundo +0x04/+0xa68/+0xa88, diplomacia +0xa8bc, dono +0x04, tipo +0x00, IA +0x71, patrulha IA+0xb4).
+ * Etapa 8a (sim/exe/combat.ts): dano físico 0x516f6f (atributos de combate +0xa6..+0xd3, +0x40/+0x48 último golpe, +0x4c bits 8/0x10),
+ * golpe recebido 0x56e6b8 (IA +0x54..+0x5a, +0x94..+0x9c, +0xac; relógio de 16/s [[0x6044c4]+4]), diplomacia 0x57977a (dono +0x04 como
+ * byte, +0x2c); máquina de ação 0x50f12c (+0x3c modelo, +0x58 fase, +0x6c contador, +0x68/+0x74 itens, +0x86, +0x96, +0x134..+0x13c);
+ * morte 0x510a70 (+0x0e, +0x148, +0x1a0, dono +0x38/+0x40/+0xa54).
  */
 import { CListEvent, CListPtr, CListWord, CMapShortOcc } from "./mfc";
 import { Rng } from "../rng";
@@ -126,10 +130,16 @@ export class AiRec {
   f3c = 0;        // +0x3c u16 célula da magia no chão (tarefa 9 0x56ec3f → 0x56e4ac)
   f50 = 0;        // +0x50 u32 1 depois de 0x56dbc6 (parar + Stand ground); 0 por 0x56dbfb
   f54 = 0;        // +0x54 u32 1 = sofreu golpe/magia (0x56e6b8): a próxima olhada em volta gira sem o sorteio (0x56e5bc zera)
+  f58 = 0;        // +0x58 u16 célula de quem bateu (0x56e6b8)
+  f5a = 0;        // +0x5a u8  zerado por 0x56e6b8
   f5c = 0;        // +0x5c u32 1 = a magia em curso mira uma unidade (0x56e906); 0 = célula (ação 0xe e evento 3 no despachante)
   f60 = 0;        // +0x60 u32 0 → 0x56e906 chama 0x56dbc6 (parar); zerado por 0x56d969
   f71 = 0;        // +0x71 u8  alcance de ver invisível (AI_EnemyFilter 0x567a16)
   spellSlot = 0;  // +0x78 u8  magia do livro escolhida (0 = nenhuma; 0x56ac5b)
+  f94 = 0;        // +0x94 u32 quem bateu por último (endereço; 0x56e6b8)
+  f98 = 0;        // +0x98 u32 relógio de 16/s do último golpe recebido ([[0x6044c4]+4]; 0x56e6b8)
+  f9c = 0;        // +0x9c u16 ponto de fuga y<<8 | x: célula + 10 × (vítima − agressor)/max(|dx|,|dy|) (0x56e6b8)
+  fac = 0;        // +0xac u32 golpes recebidos de quem não era inimigo (0x57977a: > 10 → guerra de volta)
   fb0 = 0;        // +0xb0 u16 destino do teleporte da célula (0x5503af, registro de ocupação de tipo 0x17)
   /** +0xb4 ptr CList<WORD> dos pontos da patrulha (y<<8 | x), na ordem do roteiro: 0x57b020 Find, 0x55f1f0 GetNext e 0x55f0d0
    *  GetHead no fim do caminho da patrulha (0x56dca2) */
@@ -138,15 +148,55 @@ export class AiRec {
 
 /** Dono da unidade (alvo do ponteiro unidade+0x14). */
 export class PlayerRec {
-  f04 = 0;        // +0x04 i16 id do jogador (índice na tabela de diplomacia do mundo, 0x57994d)
-  f2c = 0;        // +0x2c u32 0 → 0x54d76e testa Path_TargetFree (onda estática de 1000)
+  f04 = 0;        // +0x04 i16 id do jogador (índice na tabela de diplomacia do mundo, 0x57994d; byte em 0x57977a)
+  f2c = 0;        // +0x2c u32 0 → 0x54d76e testa Path_TargetFree (onda estática de 1000); ≠ 0 = jogador de IA (0x57977a não avisa o cliente)
+  f38 = 0;        // +0x38 u32 unidade-herói do jogador (endereço; 0x50f12c, 0x510a70)
+  f40 = 0;        // +0x40 u8  (0x510a70: id do modelo − 0x13)
+  fa54 = 0;       // +0xa54 i32 contagem de mortes do herói (0x510a70)
 }
 
 /** Magia do livro (elemento do CArray do livro). */
 export class BookSpellRec {
   addr = 0;       // endereço no exe (identidade do ponteiro devolvido por 0x51c391)
+  id = 0;         // +0x08 u8  id da magia (0x516ceb, 0x510745)
   range = 0;      // +0x09 u8  alcance (0x56ac5b)
   cost = 0;       // +0x0c i16 custo de mana
+  /** +0x04 ptr definição da magia → CArray<int> em +8: elemento 0 = nível ("Complication Level"; byte baixo somado à espera em 0x50f12c) */
+  def0 = 0;
+}
+
+/** Item (alvo dos ponteiros unidade+0x68 em uso / +0x74 arma / +0x78). */
+export class ItemRec {
+  addr = 0;       // endereço no exe (identidade)
+  f40 = 0;        // +0x40 u16 classe/forma: 0x53bff0 = (v >> 8) & 0xf (0xe = consumível: 0x50f12c solta o item e a magia)
+  f42 = 0;        // +0x42 i16 cargas/contador (0x50f12c, 0x516b2f)
+  f44 = 0;        // +0x44 u8  2 → 0x510745 não cancela
+  f4a = 0;        // +0x4a i16 peso (espera extra da arma em 0x50f12c)
+  tplF0f = 0;     // [+0x3c modelo do item → CArray +8][0xf]: ≠ 0 → a arma vai para a mochila na morte (0x510a70; exec 0)
+  spell: BookSpellRec | null = null; // +0x84 ptr magia que a arma lança (0x542580 Weapon_CastsSpell)
+}
+
+/** Modelo da unidade (alvo do ponteiro unidade+0x3c): nome em +4 e CArray<int> dos parâmetros em +8 (dados em [+0xc]). */
+export class TemplateRec {
+  addr = 0;                        // endereço no exe (identidade)
+  name = "";                       // +0x04 texto (0x510a70 procura "NPC")
+  /** +0x08 CArray<int>: dados em [+0x0c], tamanho em +0x10 (0x4e8560). Elementos lidos: 0x21 duração da queda (0x50f048), 0x17
+   *  (0x512526), 0x26..0x2c saque (0x510a70), 0xf (0x510a70, arma) */
+  arr = new Int32Array(0x40);
+  arrSize = 0;
+}
+
+/** Atributos de dano do golpe (unidade+0xa6; 0x516f6f recebe o ponteiro: também structs avulsas das magias). */
+export class DmgRec {
+  atk = 0;        // +0x00 i16 ataque (toHit)
+  dmin = 0;       // +0x0e u8  dano mínimo (bit 0x80: ×15 contra quem não tem equipamento, vtable+0x30 = 0)
+  dadd = 0;       // +0x0f u8  faixa do dano (rand(0..dadd))
+  wtype = 0;      // +0x10 u8  tipo de arma: índice na tabela de resistências +0xce
+  elA0 = 0;       // +0x11 u8  dano elemental A: base (contra a proteção de água +0xc6)
+  elA1 = 0;       // +0x12 u8  dano elemental A: faixa
+  elB0 = 0;       // +0x13 u8  dano elemental B: base (contra a proteção do elemento elK)
+  elB1 = 0;       // +0x14 u8  dano elemental B: faixa
+  elK = 0;        // +0x15 u8  elemento de B (1 fogo, 2 água, 3 ar, 4 terra, 5 astral) e do golpe (unidade+0x48 da vítima)
 }
 
 /** Livro de magias (alvo do ponteiro unidade+0x140): CArray<BookSpellRec*> em +4 (m_pData +8, m_nSize +0xc). */
@@ -160,33 +210,62 @@ export class UnitRec {
   /** Endereço do registro no exe: identidade dos ponteiros de unidade guardados como u32 (OccRec +0x2c/+0x30, MapRec+0x54058). */
   addr = 0;
   vtbl = 0;                    // +0x000 u32 vtable (0x5d0eb0 / 0x5d0f40 / 0x5d0fb8)
+  f04 = 0;                     // +0x004 u32 id da unidade no mapa (u16; 0x5110b8 zera ao sumir o corpo)
+  f0e = 0;                     // +0x00e u16 id do modelo (0x510a70: ≥ 0x40 monstro com saque; 0x5110b8: 0x21..0x24 param em −60)
   mapObj: MapObjRec = new MapObjRec(); // +0x010 ptr objeto de mapa
   owner: PlayerRec = new PlayerRec();  // +0x014 ptr dono
-  f43 = 0;                     // +0x043 u8  lido por 0x5160ef
+  tpl: TemplateRec | null = null;      // +0x03c ptr modelo (0x542560: nulo → sem despachante/sem marcar o agressor)
+  f40 = 0;                     // +0x040 u32 quem deu o último golpe (endereço; 0x516f6f)
+  /** +0x043 u8: o byte alto do ponteiro +0x40 (0x5160ef lê +0x43 de OUTRO objeto, o do jogador; o campo ficou do lote 5a) */
+  get f43(): number { return (this.f40 >>> 24) & 0xff; }
+  set f43(v: number) { this.f40 = ((this.f40 & 0x00ffffff) | ((v & 0xff) << 24)) >>> 0; }
+  f48 = 0;                     // +0x048 u8  elemento do último golpe (0x516f6f: DmgRec.elK se o agressor tem o bit 0x10, senão 0)
   size = 0;                    // +0x049 u8  lado em células (lido pelo slot 0x1c da vtable, 0x542360)
-  kind = 0;                    // +0x04a u8  lido pelo slot 0x20 das vtables (0x542380); 1 = ramo "grade" de 0x55687d
-  f4c = 0;                     // +0x04c u8  bits da unidade; bit 4 lido por 0x53a5a0 (tarefa 6, 0x56eff3)
+  kind = 0;                    // +0x04a u8  lido pelo slot 0x20 das vtables (0x542380); 1 = ramo "grade" de 0x55687d; > 1 → some ao morrer
+  f4c = 0;                     // +0x04c u8  bits: 4 "fora de combate" (0x542c90), 8 imune a dano físico (0x516f6f), 0x10 acerta sempre e ignora absorção (0x53a5a0: arma lança magia; tarefa 6, 0x56eff3)
   task = 0;                    // +0x050 u32 classe da tarefa (1 andar, 0xa patrulha, 0x18...: ramo do fim do caminho em 0x56dca2)
-  act = 0;                     // +0x054 u32 ação corrente (1 = andar, 3 golpe, 0xd/0xe magia; 0x56e4ac, 0x56e8c3, 0x56e906)
+  act = 0;                     // +0x054 u32 ação corrente (1 = andar, 3 golpe, 0xd/0xe magia, 0x10 morta; 0x56e4ac, 0x56e8c3, 0x56e906)
+  f58 = 0;                     // +0x058 u32 fase da máquina de ação (0 início, 5 carga, 7 espera; 0x50f12c)
   f5c = 0;                     // +0x05c u32 alvo do golpe/da magia em curso (endereço; 0x56e8c3 ← IA+0xc, 0x56e906 ← IA+0x28)
   f60 = 0;                     // +0x060 u32 célula da magia no chão (byte x, byte y; evento 3 do despachante)
   f64 = 0;                     // +0x064 u32 magia em curso (endereço do BookSpellRec; 0x56e906 ← IA+0x30)
+  f68: ItemRec | null = null;  // +0x068 ptr item em uso (a magia +0x64 vem dele; 0x50f12c, 0x510745)
+  f6c = 0;                     // +0x06c u8  contador de tiques da fase (char no exe; 0x50f12c)
   type: UnitTypeRec = new UnitTypeRec(); // +0x070 ptr tipo da unidade
+  f74: ItemRec | null = null;  // +0x074 ptr arma equipada (0x50f12c, 0x516ceb)
+  f78: ItemRec | null = null;  // +0x078 ptr escudo/item solto ao morrer (0x510a70)
+  f86 = 0;                     // +0x086 i16 Reaction (espera extra da arma em 0x50f12c)
   speed = 0;                   // +0x08c i16 velocidade da unidade (0x55915a)
-  f94 = 0;                     // +0x094 i16 lido por 0x56fc69 (< 1: a unidade na célula não conta)
+  f94 = 0;                     // +0x094 i16 vida (0x516ceb subtrai o dano; < 1 → queda em 0x50f12c; 0x56fc69)
+  f96 = 0;                     // +0x096 i16 vida máxima (0x57977a)
   mana = 0;                    // +0x09a i16 comparado ao custo da magia em 0x56ac5b
-  attackRange = 0;             // +0x12c u8  alcance sem magia (0x56ac5b)
-  book: SpellBookRec = new SpellBookRec(); // +0x140 ptr livro de magias
+  dmg: DmgRec = new DmgRec();  // +0x0a6 atributos do golpe (ponteiro passado a 0x516f6f)
+  fbe = 0;                     // +0x0be i16 defesa (0x516f6f; ÷ 2 na queda, 0x50f12c)
+  fc0 = 0;                     // +0x0c0 i16 absorção (0x516f6f)
+  /** +0x0c2 i16[6] proteções: [1] fogo +0xc4, [2] água +0xc6, [3] ar +0xc8, [4] terra +0xca, [5] astral +0xcc (0x516f6f) */
+  prot = new Int16Array(6);
+  /** +0x0ce u8[6] resistências físicas por tipo de arma (índice DmgRec.wtype; 0x516f6f) */
+  resist = new Uint8Array(6);
+  attackRange = 0;             // +0x12c u8  alcance sem magia (0x56ac5b, 0x516ceb)
+  f134 = 0;                    // +0x134 u8  charge: tiques da fase 5 (0x50f12c)
+  f135 = 0;                    // +0x135 u8  relax: tiques da fase 7 (0x50f12c)
   ready = 0;                   // +0x136 u8  pedido pronto (0x56dca2: golpe, IA+9 == 1)
-  effects = 0;                 // +0x144 u32 bits de efeito (0x40000 → IA+9 = 4 no despachante 0x56dca2)
+  f138 = 0;                    // +0x138 u32 relógio de 16/s até o qual a unidade está ocupada (0x5040c4, 0x504155; 0x50fc3e)
+  f13c = 0;                    // +0x13c u8  estado do corpo: 0 de pé, 1 caída (0x50f12c), 2..5 decomposição (0x5110b8)
+  book: SpellBookRec = new SpellBookRec(); // +0x140 ptr livro de magias
+  effects = 0;                 // +0x144 u32 bits de efeito = 1 << id da magia (0x40000 → IA+9 = 4; 0x100000 Bless, 0x10000000 Curse, 0x1000 Invisibility)
+  f148 = 0;                    // +0x148 u32 id de quem invocou (0x510a70: vida −10000)
+  f14c = 0;                    // +0x14c u16 (0x510a70: dono+0x40 = valor − 0x13 no jogo não local)
+  f1a0 = 0;                    // +0x1a0 u32 levantada/invocada: sem saque (0x510a70)
   walk: WalkRec = new WalkRec();           // +0x1c0 ptr andar
   ai: AiRec = new AiRec();                 // +0x1c4 ptr tarefa/IA
   pathStatic = new CListWord();            // +0x1c8 CList<WORD> caminho estático (0x54e58c)
   pathDynamic = new CListWord();           // +0x1e4 CList<WORD> caminho dinâmico (0x54e886)
 }
 
-/** Short apontado pelo global [0x6044c4] (lido por 0x54d76e no ramo de alcance; esse ramo não roda no corpus). */
-export const EXE_GLOBALS = { w6044c4: 0 };
+/** Objeto global [0x6044c4] (jogo/servidor): +0 contador de 1/s (short; 0x54d76e, 0x5110b8), +4 relógio de 16/s (0x56e6b8, 0x50fc3e,
+ *  0x5040c4), +0x74 ≠ 0 = jogo local (0x50f12c, 0x510a70). A World escreve antes de cada chamada da máquina; o teste lê da memória. */
+export const EXE_GLOBALS = { w6044c4: 0, clock16: 0, f74: 1 };
 
 /** Objeto de busca de caminho (o `this` de 0x557f08 / 0x55f970). */
 export interface PathRec {

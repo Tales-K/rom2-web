@@ -212,7 +212,7 @@ export function heroDerived(name: string, mage: boolean, female: boolean, base: 
     exp: 0, healthRegen: 100, manaRegen: mage ? 50 : 0, charge: weapon?.charge ?? 8, relax: weapon?.relax ?? 4, mind, source: "hero",
     // giro do HERÓI = 16 (+0x1c0+0xa medido nos saves m10/m20 com Speed 19 e 16; os humanos NPC têm giro = Speed, docs/DATA.md);
     // espera extra da arma [exe 0x50f6ba]
-    turnSpeed: 16, weaponWait: weapon ? weaponWaitTicks(weapon.weight ?? 0, reaction) : 0,
+    turnSpeed: 16, weaponWait: weapon ? weaponWaitTicks(weapon.weight ?? 0, reaction) : 0, weaponWeight: weapon ? weapon.weight ?? 0 : undefined, reaction,
     skillValue: fskill,
   };
 }
