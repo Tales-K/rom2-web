@@ -42,6 +42,12 @@ def parse_sections(text):
         line = raw.rstrip("\r")
         if line.startswith("#") and len(line) > 1 and not line.startswith("# "):
             name = line[1:].strip()
+            # nome repetido (mission20.txt: "#event11" da fala do herói e, mais abaixo, "#event11" da placa "Yellobrik Road" sob
+            # "=======roadsign======="): vale a PRIMEIRA secao, como uma busca linear pelo nome; antes as duas eram fundidas e a
+            # mensagem 11 da missao 20 mostrava a placa como 2a fala [est: ordem de busca do exe nao lida]
+            if name in sections:
+                name, cur, block = None, None, None
+                continue
             cur = sections.setdefault(name, [])
             block = None
             continue
