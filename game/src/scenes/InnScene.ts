@@ -383,7 +383,9 @@ export default class InnScene extends Scene {
       const doll = await buildDoll(this.game, opts);
       if (!doll) return undefined;
       const c = new Container();
-      doll.position.set(-42, -10);
+      // recorte da boneca na caixa 88×108 da janela: medido contra refs/original/inn_messenger_talk.png (correlação do miolo 72×92:
+      // o nosso recorte estava 16 px à esquerda e 6 px acima do original — a figura aparecia "cortada no lugar errado")
+      doll.position.set(-26, -4);
       const m = new Graphics().rect(0, 0, 76, 100).fill(0xffffff);
       c.addChild(doll, m);
       c.mask = m;
