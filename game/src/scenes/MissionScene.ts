@@ -760,8 +760,14 @@ export default class MissionScene extends Scene {
 
   private toggleInventory(): void {
     const on = !this.itemUi.open;
-    // só o herói tem mochila e equipamento (docs/GAPS.md [MISSÃO-UI-1]): abrir com um aliado selecionado volta ao herói
-    if (on && this.selected && this.selected !== this.hero) this.selectUnit(this.hero);   // sem seleção fica assim: a barra mostra "No hero selected" (m20_bag_open)
+    // só o herói tem mochila e equipamento (docs/GAPS.md [MISSÃO-UI-1]): abrir com um aliado ATIVO volta ao herói — mas a seleção múltipla
+    // fica (bug 14 de 28/10: antes `selectUnit(hero)` apagava as demais unidades selecionadas, inclusive ao abrir com o painel mostrando
+    // o inimigo atacado); herói fora da seleção: seleciona só ele (sem seleção fica assim: a barra mostra "No hero selected", m20_bag_open)
+    if (on && this.selected && this.selected !== this.hero) {
+      const sel = this.selectedOwn();
+      if (sel.includes(this.hero)) this.setSelection([this.hero, ...sel.filter(u => u !== this.hero)]);
+      else this.selectUnit(this.hero);
+    }
     this.itemUi.setOpen(on);
     this.hud.setInventoryOpen(on);
     this.audio.ui("click");
