@@ -914,7 +914,7 @@ export class World {
     for (const u of this.units) {
       const g = this.exeGroupSync(u), r = u.rec;
       r.ai.f40 = u.withdrawHp | 0; r.ai.f44 = u.wimpyHp | 0;
-      for (let i = 0; i < 3; i++) { const ps = u.procSpells[i]; r.ai.f7c[i] = ps ? Number(ps.spell.base ?? ps.spell.id) | 0 : 0; r.ai.f88[i] = ps ? Math.round(ps.chance * 0x8000 / 100) | 0 : 0; }
+      for (let i = 0; i < 3; i++) { const ps = u.procSpells[i]; r.ai.f7c[i] = ps ? Number(ps.spell.base ?? ps.spell.id) | 0 : 0; r.ai.f88[i] = ps ? Math.imul(Math.round(ps.chance) | 0, 0x147) : 0; }   // probabilidade × 0x147 (0x511959)
       r.fa5 = Math.max(0, Math.floor(this.sightOf(u))) & 0xff;
       r.f88 = ((u.stats.mind ?? 0) << 16) >> 16;
       r.hasBook = u.spells.length > 0;

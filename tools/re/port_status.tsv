@@ -366,9 +366,9 @@ addr	name	size	file	line	status	ts	note
 0x50dc2b	FUN_0050dc2b	278	game/g_500000.c	10067	pending		
 0x50dd41	Monster_CreateByName	249	game/g_500000.c	10110	pending		
 0x50e173	FUN_0050e173	795	game/g_500000.c	10274	pending		
-0x50ec60	FUN_0050ec60	283	game/g_500000.c	10576	pending		
+0x50ec60	FUN_0050ec60	283	game/g_500000.c	10576	ported	fn_0x50ec60	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
 0x50f048	FUN_0050f048	29	game/g_500000.c	10695	ported	vtables.ts:vt74	slot +0x74 (monstro): modelo[0x21] (exec 7)
-0x50f065	FUN_0050f065	199	game/g_500000.c	10707	pending		
+0x50f065	FUN_0050f065	199	game/g_500000.c	10707	ported	fn_0x50f065	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
 0x50f12c	Unit_ActionMachine	2795	game/g_500000.c	10734	ported	action.ts:unitActionMachine	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2): 96413 chamadas, 100% fora dos ganchos (laço dos efeitos 0x50ee14 com lista não vazia, magia 0x519998/0x519db8/0x519d7f, 0x510a70 lote 3); case 2 (0x553ab3) e 0xf (0x52c129) exec 0 = NotPorted
 0x50fc3e	FUN_0050fc3e	28	game/g_500000.c	11161	ported	combat.ts:fn_0x50fc3e	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (884 amostradas, stride 8); relógio de 16/s = EXE_GLOBALS.clock16
 0x50fc5a	Unit_Regen	723	game/g_500000.c	11170	ported	unitRegen	pares 0x50fc5a.jsonl 100% - 6026 chamadas, 3 episodios; exe/regen.ts
@@ -390,16 +390,16 @@ addr	name	size	file	line	status	ts	note
 0x5110b8	Corpse_Decay	430	game/g_510000.c	553	ported	death.ts:corpseDecay	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 3) (99 chamadas); 0x4f8d3d (liberar id, exec 0) = NotPorted; Server_Event 1 = stub
 0x511266	FUN_00511266	52	game/g_510000.c	602	pending		
 0x5113e7	FUN_005113e7	213	game/g_510000.c	652	ported	fn_0x5113e7	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
-0x5114f3	Monster_LoadTemplate	971	game/g_510000.c	690	pending		
+0x5114f3	Monster_LoadTemplate	971	game/g_510000.c	690	ported	monsterLoadTemplate	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
 0x5118be	FUN_005118be	85	game/g_510000.c	785	ported	fn_0x5118be	exe_effects.ts: pares sintéticos (oracle/synth_spells.py) 13/13 (vtable+0x58 do monstro)
 0x511913	FUN_00511913	70	game/g_510000.c	802	pending		
-0x511959	Human_Create	1646	game/g_510000.c	815	pending		
+0x511959	Human_Create	1646	game/g_510000.c	815	ported	monsterCreate	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2); ramo do MONSTRO (o nome Human_Create está errado)
 0x512133	FUN_00512133	84	game/g_510000.c	1147	pending		
-0x5121e1	FUN_005121e1	271	game/g_510000.c	1193	pending		
+0x5121e1	FUN_005121e1	271	game/g_510000.c	1193	ported	fn_0x5121e1	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
 0x5127d2	FUN_005127d2	32	game/g_510000.c	1465	ported	fn_0x5127d2	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x5127f2	FUN_005127f2	50	game/g_510000.c	1476	ported	fn_0x5127f2	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x512870	FUN_00512870	60	game/g_510000.c	1508	pending		
-0x5128ac	FUN_005128ac	31	game/g_510000.c	1526	pending		
+0x5128ac	FUN_005128ac	31	game/g_510000.c	1526	ported	fn_0x5128ac	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
 0x5128cb	FUN_005128cb	1657	game/g_510000.c	1538	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x512f44	FUN_00512f44	135	game/g_510000.c	1686	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x512fcb	FUN_00512fcb	349	game/g_510000.c	1716	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
@@ -407,11 +407,11 @@ addr	name	size	file	line	status	ts	note
 0x5131ef	FUN_005131ef	140	game/g_510000.c	1808	out		gancho SpellHooks.xpOnCast (experiencia pela magia, motor antigo; x87 perdido)
 0x51327b	FUN_0051327b	71	game/g_510000.c	1844	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5132c2	FUN_005132c2	469	game/g_510000.c	1866	pending		
-0x513497	FUN_00513497	175	game/g_510000.c	1931	pending		
+0x513497	FUN_00513497	175	game/g_510000.c	1931	ported	fn_0x513497	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
 0x51366b	FUN_0051366b	3157	game/g_510000.c	1982	ported	unitRecompute	vtable+0x58 humanos: x87 do assembly; no mundo gancho recompute (syncCombat); exe/effects.ts; test/exe_effects.ts 4/4
 0x5143e4	Human_CreateByName	114	game/g_510000.c	2402	pending		
-0x5145d1	FUN_005145d1	1825	game/g_510000.c	2527	pending		
-0x514cf2	FUN_00514cf2	615	game/g_510000.c	2789	pending		
+0x5145d1	FUN_005145d1	1825	game/g_510000.c	2527	ported	humanCreate	"exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2); só o ramo dos modelos do mapa (sem ""."" nem prefixo Hero)"
+0x514cf2	FUN_00514cf2	615	game/g_510000.c	2789	ported	fn_0x514cf2	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2); laço das habilidades do assembly
 0x514f59	Hero_InitSkills	1524	game/g_510000.c	2855	pending		
 0x5155c7	FUN_005155c7	22	game/g_510000.c	3110	pending		
 0x5155dd	FUN_005155dd	27	game/g_510000.c	3120	ported	fn_0x5155dd	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
@@ -1366,7 +1366,7 @@ addr	name	size	file	line	status	ts	note
 0x556da2	FUN_00556da2	43	game/g_550000.c	3911	ported	walk_action.ts:fn_0x556da2	exec 0: varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
 0x556dcd	AI_UnitDistance	393	game/g_550000.c	3925	ported	walk_action.ts:aiUnitDistance	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
 0x556f56	FUN_00556f56	273	game/g_550000.c	3970	ported	wave.ts:fn_0x556f56	exec 0: Unicorn 20000 casos (refs/oracle/fuzz/0x556f56.jsonl) 100%
-0x557a89	FUN_00557a89	71	game/g_550000.c	4307	pending		
+0x557a89	FUN_00557a89	71	game/g_550000.c	4307	ported	fn_0x557a89	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
 0x557cf1	Dir_Sector16	535	game/g_550000.c	4440	ported	path.ts:dirSector16	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x557f08	Unit_ApproachCell	1644	game/g_550000.c	4554	ported	path.ts:unitApproachCell	pares 93/93 + Unicorn 3000/3000 (sem celula, aneis multiplos, inclinacao NaN/inf, j>100); x87 reconstruido do asm: float32 + ftol; mesma sequencia de celulas lidas
 0x5585f4	Path_UnlabeledTargetRing	951	game/g_550000.c	4782	ported	path.ts:pathUnlabeledTargetRing	pares 37/37 + Unicorn 1000/1000; os dois ramos (lado==2 ou nao) sao identicos no asm, uma copia; mesma sequencia de celulas
@@ -1567,7 +1567,7 @@ addr	name	size	file	line	status	ts	note
 0x5686fa	FUN_005686fa	22	game/g_560000.c	5351	pending		
 0x5688d7	FUN_005688d7	760	game/g_560000.c	5466	pending		
 0x568c9a	FUN_00568c9a	307	game/g_560000.c	5590	pending		
-0x569003	FUN_00569003	173	game/g_560000.c	5714	pending		
+0x569003	FUN_00569003	173	game/g_560000.c	5714	ported	fn_0x569003	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
 0x5690b0	FUN_005690b0	62	game/g_560000.c	5750	pending		
 0x5690ee	FUN_005690ee	158	game/g_560000.c	5762	pending		
 0x56918c	~COleControlSiteOrWnd	59	game/g_560000.c	5797	pending		
@@ -1701,7 +1701,7 @@ addr	name	size	file	line	status	ts	note
 0x57375a	FUN_0057375a	35	game/g_570000.c	2041	ported	think.ts:fn_0x57375a	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x57377d	AI_GroupFlee	61	game/g_570000.c	2056	ported	think.ts:aiGroupFlee	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x5737ba	FUN_005737ba	33	game/g_570000.c	2073	pending		
-0x57382c	AI_SetDefaultWimpy	259	game/g_570000.c	2107	pending		
+0x57382c	AI_SetDefaultWimpy	259	game/g_570000.c	2107	ported	aiSetDefaultWimpy	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2); na carga é morta (vtable de monstro: vt+0x30 = 0)
 0x57393c	FUN_0057393c	508	game/g_570000.c	2154	pending		
 0x573b38	FUN_00573b38	508	game/g_570000.c	2222	pending		
 0x573d34	FUN_00573d34	32	game/g_570000.c	2290	pending		

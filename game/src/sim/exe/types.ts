@@ -162,6 +162,7 @@ export class AiRec {
   f3c = 0;        // +0x3c u16 célula da magia no chão (tarefa 9 0x56ec3f → 0x56e4ac)
   f40 = 0;        // +0x40 i32 vida do Withdraw (0x56cd11: vida ≤ → recua com inimigo a ≤ 2)
   f44 = 0;        // +0x44 i32 vida do Wimpy (0x56cb0c: vida ≤ → foge com inimigo a ≤ raio da unidade + 5)
+  f4c = 0;        // +0x4c u8  modo de recuo (AI_SetDefaultWimpy 0x57382c: 0 corpo a corpo, 1 à distância, 2 com livro)
   f50 = 0;        // +0x50 u32 1 depois de 0x56dbc6 (parar + Stand ground); 0 por 0x56dbfb
   f54 = 0;        // +0x54 u32 1 = sofreu golpe/magia (0x56e6b8): a próxima olhada em volta gira sem o sorteio (0x56e5bc zera)
   f58 = 0;        // +0x58 u16 célula de quem bateu (0x56e6b8)
@@ -317,12 +318,14 @@ export class UnitRec {
   addr = 0;
   vtbl = 0;                    // +0x000 u32 vtable (0x5d0eb0 / 0x5d0f40 / 0x5d0fb8)
   f04 = 0;                     // +0x004 u32 id da unidade no mapa (u16; 0x5110b8 zera ao sumir o corpo)
+  f0c = 0;                     // +0x00c u16 índice do modelo na lista de modelos (0x511959: [0x68f57c]; 0x5145d1: [0x68f590])
   f0e = 0;                     // +0x00e u16 id do modelo (0x510a70: ≥ 0x40 monstro com saque; 0x5110b8: 0x21..0x24 param em −60)
   mapObj: MapObjRec = new MapObjRec(); // +0x010 ptr objeto de mapa
   owner: PlayerRec = new PlayerRec();  // +0x014 ptr dono
   /** +0x020 CList<void*> dos efeitos com duração (cargas "Effect" 0x5d1178, `SpellPayloadRec` por endereço em `WorldRec.payloads`):
    *  0x50f12c anda vtable+0x38 (0x51cc9f) de cada um e tira o que acabou (0x542540 → 0x53af60); 0x51ce12 acrescenta/funde; Unit_Die os encerra */
   fx = new CListPtr();
+  f1c = 0;                     // +0x01c i32 experiência que a unidade vale (0x5114f3, 0x511959 ← modelo[0x25]; 0x5423c0 = vtable+0x5c do monstro)
   tpl: TemplateRec | null = null;      // +0x03c ptr modelo (0x542560: nulo → sem despachante/sem marcar o agressor)
   f40 = 0;                     // +0x040 u32 quem deu o último golpe (endereço; 0x516f6f)
   f44 = 0;                     // +0x044 u32 magia do livro escolhida para a ordem de lançar do cliente (endereço do BookSpellRec; o despachante de pacotes 0x4f515d a põe, 0x5702be a usa e zera)
@@ -332,6 +335,7 @@ export class UnitRec {
   f48 = 0;                     // +0x048 u8  elemento do último golpe (0x516f6f: DmgRec.elK se o agressor tem o bit 0x10, senão 0)
   size = 0;                    // +0x049 u8  lado em células (lido pelo slot 0x1c da vtable, 0x542360)
   kind = 0;                    // +0x04a u8  lido pelo slot 0x20 das vtables (0x542380); 1 = ramo "grade" de 0x55687d; > 1 → some ao morrer
+  f4b = 0;                     // +0x04b u8  face (modelo; 0x5145d1: bit 0x80 = feminino)
   f4c = 0;                     // +0x04c u8  bits: 4 "fora de combate" (0x542c90), 8 imune a dano físico (0x516f6f), 0x10 acerta sempre e ignora absorção (0x53a5a0: arma lança magia; tarefa 6, 0x56eff3)
   task = 0;                    // +0x050 u32 classe da tarefa (1 andar, 0xa patrulha, 0x18...: ramo do fim do caminho em 0x56dca2)
   act = 0;                     // +0x054 u32 ação corrente (1 = andar, 3 golpe, 0xd/0xe magia, 0x10 morta; 0x56e4ac, 0x56e8c3, 0x56e906)
@@ -412,6 +416,8 @@ export class UnitRec {
   ai: AiRec = new AiRec();                 // +0x1c4 ptr tarefa/IA
   pathStatic = new CListWord();            // +0x1c8 CList<WORD> caminho estático (0x54e58c)
   pathDynamic = new CListWord();           // +0x1e4 CList<WORD> caminho dinâmico (0x54e886)
+  /** +0x23c i32[6]: [0] habilidade principal do modelo de herói (0x514cf2), [1..5] experiência de cada habilidade (0x513497 ← 0x5128ac) */
+  f23c = new Int32Array(6);
 }
 
 /** Objeto global [0x6044c4] (jogo/servidor): +0 contador de 1/s (lido como int em 0x50fc5a/0x5110b8, short em 0x54d76e; vira no fim do

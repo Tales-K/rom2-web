@@ -47,9 +47,44 @@ fim de `lists.all` (nasce depois do mapa) e a ordem antiga o punha à frente —
 Corrida sem reimportar, o que sobra: m10_start T=322 só `rng`; m10_mage T=822 = o +0x12c do `syncCombat` (`notes/residuo.md`);
 m20_start T=740 `act`/`dir16`/`rng` (24616, 24660).
 
-## Próximo lote (2)
-Atributos e livro: `toHit` (40 missões; ex. 740 × 370, 325 × 320), `dmin/dmax`, `eldmg`, `manaregen`/`u.f9e` e `ai.f71` (31: 50 × 0 e 1 × 0
-nos monstros), `speed`/`turn`, `charge`, `defense`, `hp` contra `Monster_CreateByName 0x50dd41`, `Human_CreateByName 0x5143e4`,
-`Monster_LoadTemplate 0x5114f3` e o `statsFor` (mission/setup.ts); livro dos monstros/humanos no `rec.book` (42 missões);
-`AI_SetDefaultWimpy 0x57382c` (Wimpy/Withdraw, 24); `alive|n<id>` (37 missões: uma unidade nossa sem par). Depois: colocação 0x510089 e
-`AI_GuardLoad`, e o MapRec (o comparador precisa mascarar ponteiros: a faixa "resto" +0x5400c… e a célula do nosso herói).
+## Lote 2 (2026-10-29): a criação das unidades portada
+- **`game/src/sim/exe/create.ts`**: a criação literal a partir do modelo CRU de data.bin (`unit-templates.json` ganhou `raw` = o CArray<int>
+  e `rawItems` = as strings de equipamento; `tools/data/derive.py`, local, regenerado: o resto dos JSON ficou byte a byte igual).
+  Monstro: 0x50ec60 → 0x5114f3 Monster_LoadTemplate → **0x511959** (o "Human_Create" do known_functions é o ramo do MONSTRO; renomeado
+  `Monster_CreateFromTemplate`): itens pela vtable+0x44 (0x510883 → item+0x38), livro (magias de chance +0x7c/+0x88 = prob × 0x147; a
+  máscara [0x38] troca o livro inteiro), habilidades [0x36]/[0x39..], 0x5113e7, 0x557a89, 0x57382c. Humano: 0x5121e1 → 0x5145d1 → 0x514cf2
+  (o laço das habilidades vem do assembly) → itens (0x512638 → 0x512573: serve a lutador/mago) → livro (só com mana) → 0x513497 (0x5128ac,
+  tabela 0x512824 = ftol((1,1^i − 1) × 1000), conferida na imagem) → **0x51366b já portado** → vida/mana cheias. Itens: 0x5290cc (arma;
+  classe ≥ 10 = Flame Thrower/Sonic: o golpe vira elemental e o toHit do bônus = +0xa8, por isso o dragão tem 740 = 2 × 370), 0x52846b
+  (escudo), 0x527a13 (armadura), 0x50f065 (carga), 0x52377e (efeitos "{...}" pela tabela de nomes 0x5f8f50 → 0x51d175/0x51d436). Os
+  atributos do item ainda vêm de items.json (o construtor 0x528808/0x527e23/0x5273f0 não está portado).
+- **`mission/unitcreate.ts`**: o registro criado vira os `UnitStats` (que `syncCombat` escreve de volta a cada tique) e os campos que o
+  motor não reescreve (atributos, bônus +0xd4.., experiência, +0x1c, IA+0x4c/+0x7c/+0x88) passam à unidade. `buildMission` o usa para as
+  unidades do mapa (companheiros e invocações seguem o `statsFor`); vida/vida máx. do `.alm` como 0x561bf9 (`hp`/`maxHp` do JSON; humano
+  com as duas iguais = as do modelo); o modelo de herói no mapa (Dina/10230 na 40) fica com o tipo +0xe de herói (0x24).
+- `World.exeSyncGroups`: IA+0x88 = probabilidade × 0x147 (era × 0x8000 ÷ 100).
+- **Comparador**: `w.syncRecs()` antes das vistas (o que o 1.º passo vê: o livro e a IA+0x7c só eram sincronizados no passo — era todo o
+  `u.book`); o `hero` do despejo da carga é uma unidade do MAPA (read_state escolhe uma; não há herói na carga) e casa pelo id como as
+  outras — era todo o `alive|n<id>`; IA+0x4c, +0x7c[3] e +0x88[3] entram no comparador (todos iguais).
+- **AI_SetDefaultWimpy 0x57382c** é morto na carga: só 0x511959 o chama, com a vtable de monstro (vt+0x30 = 0x542420 → 0). Os 46 despejos
+  têm Withdraw/Wimpy = 0 em todos os humanos. A leitura de `notes/ai-original.md` ("humanos recebem 0x57382c") está errada. O resíduo
+  `withdraw`/`wimpy` (25 missões) é o trecho NÃO commitado de `sim/behaviors.ts` (installMissionAi aplica o padrão aos humanos): desligado
+  à mão, loadcmp dá 26 de 46 missões exatas sem o MapRec; perguntei ao coordenador antes de tirá-lo da árvore.
+
+| | antes (754f17a) | depois |
+|---|---|---|
+| loadcmp com o MapRec: pares idênticos | 98,74 % (7 514 divergentes) | 99,77 % (1 427 de 630 346; o casamento novo e a IA a mais somam pares) |
+| loadcmp `--no-map`: missões exatas / pares | 0 / 46 | **13 / 46**, 99,80 % (26 / 46 e 99,84 % sem o trecho alheio de behaviors.ts) |
+| tickcmp reancorada / sem reimportar | 100,0 / 99,9 / 100,0 %; T=322 / 822 / 740 | igual |
+| golden `--ci` | 79,37 % | 79,37 % (CI ok; a janela pior antiga) |
+| `test:sim` | verde | verde |
+
+Resíduo do lote, nomeado: `walk.f72` (3 unidades, m40/m72) = a velocidade da célula (0x55687d) com a unidade na mesma célula: o MapRec
+"passo" (lote 4). `t.f20`/`u.task` (5 missões) e `g_radius`/`g_base` (12) = grupos (lote 3). `dip` m92 = o 8.º jogador (lote 1).
+
+## Próximo lote (3)
+Colocação 0x510089 (`x/y`, `post` = IA+0, `walk.footCell`, +0x82/+0x83: 17 missões; a célula ocupada → vizinha × o nosso
+`grid.nearestFree`) e os grupos: `AI_GuardLoad 0x570aba` (`g_radius`/`g_base`, 12), `t.f20`/`u.task` (5) e os dados de grupo do exe em
+bytes no comparador. Depois o MapRec (lote 4: mascarar ponteiros na faixa "resto" +0x5400c…, passo 6 do pé das estruturas — inclui o
+`walk.f72` acima) e o herói (lote 5). Fora do comparador ainda: o construtor dos itens (atributos de items.json) e o resto da criação
+para os companheiros/invocações (`spawnCompanions`, `summonFactoryFor` usam o `statsFor`).

@@ -819,9 +819,9 @@
   },
   {
    "va": "0x511959",
-   "name": "Human_Create",
-   "desc": "Cria unidade humana",
-   "source": "notes/ai-original.md"
+   "name": "Monster_CreateFromTemplate",
+   "desc": "Ramo do MONSTRO de 0x50e173 (nome do modelo): Monster_LoadTemplate, itens, livro, habilidades, 0x57382c (antes 'Human_Create', errado)",
+   "source": "game/src/sim/exe/create.ts (etapa 9b lote 2)"
   },
   {
    "va": "0x511d3d",

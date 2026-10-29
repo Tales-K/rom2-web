@@ -537,7 +537,7 @@ function fn_0x5155dd(u: UnitRec): void {
   u.fbe = 0; u.fc0 = 0; u.prot.fill(0); u.resist.fill(0);
 }
 /** 0x515617 (thiscall; bloco +0xbe da unidade, bloco de bônus): soma proteções, resistências, defesa e absorção. */
-function fn_0x515617(u: UnitRec, p: DefRec): void {
+export function fn_0x515617(u: UnitRec, p: DefRec): void {
   for (let i = 0; i < 6; i++) u.prot[i] = s16(u.prot[i]! + p.prot[i]!);
   for (let i = 0; i < 6; i++) u.resist[i] = (u.resist[i]! + p.resist[i]!) & 0xff;
   u.fbe = s16(u.fbe + p.def);
@@ -555,7 +555,7 @@ function fn_0x515a6c(d: DmgRec, p: DmgRec): void {
   d.elK = p.elK & 0xff;
 }
 /** 0x5113e7 (thiscall; bônus +0xd4, unidade): soma o bônus nos derivados (velocidade < 0 zera o bônus de velocidade). */
-function fn_0x5113e7(u: UnitRec): void {
+export function fn_0x5113e7(u: UnitRec): void {
   u.speed = s16(u.speed + u.fd8);
   if (s16(u.speed) < 0) u.fd8 = 0;
   u.f92 = s16(u.f92 + u.fda);

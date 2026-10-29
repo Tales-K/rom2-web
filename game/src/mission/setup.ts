@@ -15,6 +15,8 @@ import { World, type SpellDef, type Unit } from "../sim/world";
 import { buildSpell, type SpellJsonLike, type SpellTable } from "../sim/spells";
 import { ANIM_BASE, timingFor, type AnimTable } from "./animTiming";
 import { MissionHost, type HostCallbacks } from "./host";
+import { applyAlmHealth, applyCreatedRec, createMapUnit } from "./unitcreate";
+import type { ItemJsonLike } from "../sim/exe/create";
 
 export interface MissionMeta {
   diplomacy: number[][];
@@ -264,10 +266,16 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
     const npc = mu.serverId ?? data.meta?.units[i]?.npc ?? 0;
     const serverId = mu.serverId ?? data.mapTemplates?.[i]?.serverId;
     const tpl: TemplateJson | undefined = serverId != null ? data.templates?.[String(serverId)] : undefined;
-    const stats = applyDifficulty(statsFor(mu.kind, name, tpl, data.stats, !!am?.Z), hero.difficulty);
+    // a criação portada (sim/exe/create.ts: 0x511959 monstro / 0x5145d1 humano) do modelo cru de data.bin dá os atributos (etapa 9b)
+    const base = statsFor(mu.kind, name, tpl, data.stats, !!am?.Z);
+    const created = createMapUnit(world.exeWorld, tpl, base, data.items as Record<string, ItemJsonLike> | undefined);
+    const hp0 = created ? applyAlmHealth(created, !!mu.human, mu.hp as number | undefined, mu.maxHp as number | undefined) : undefined;
+    const stats = applyDifficulty(created?.stats ?? base, hero.difficulty);
     if (mu.quest?.noXp) stats.noXp = true;
-    const u = world.spawn({ kind, typeId: mu.kind, player: mu.player, x: mu.x, y: mu.y, stats,
+    // o tipo +0xe do registro criado: o modelo de herói no mapa (Dina/10230 na 40) vira o tipo de herói 0x21..0x24 (0x5145d1)
+    const u = world.spawn({ kind, typeId: tpl?.kind === "hero" && created ? created.rec.f0e : mu.kind, player: mu.player, x: mu.x, y: mu.y, stats,
       timing: timingFor(am, stats, (tpl?.dyingTime as number | undefined)), scriptId, npc, name: NPC_NAMES[npc] ?? stats.name });
+    if (created) { applyCreatedRec(u.rec, created.rec); if (hp0 !== undefined && mu.hp !== 0) u.hp = hp0; }
     host.bindUnit(scriptId, u);
     // vida 0 no mapa: unidade caída (refém ogro da 50, druida chefe moribundo da 101); fica com 5% da vida para que "curar" (>= 25%) a acorde, além de chegar perto
     if (mu.hp === 0) { host.dazed.add(u); host.weak.add(u); host.mapDazed.add(u); u.helpless = true; u.hp = Math.max(1, Math.round(u.maxHp * 0.05)); }

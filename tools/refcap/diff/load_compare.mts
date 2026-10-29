@@ -33,6 +33,13 @@ const ID0 = 0x6000;
 /** Campos da IA além dos que o importador lê (recio AI_FIELDS): alvos IA+0x10 e IA+0x20 (endereços). */
 const AI_EXTRA: Field[] = [[0x10, 4, "f10"], [0x20, 4, "f20"]];
 const AI_ALL = [...AI_FIELDS, ...AI_EXTRA];
+/** IA+0x4c modo de recuo (0x57382c) e as magias de chance +0x7c / probabilidades +0x88 (i32[3]; 0x511959: prob × 0x147). */
+const AI_ARR: Field[] = [[0x4c, 1, "f4c"], ...[0, 1, 2].map(i => [0x7c + 4 * i, 4, `f7c.${i}`] as Field), ...[0, 1, 2].map(i => [0x88 + 4 * i, 4, `f88.${i}`] as Field)];
+function aiArrOurs(r: Unit["rec"]): Record<string, number> {
+  const out: Record<string, number> = { "ai.f4c": r.ai.f4c };
+  for (let i = 0; i < 3; i++) { out[`ai.f7c.${i}`] = r.ai.f7c[i]! >>> 0; out[`ai.f88.${i}`] = r.ai.f88[i]! >>> 0; }
+  return out;
+}
 /** Campos de 4 bytes que guardam endereço (de unidade, de magia do livro ou outro objeto). */
 const PTR_WALK = new Set(["chaseTarget", "f6c", "f90", "f98", "turning"]);
 const PTR_AI = new Set(["f04", "f0c", "f10", "target", "f20", "f28", "f30", "f50", "f54", "f5c", "f60", "f94", "f98", "fac"]);
@@ -64,6 +71,7 @@ function exeOrig(o: Any, c: Ctx): Record<string, number | string> {
   const wf = fieldsFromHex(e.mv ?? "", WALK_FIELDS), af = fieldsFromHex(e.ai ?? "", AI_ALL);
   for (const [k, v] of Object.entries(wf)) out[`walk.${k}`] = PTR_WALK.has(k) ? ptrOrig(c, v) : v;
   for (const [k, v] of Object.entries(af)) out[`ai.${k}`] = PTR_AI.has(k) ? ptrOrig(c, v) : v;
+  for (const [k, v] of Object.entries(fieldsFromHex(e.ai ?? "", AI_ARR))) out[`ai.${k}`] = v;
   Object.assign(out, {
     "u.f43": e.f43, "u.size": e.size, "u.kind": e.kind, "u.task": e.u50, "u.act": e.act, "u.speed": e.speed, "u.hp": e.hp, "u.mana": e.mana,
     "u.f12c": e.f12c, "t.f20": e.f20, "t.f44": e.f44, "t.f45": e.f45, "o.f2c": e.p2c, "u.f98": e.f98, "u.f9c": e.f9c, "u.f9e": e.f9e,
@@ -78,6 +86,7 @@ function exeOurs(u: Unit, c: Ctx): Record<string, number | string> {
   const w = r.walk as unknown as Record<string, number>, a = r.ai as unknown as Record<string, number>;
   for (const [, , k] of WALK_FIELDS) out[`walk.${k}`] = PTR_WALK.has(k) ? ptrOurs(c, w[k] ?? 0, u) : (w[k] ?? 0);
   for (const [, , k] of AI_ALL) out[`ai.${k}`] = PTR_AI.has(k) ? ptrOurs(c, a[k] ?? 0, u) : (a[k] ?? 0);
+  Object.assign(out, aiArrOurs(r));
   Object.assign(out, {
     "u.f43": r.f43, "u.size": r.size, "u.kind": r.kind, "u.task": r.task, "u.act": r.act, "u.speed": r.speed, "u.hp": r.f94, "u.mana": r.mana,
     "u.f12c": r.attackRange, "t.f20": r.type.stats.f20, "t.f44": r.type.stats.speedByte, "t.f45": r.type.stats.f45, "o.f2c": r.owner.f2c,
@@ -135,12 +144,15 @@ async function one(m: number, opt: Opts): Promise<Result> {
   const lr = st.load_rand as { seed0: number | null; draws: number } | undefined;
   const r = startRun(data, heroFromState(st as OrigState), undefined, { seed: lr?.seed0 ?? undefined });
   const w = r.b.world;
-  // casamento por id: herói pelo `hero` do despejo; o resto por 0x6000 + id do .alm
+  // os campos do registro que o motor sincroniza no começo de cada passo (World.step: exeSyncWorld + syncCombat — livro, IA+0x7c/+0x88,
+  // dono, listas): o estado que o 1.º passo vê
+  w.syncRecs();
+  // casamento por id: 0x6000 + id do .alm. O despejo da carga não tem herói (o cliente o junta depois de 0x4eb715): o `hero` dele é uma
+  // unidade do mapa (a que read_state escolhe) e casa como as outras
   const idmap = new Map<number, number>();
   const byScript = new Map<number, Unit>();
   for (const u of w.units) if (u !== r.b.hero && u.scriptId) byScript.set(u.scriptId, u);
   for (const o of st.units as Any[]) {
-    if (o.id === st.hero) { idmap.set(o.id, r.b.hero.id); continue; }
     const u = o.id >= ID0 ? byScript.get(o.id - ID0) : undefined;
     if (u) idmap.set(o.id, u.id);
   }
@@ -156,9 +168,7 @@ async function one(m: number, opt: Opts): Promise<Result> {
     for (const [k, v] of Object.entries(exeOrig(o, c))) vo.set(`${k}|${o.id}`, v);
     for (const [k, v] of Object.entries(exeOurs(u, c))) vn.set(`${k}|${o.id}`, v);
   }
-  // o herói não é do carregador: o servidor novo de 0x48ab76 não o tem (o cliente o junta depois de 0x4eb715) — fica fora, com o grupo
-  const heroKey = new RegExp(`\\|(${st.hero}|G\\d+:${st.hero})$`);
-  for (const v of [vo, vn]) for (const k of [...v.keys()]) if (heroKey.test(k)) v.delete(k);
+  // o herói não é do carregador: o servidor novo de 0x48ab76 não o tem (o cliente o junta depois de 0x4eb715) — o nosso fica fora
   vn.delete(`alive|n${r.b.hero.id}`);
   // sorteios da carga: os do original (load_mission.py conta) × os nossos até o fim do startRun, menos o do nosso herói (1, World.spawn),
   // que o original sorteia só quando o cliente o junta, depois de 0x4eb715
