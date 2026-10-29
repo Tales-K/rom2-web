@@ -559,7 +559,14 @@ export function spellFrom(cm: CallMem, p: number): BookSpellRec {
   const s = new BookSpellRec();
   s.addr = p >>> 0; s.id = cm.u8(p + 8); s.range = cm.u8(p + 9); s.f0a = cm.u8(p + 0xa); s.cost = (cm.u16(p + 0xc) << 16) >> 16;
   const def = cm.u32(p + 4);
-  if (def !== 0 && cm.has(def + 0xc)) s.def0 = cm.u32(cm.u32(def + 0xc)) | 0;
+  s.hasDef = def !== 0;
+  if (def !== 0 && cm.has(def + 0xc)) {
+    const data = cm.u32(def + 0xc);
+    s.def0 = cm.u32(data) | 0;
+    // [4] alvo unidade (0x519441) e [5] projétil (Spell_SpendMana 0x519998), quando a chamada os leu
+    if (cm.has(data + 16)) s.def4 = cm.u32(data + 16) | 0;
+    if (cm.has(data + 20)) s.def5 = cm.u32(data + 20) | 0;
+  }
   return s;
 }
 /** Atributos do golpe em `p` (unidade+0xa6 ou struct avulsa). */

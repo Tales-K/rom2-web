@@ -32,12 +32,24 @@ com o alvo já posto: sem ele o motor antigo virava a maga para (0,0), `dir16`).
 livro ([id, endereço]); `import_state` põe +0x5c e `World.exeImportSpellPtrs` traduz IA+0x30/+0x64 pelo id. tickcmp 97,4 / **97,5** /
 **98,6** % (m10_mage: `mana` 100 %, `act` 98,9 → 99,5 %, sorteios 98,9 → 99,2 %).
 
-## Próximo: lote 2 (gasto e lançamento) — o que já se sabe
-Spell_SpendMana 0x519998: `this` = a magia do livro (+4 definição: CArray em +8, elementos 2 esfera, 4 (1 → aviso 0x5041d6, senão
-0x5042ba), 5 (2 = projétil: tempo de voo = Spell_ProjectileDist ÷ [7]), 7 velocidade; +8 id; +0xc custo); unidade +0x68 item em uso
-(sem mana), +0x74 arma (cajado sem livro com +0x74 = +0x68 → 1 sem aviso), lista de efeitos +0x20 (efeito 0xc: +0x42 = 1 quando o alvo
-é outro), +0x138 = relógio no aviso (vtable+0x2c). Prismatic Spray (0xb) → Spell_CasterPower + 0x519c04 (exec 0). Spell_Release
-0x519d7f: id ≠ 0xb → Spell_Apply(…, 0, 0). Falta espelhar a lista de efeitos +0x20 e os objetos de magia ([0x68d2dc]+0x24).
+## Lote 2 — gasto e lançamento (porta 100 % dos pares)
+`exe/spells.ts`: `spellSpendMana` 0x519998 (9/9), `fn_0x519441` (9/9), `clientSpellPacket` = 0x5041d6/0x5042ba (pacote = stub; +0x138
+pela vtable+0x2c), `spellRelease` 0x519d7f (`review`: os 9 pares caem em Spell_Apply). Prova `test/exe_combat.ts`. `this` = a magia
+(+4 definição: CArray em +8 — [4] = 1 aviso com alvo, [5] = 2 projétil; +8 id; +0xc custo): `BookSpellRec.hasDef/def4/def5` (na World
+do `kind`/`target` [est]: só escolhem o pacote e o teste do modelo). O ponto alvo e o tempo de voo (0x54f955…, 0x516aae) só vão no
+pacote. **Ganchos removidos**: `spellSpendMana`, `spellRelease` (máquina 0x50f12c e golpe 0x516ceb chamam a porta). **Novos** (SpellHooks):
+`clientCast` (apresentação: `hookCastStart` → `beginCast`, que não gasta mais mana), `noMana` (mensagem "Not enough mana", 1 a cada 2 s
+— sem mana o exe tenta de novo a cada tique; o motor antigo largava a ordem), `spellPrismatic` (0x519c04, exec 0: o jato sai já no
+gasto), `spellApply` agora com o alvo. **Apagado**: `hookSpendMana` (mana, aborto da ordem, +0x138 [est]). `World.spellAt` resolve
+também a magia do cajado/de chance (endereço sintético); a importação leva o +0x64 fora do livro para a magia do cajado [est].
+
+## Próximo: lote 3 (Spell_Apply 0x519db8, 8 448 B) — o que o corpus executa
+Pares m10_mage (`fnprobe.py m10_mage_s102 0x519db8 …`): Shield (27) T=250/764 (508 escritas: objetos de efeito na lista +0x20 e no
+mundo), Heal (24) T=394/634/906 (69 escritas, 1 sorteio; Unit_AddHeal 0x510484), Fire Arrow (1, o cajado) T=843/862/880/928 (228
+escritas: Spell_DamageObject 0x51e505 + Spell_FireDamageObj 0x543040, projétil; impacto 0x51d436 depois). Cabeça comum: 0x543130,
+Spell_Instance 0x5195b1 (poder = esfera [2] + Mind − 30), alvo por 0x54f955/0x54feae/0x54ff06. Antes de portar: espelhar a lista de
+efeitos +0x20 (hoje `buffs`) e o registro dos objetos de magia (`new` 0x401880, endereço sintético; a lista que os anda por tique
+ainda a achar: 0x518efd ×18, 0x518ca1 ×11 rodam sem chamador no callgraph — vtable).
 
 ## Resíduo (tickcmp, 1.ª divergência, depois do lote 1 + arnês)
 m10_start: `task|24595` T=609 (o=attack n=move) + `g_assigned`/`target` (pensamento do grupo 0x57240b), `post|1` T=49 (posto IA+0 do

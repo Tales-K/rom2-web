@@ -280,8 +280,8 @@ addr	name	size	file	line	status	ts	note
 0x504052	FUN_00504052	114	game/g_500000.c	3195	pending		
 0x5040c4	FUN_005040c4	145	game/g_500000.c	3224	ported	combat.ts:fn_0x5040c4	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (540 amostradas, stride 2): só +0x138 = relógio + p3 é servidor; o pacote (0x5039e2) é stub
 0x504155	FUN_00504155	129	game/g_500000.c	3246	ported	combat.ts:fn_0x504155	tradução direta (+0x138 = relógio + charge + relax; pacote 0x72 = stub); exec 0 no corpus
-0x5041d6	FUN_005041d6	228	game/g_500000.c	3263	pending		
-0x5042ba	FUN_005042ba	215	game/g_500000.c	3299	pending		
+0x5041d6	FUN_005041d6	228	game/g_500000.c	3263	ported	spells.ts:clientSpellPacket	pacote ao cliente = stub; +0x138 (vtable+0x2c) provado nos pares de 0x519998 (9/9)
+0x5042ba	FUN_005042ba	215	game/g_500000.c	3299	ported	spells.ts:clientSpellPacket	pacote ao cliente = stub; +0x138 (vtable+0x2c) provado nos pares de 0x519998 (9/9)
 0x504391	FUN_00504391	263	game/g_500000.c	3331	pending		
 0x504498	FUN_00504498	34	game/g_500000.c	3372	pending		
 0x5044ba	FUN_005044ba	106	game/g_500000.c	3382	pending		
@@ -433,7 +433,7 @@ addr	name	size	file	line	status	ts	note
 0x516942	FUN_00516942	81	game/g_510000.c	3997	pending		
 0x516993	FUN_00516993	75	game/g_510000.c	4016	pending		
 0x5169de	FUN_005169de	208	game/g_510000.c	4035	ported	combat.ts:fn_0x5169de	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 1) (227)
-0x516aae	Spell_ProjectileDist	129	game/g_510000.c	4068	pending		
+0x516aae	Spell_ProjectileDist	129	game/g_510000.c	4068	pending		Spell_SpendMana 0x519998: só vai no pacote ao cliente (não portado lá); Spell_Apply 0x519db8 o usa de verdade (lote 3)
 0x516b2f	Unit_StrikeExtra	240	game/g_510000.c	4095	ported	combat.ts:unitStrikeExtra	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (115): laço dos efeitos 0xc = gancho effectExpire
 0x516c1f	Unit_StrikeBegin	204	game/g_510000.c	4133	ported	combat.ts:unitStrikeBegin	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (112)
 0x516ceb	Unit_StrikeHit	437	game/g_510000.c	4181	ported	combat.ts:unitStrikeHit	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (112): vida −= dano (short); 0x504b1d = gancho clientHit; vtable+0x6c (0x513128) = gancho xpOnHit
@@ -456,13 +456,13 @@ addr	name	size	file	line	status	ts	note
 0x51922e	FUN_0051922e	333	game/g_510000.c	5963	pending		
 0x519408	FUN_00519408	18	game/g_510000.c	6045	pending		
 0x51941a	FUN_0051941a	39	game/g_510000.c	6054	pending		
-0x519441	FUN_00519441	37	game/g_510000.c	6066	pending		
+0x519441	FUN_00519441	37	game/g_510000.c	6066	ported	spells.ts:fn_0x519441	pares m10_mage 9/9
 0x519466	FUN_00519466	29	game/g_510000.c	6078	pending		
 0x519483	Spell_CasterPower	154	game/g_510000.c	6090	pending		
 0x5195b1	Spell_Instance	562	game/g_510000.c	6164	pending		
-0x519998	Spell_SpendMana	620	game/g_510000.c	6356	pending		
+0x519998	Spell_SpendMana	620	game/g_510000.c	6356	ported	spells.ts:spellSpendMana	pares m10_mage 9/9 (exe_combat.ts; etapa 8b lote 2); ponto alvo/tempo de voo só no pacote (cliente); Prismatic 0xb gancho
 0x519c04	Spell_PrismaticSpray	379	game/g_510000.c	6461	pending		
-0x519d7f	Spell_Release	57	game/g_510000.c	6537	pending		
+0x519d7f	Spell_Release	57	game/g_510000.c	6537	review	spells.ts:spellRelease	tradução direta; os 9 pares caem em Spell_Apply 0x519db8 (gancho): prova completa com o lote 3
 0x519db8	Spell_Apply	8448	game/g_510000.c	6551	pending		
 0x51c29e	Unit_AddSpellToBook	150	game/g_510000.c	7617	pending		
 0x51c391	Unit_GetBookSpell	83	game/g_510000.c	7665	ported	wave.ts:unitGetBookSpell	exe_wave.ts: pares 100% (3 episódios) (EDX lixo no replay, não é retorno)
@@ -1267,7 +1267,7 @@ addr	name	size	file	line	status	ts	note
 0x54f618	FUN_0054f618	229	game/g_540000.c	13548	ported	walk_action.ts:fn_0x54f618	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
 0x54f84c	FUN_0054f84c	78	game/g_540000.c	13647	ported	occRecConstruct	exe_walk.ts: pares 100% (3 episódios)
 0x54f89a	FUN_0054f89a	27	game/g_540000.c	13669	ported	occRecClear	exe_walk.ts: pares 100% (3 episódios)
-0x54f955	FUN_0054f955	28	game/g_540000.c	13723	pending		
+0x54f955	FUN_0054f955	28	game/g_540000.c	13723	pending		Spell_SpendMana 0x519998: só vai no pacote ao cliente (não portado lá); Spell_Apply 0x519db8 o usa de verdade (lote 3)
 0x54f971	FUN_0054f971	36	game/g_540000.c	13733	pending		
 0x54f9b9	FUN_0054f9b9	105	game/g_540000.c	13753	ported	mapObjInit	exe_walk.ts: pares 100% (3 episódios)
 0x54fa22	FUN_0054fa22	33	game/g_540000.c	13770	ported	mapObjInitPacked16	exe_walk.ts: pares 100% (3 episódios)
@@ -1277,8 +1277,8 @@ addr	name	size	file	line	status	ts	note
 0x54fbf7	Unit_SetPosition	74	game/g_540000.c	13870	pending		
 0x54fc41	FUN_0054fc41	103	game/g_540000.c	13886	ported	mapObjSetFine	exe_walk.ts: pares 100% (3 episódios)
 0x54fca8	FUN_0054fca8	207	game/g_540000.c	13900	pending		
-0x54feae	FUN_0054feae	88	game/g_540000.c	13995	pending		
-0x54ff06	FUN_0054ff06	85	game/g_540000.c	14010	pending		
+0x54feae	FUN_0054feae	88	game/g_540000.c	13995	pending		Spell_SpendMana 0x519998: só vai no pacote ao cliente (não portado lá); Spell_Apply 0x519db8 o usa de verdade (lote 3)
+0x54ff06	FUN_0054ff06	85	game/g_540000.c	14010	pending		Spell_SpendMana 0x519998: só vai no pacote ao cliente (não portado lá); Spell_Apply 0x519db8 o usa de verdade (lote 3)
 0x54ff5b	FUN_0054ff5b	33	game/g_540000.c	14025	ported	path.ts:mapObjFineX	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x54ff7c	FUN_0054ff7c	34	game/g_540000.c	14034	ported	path.ts:mapObjFineY	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x54ff9e	Obj_CellOf	18	game/g_540000.c	14043	ported	mapObjCellOf	exe_walk.ts: pares 100% (3 episódios)

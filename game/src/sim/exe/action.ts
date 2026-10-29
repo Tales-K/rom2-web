@@ -33,6 +33,7 @@ import { mapObjFineX, mapObjFineY } from "./path";
 import { randInclusive } from "./rand";
 import { vt30, vt74 } from "./vtables";
 import { unitDie, type DieHooks } from "./death";
+import { spellRelease, spellSpendMana, type SpellHooks } from "./spells";
 import {
   fn_0x50fc3e, fn_0x50ff2d, fn_0x510745, fn_0x53bff0, fn_0x542560, unitStrikeBegin, unitStrikeExtra, weaponCastsSpell, type CombatHooks,
 } from "./combat";
@@ -500,13 +501,9 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
 
 /** Ganchos da máquina de ação para o que não é portado (magia: motor antigo; cliente/HUD: pontos dos envios ao cliente do exe) e os
  *  adaptadores do pensamento. Sem gancho de magia → NotPorted. */
-export interface MachineHooks extends DispatchHooks, CombatHooks, DieHooks {
+export interface MachineHooks extends DispatchHooks, CombatHooks, DieHooks, SpellHooks {
   /** laço dos efeitos da unidade (+0x20: vtable+0x38 de cada efeito; expirado (0x542540) → 0x53af60 tira da lista). Sem gancho: lista vazia. */
   effectsTick?(u: UnitRec): void;
-  /** 0x519998 Spell_SpendMana(magia +0x64, unidade, alvo ou null, x, y): ≠ 0 = a magia começa (mana gasta); 0 = não (tenta de novo no tique seguinte). */
-  spellSpendMana?(spell: number, u: UnitRec, t: UnitRec | null, x: number, y: number): number;
-  /** 0x519db8 Spell_Apply(magia, unidade, null, x, y): magia na célula sai. */
-  spellApply?(spell: number, u: UnitRec, t: UnitRec | null, x: number, y: number): void;
   /** elemento 0 da definição da magia ([[magia+4]+0xc][0], 0x41e7e0): nível somado à espera da fase 7 (byte). */
   spellLevel?(u: UnitRec, spell: number): number;
   /** Server_Event 0x4001 (stub de cliente): a unidade caiu (vida < 1: +0x13c = 1, defesa ÷ 2, contador = duração da queda − 1). */
@@ -518,14 +515,6 @@ export interface MachineHooks extends DispatchHooks, CombatHooks, DieHooks {
   thinkAfterDispatch?(u: UnitRec): void;
 }
 
-function spendMana(h: MachineHooks, spell: number, u: UnitRec, t: UnitRec | null, x: number, y: number): number {
-  if (!h.spellSpendMana) throw new NotPorted("0x519998");
-  return h.spellSpendMana(spell, u, t, x, y) | 0;
-}
-function spellRelease(h: MachineHooks, spell: number, u: UnitRec, t: UnitRec): void {
-  if (!h.spellRelease) throw new NotPorted("0x519d7f");
-  h.spellRelease(spell, u, t);
-}
 function spellApply(h: MachineHooks, spell: number, u: UnitRec, x: number, y: number): void {
   if (!h.spellApply) throw new NotPorted("0x519db8");
   h.spellApply(spell, u, null, x, y);
@@ -612,8 +601,8 @@ export function unitActionMachine(wd: WorldRec, u: UnitRec, h: MachineHooks = {}
         }
         if ((u.act | 0) === 0xd || (u.act | 0) === 0xe) {
           const r = (u.act | 0) === 0xd
-            ? spendMana(h, u.f64, u, targetOf(wd, u), 0, 0)
-            : spendMana(h, u.f64, u, null, u.f60 & 0xff, (u.f60 >>> 8) & 0xff);
+            ? spellSpendMana(wd, wd.spellAt(u.f64), u, targetOf(wd, u), 0, 0, h)
+            : spellSpendMana(wd, wd.spellAt(u.f64), u, null, u.f60 & 0xff, (u.f60 >>> 8) & 0xff, h);
           if (r !== 0) {
             u.ready = 0;
             u.f58 = 5;
@@ -637,7 +626,7 @@ export function unitActionMachine(wd: WorldRec, u: UnitRec, h: MachineHooks = {}
             }
           }
           if ((u.act | 0) === 0xd || (u.act | 0) === 0xe) {
-            if ((u.act | 0) === 0xd) spellRelease(h, u.f64, u, targetOf(wd, u)!);
+            if ((u.act | 0) === 0xd) spellRelease(wd.spellAt(u.f64), u, targetOf(wd, u), h);
             else spellApply(h, u.f64, u, u.f60 & 0xff, (u.f60 >>> 8) & 0xff);
             if (u.f68 !== null) {
               const uVar25 = fn_0x53bff0(u.f68);

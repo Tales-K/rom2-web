@@ -317,6 +317,8 @@ export class Unit {
   silentFall = false;
   lastAttacker = 0;
   lastHurtTick = -9999;
+  /** tique da última mensagem "Not enough mana" (apresentação: Spell_SpendMana 0x519998 sem mana tenta de novo a cada tique) */
+  noManaTick = -9999;
   /** guarda da carga do mapa (grupo comando 0x12, 0x5728fa): segundo (relógio 1/s) da última perseguição com o alvo inalcançável
    *  (`+0x1c4+0x16`, gravado em 0x54d76e), tique de 16/s do último golpe/magia recebido (`+0x98`, 0x56e6b8) e o ponto de fuga
    *  (`+0x9c`: 10 células a partir de quem bateu; 0 = nunca) */
@@ -566,6 +568,9 @@ export class World {
     this.exeWorld.fa8b8 = MINIMAL_GUARD_RANGE;
     this.exeWorld.spellAt = (a) => {
       for (const u of this.units) for (const s of u.rec.book.spells) if (s && (s.addr >>> 0) === (a >>> 0)) return s;
+      // magia de arma (o cajado: `weaponSpell`) ou de chance fora do livro: o registro da definição pelo endereço sintético
+      const d = SPELL_BY_ADDR.get(a >>> 0);
+      if (d) return World.bookSpellRec(d, a >>> 0);
       throw new Error(`magia 0x${(a >>> 0).toString(16)} fora dos livros espelhados`);
     };
     this.exeBase = this.exe.mem.slice();
@@ -875,10 +880,20 @@ export class World {
     const ours = (a: number): number => {
       const e = book.find(([, ad]) => (ad >>> 0) === (a >>> 0));
       const s = e ? r.book.spells[e[0]] : null;
-      return s ? s.addr >>> 0 : a >>> 0;
+      if (s) return s.addr >>> 0;
+      return !e && u.weaponSpell ? this.spellAddr(u.weaponSpell) : a >>> 0;   // fora do livro: a magia do cajado [est]
     };
     if (r.ai.f30) r.ai.f30 = ours(r.ai.f30);
     if (f64 !== undefined) r.f64 = f64 ? ours(f64) : 0;
+  }
+  /** BookSpellRec de uma definição do motor antigo: id, alcance, custo, bit de apoio (+0xa) e, da definição, [4] = 1 alvo unidade
+   *  (aviso 0x5041d6) e [5] = 2 projétil [est: do `kind`/`target`; no servidor só decidem o pacote ao cliente e o teste do modelo]. */
+  private static bookSpellRec(s: SpellDef, addr: number): BookSpellRec {
+    const r = new BookSpellRec(), id = Number(s.base ?? s.id) | 0;
+    r.addr = addr >>> 0; r.id = id & 0xff; r.range = Math.max(0, Math.floor(s.range)) & 0xff; r.cost = (Math.round(s.mana) << 16) >> 16; r.f0a = s.defensive ? 1 : 0;
+    r.def4 = s.target === "point" || s.target === "self" ? 0 : 1;
+    r.def5 = s.kind === "bolt" || s.kind === "ball" || s.kind === "drain" ? 2 : 0;
+    return r;
   }
   /** O livro de magias espelhado (unidade+0x140: CArray de 28 slots indexado pelo id, como nas imagens do oráculo) a partir das magias do
    *  motor antigo: id, alcance, custo, bit de apoio (+0xa) e o endereço sintético que a máquina portada resolve (`spellAddr`). */
@@ -891,9 +906,7 @@ export class World {
     for (const s of list) {
       const id = Number(s.base ?? s.id) | 0;
       if (id < 0 || id >= n) continue;
-      const r = new BookSpellRec();
-      r.addr = this.spellAddr(s); r.id = id; r.range = Math.max(0, Math.floor(s.range)) & 0xff; r.cost = (Math.round(s.mana) << 16) >> 16; r.f0a = s.defensive ? 1 : 0;
-      b.spells[id] = r;
+      b.spells[id] = World.bookSpellRec(s, this.spellAddr(s));
     }
   }
   /** AI_IdleCasterSupport 0x56c592 portado, chamado pelo pensamento do motor antigo (modos `legacyMode`): true se ficou com a tarefa 8
@@ -1833,9 +1846,9 @@ export class World {
     }
   }
 
-  /** Começa a lançar `spell` (gasta a mana já aqui). `auto` = decidida pela IA/autocast (a ordem do jogador continua). */
+  /** Apresentação do começo da magia `spell` (a mana já saiu em Spell_SpendMana 0x519998). `auto` = decidida pela IA/autocast (a
+   *  ordem do jogador continua). */
   beginCast(u: Unit, spell: SpellDef, t: Unit | undefined, tx: number, ty: number, auto: boolean): void {
-    u.mana = Math.max(0, u.mana - spell.mana);
     u.castSpell = spell;
     u.castAuto = auto;
     u.target = t ? t.id : 0;
@@ -1923,9 +1936,12 @@ export class World {
     effectsTick: r => { const u = this.unitByAddr(r.addr); if (u && u.buffs.length) this.expireBuffs(u); },
     // 0x516b2f: os efeitos 0xc (Invisibility) acabam no golpe
     effectExpire: (r, type) => { const u = this.unitByAddr(r.addr); if (u && type === 0xc) this.breakInvisibility(u); },
-    spellSpendMana: (sp, r, t, x, y) => this.hookSpendMana(sp, r, t, x, y),
-    spellRelease: (sp, r, t) => this.hookRelease(sp, r, t, 0, 0),
-    spellApply: (sp, r, _t, x, y) => this.hookRelease(sp, r, null, x, y),
+    // 0x519998/0x519d7f portados (exe/spells.ts): o pacote ao cliente começa a apresentação; Spell_Apply e o Prismatic Spray ainda
+    // são o motor antigo
+    clientCast: (sp, r, t, x, y) => this.hookCastStart(sp, r, t, x, y),
+    noMana: (_sp, r) => { const u = this.unitByAddr(r.addr); if (u?.isHero && this.tick - u.noManaTick >= TICKS_PER_SEC * 2) { u.noManaTick = this.tick; this.events.push({ type: "message", text: "Not enough mana" }); } },
+    spellApply: (sp, r, t, x, y) => this.hookRelease(sp, r, t, x, y),
+    spellPrismatic: (sp, r, t, x, y) => { this.hookCastStart(sp, r, t, x, y); this.hookRelease(sp, r, t, x, y); },
     spellLevel: (r, sp) => { const u = this.unitByAddr(r.addr); return u ? (this.spellFor(u, sp)?.level ?? 0) | 0 : 0; },
     clientHit: (a, t, dmg) => this.hookHit(a, t, dmg),
     xpOnHit: (a, t, dmg) => this.hookXp(a, t, dmg),
@@ -2059,24 +2075,16 @@ export class World {
     this.breakInvisibility(u);
     this.events.push({ type: "attack", unit: u.id, target: t.id });
   }
-  /** 0x519998 Spell_SpendMana (motor antigo): a magia começa (mana gasta, estado "cast", eventos) ou não (sem mana: a ordem acaba e
-   *  a sub-ação é desfeita — no exe a máquina tentaria de novo a cada tique). */
-  private hookSpendMana(sp: number, r: UnitRec, tr: UnitRec | null, x: number, y: number): number {
+  /** Pacote da magia ao cliente (0x5041d6/0x5042ba, no fim de Spell_SpendMana 0x519998 portado): a apresentação começa a magia
+   *  (estado "cast", eventos, invisibilidade quebrada pelo motor antigo); a mana e +0x138 já são do registro. */
+  private hookCastStart(sp: number, r: UnitRec, tr: UnitRec | null, x: number, y: number): void {
     const u = this.unitByAddr(r.addr);
-    if (!u) return 0;
+    if (!u) return;
     const spell = this.spellFor(u, sp), t = tr ? this.unitByAddr(tr.addr) : undefined;
-    const abort = () => { r.ai.sub = 0; r.act = 0; r.f58 = 0; };
-    if (!spell) { abort(); return 0; }
-    if (u.mana < spell.mana) { if (u.isHero) this.events.push({ type: "message", text: "Not enough mana" }); this.command(u, { type: "none" }); abort(); return 0; }
+    if (!spell) return;
     this.beginCast(u, spell, t, t ? t.cx : x, t ? t.cy : y, u.castAuto);
-    // 0x519998 no fim: a magia que sai avisa o cliente (0x5041d6/0x5042ba) e, como a unidade responde 1 em vtable+0x2c, +0x138 =
-    // relógio de 16/s — a unidade "ficou ocupada agora" e a regeneração (0x50fc5a: 0x50fc3e > 0x50 → ×3) não triplica em quem lança
-    // sem parar. Sem aviso: arma-cajado sem livro (+0x74 = +0x68), Prismatic Spray (0xb) e unidade sem modelo (0x542560)
-    const sid = Number(spell.base ?? spell.id) | 0;
-    if (!(!r.hasBook && r.f74 !== null && r.f74 === r.f68) && sid !== 0xb && r.tpl !== null) r.f138 = EXE_GLOBALS.clock16 >>> 0;
-    return 1;
   }
-  /** 0x519d7f Spell_Release / 0x519db8 Spell_Apply (motor antigo): a magia sai. */
+  /** 0x519db8 Spell_Apply (motor antigo; Spell_Release 0x519d7f e o golpe da arma 0x516ceb portados a chamam): a magia sai. */
   private hookRelease(sp: number, r: UnitRec, tr: UnitRec | null, x: number, y: number): void {
     const u = this.unitByAddr(r.addr);
     if (!u) return;

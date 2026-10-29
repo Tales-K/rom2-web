@@ -216,6 +216,12 @@ export class BookSpellRec {
   cost = 0;       // +0x0c i16 custo de mana
   /** +0x04 ptr definição da magia → CArray<int> em +8: elemento 0 = nível ("Complication Level"; byte baixo somado à espera em 0x50f12c) */
   def0 = 0;
+  /** +0x04 ≠ 0 (Spell_SpendMana 0x519998: sem definição → 0) */
+  hasDef = true;
+  /** elementos 4 (1 → aviso ao cliente 0x5041d6 com o alvo, 0x519441; senão 0x5042ba com a célula) e 5 (2 = projétil: o gasto não
+   *  olha o modelo da unidade) da definição (0x41e7e0) */
+  def4 = 0;
+  def5 = 0;
 }
 
 /** Item (alvo dos ponteiros unidade+0x68 em uso / +0x74 arma / +0x78). */

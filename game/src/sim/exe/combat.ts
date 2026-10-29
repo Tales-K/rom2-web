@@ -21,6 +21,7 @@ import { NotPorted } from "./walk_action";
 import { fn_0x53a5a0 } from "./action";
 import { randInclusive } from "./rand";
 import { vt2c, vt30, vt34, vt6c } from "./vtables";
+import { spellRelease, type SpellHooks } from "./spells";
 import { EXE_GLOBALS, type DmgRec, type ItemRec, type UnitRec, type WalkRec, type WorldRec } from "./types";
 
 /** 0x582c40 (CRT abs, cdecl): |v| em 32 bits (INT_MIN fica INT_MIN). */
@@ -30,13 +31,9 @@ function crtAbs(v: number): number {
 }
 
 /** Ganchos para o que a porta do combate não cobre (magia: motor antigo). Sem gancho → NotPorted. */
-export interface CombatHooks {
+export interface CombatHooks extends SpellHooks {
   /** 0x5106f4: efeito do tipo `type` na lista de efeitos da unidade (+0x20) → poder (+0x40, short); null = não há (a porta apaga o bit). */
   effectPower?(u: UnitRec, type: number): number | null;
-  /** 0x516b2f: os efeitos do tipo `type` (0xc Invisibility) da lista +0x20 ganham +0x42 = 1 (expiram). */
-  effectExpire?(u: UnitRec, type: number): void;
-  /** 0x519d7f Spell_Release(magia +0x64, unidade, alvo): a magia sai na unidade-alvo. */
-  spellRelease?(spell: number, u: UnitRec, t: UnitRec): void;
   /** 0x504b1d → 0x503672 's' (stub de cliente): o golpe acertou/errou `t` com `dmg` (HUD: evento, som, flecha). */
   clientHit?(a: UnitRec, t: UnitRec, dmg: number): void;
   /** 0x513128 Unit_XPOnHit (vtable +0x6c dos humanos): experiência pelo golpe (motor antigo). */
@@ -359,8 +356,7 @@ export function unitStrikeHit(wd: WorldRec, a: UnitRec | null, t: UnitRec | null
         && ((0 < HVar8 && 0 < ((t.f94 << 16) >> 16)) || (a.f74.spell!.id & 0xff) === 2)) {
         a.f64 = a.f74.spell!.addr >>> 0;
         a.f68 = a.f74;
-        if (!h.spellRelease) throw new NotPorted("0x519d7f");
-        h.spellRelease(a.f64, a, t);
+        spellRelease(a.f74.spell!, a, t, h);
         a.f64 = 0;
         a.f68 = null;
       }

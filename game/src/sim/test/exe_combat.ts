@@ -15,6 +15,7 @@ import {
 import { unitActionMachine, type MachineHooks } from "../exe/action";
 import { corpseDecay, unitDie } from "../exe/death";
 import { randInclusive } from "../exe/rand";
+import { fn_0x519441, spellRelease, spellSpendMana } from "../exe/spells";
 import { NotPorted } from "../exe/walk_action";
 import { UnitRec, type DmgRec } from "../exe/types";
 import {
@@ -36,9 +37,9 @@ function hooksFor(c: Ctx): MachineHooks {
   };
 }
 const HOOKS: MachineHooks = {};
-/** Endereços cujo NotPorted é um gancho esperado (magia 0x5106f4/0x519998/0x519db8/0x519d7f, efeitos 0x50ee14/0x53b120, experiência
+/** Endereços cujo NotPorted é um gancho esperado (magia 0x5106f4/0x519db8 — o gasto 0x519998 e o lançamento 0x519d7f são porta, 8b —, efeitos 0x50ee14/0x53b120, experiência
  *  0x513128, morte 0x510a70 (lote 3)) ou uma tarefa do despachante sem porta (exec 0), não falha. */
-const HOOKED = new Set(["0x5106f4", "0x519998", "0x519db8", "0x519d7f", "0x50ee14", "0x53b120", "0x51cc53", "0x513128", "0x56ea24", "0x56ec3f", "0x56eb2d", "0x56ecbc"]);
+const HOOKED = new Set(["0x5106f4", "0x519db8", "0x50ee14", "0x53b120", "0x51cc53", "0x513128", "0x56ea24", "0x56ec3f", "0x56eb2d", "0x56ecbc"]);
 /** Mapa/caminho do exe: [0x670e48]. */
 const MAP_PTR = 0x670e48;
 /** Mundo do exe: [0x66832c]. */
@@ -88,6 +89,10 @@ const CHECKS: Record<string, Check> = {
     unitActionMachine(w, U(c, d.this), hooksFor(c));
     return null;
   }),
+  // etapa 8b, lote 2: o gasto e o lançamento (exe/spells.ts); Spell_Apply 0x519db8 dentro de 0x519d7f fica em gancho
+  "0x519998": run((c, d) => { WR(c, 0); return spellSpendMana(WR(c, 0), spellFrom(c.cm, d.this), U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), A(d, 2) & 0xff, A(d, 3) & 0xff, hooksFor(c)); }, EAX),
+  "0x519441": run((c, d) => (fn_0x519441(spellFrom(c.cm, d.this)) ? 1 : 0), AL),
+  "0x519d7f": run((c, d) => { spellRelease(spellFrom(c.cm, d.this), U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), hooksFor(c)); return null; }),
   "0x5110b8": run((c, d) => { WR(c, 0); corpseDecay(U(c, d.this)); return null; }),
   "0x510a70": run((c, d) => {
     // o mapa vem do global [0x670e48] (Unit_RemoveFromCells) e o mundo de [0x66832c] (sorteios)
