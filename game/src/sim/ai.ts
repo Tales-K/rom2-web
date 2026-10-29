@@ -41,7 +41,7 @@ function alerted(w: World, u: Unit): Unit | undefined {
 /** Ataca `t` (com `resume` = ordem a retomar depois). Conjuradores de IA podem trocar o golpe por magia [exe 0x57a769]. */
 export function engage(w: World, u: Unit, t: Unit, resume: Order | null = null): void {
   // unidade do jogador invisível não parte para a briga sozinha (atacar desfaz a invisibilidade; só uma ordem do jogador o faz) — missão 77: o ritual dos necromantes
-  if (u.player === 1 && !u.isHero && u.hasBuff("invisible")) return;
+  if (u.player === 1 && !u.isHero && w.invisible(u)) return;
   const s = t.active ? pickOffensive(w, u, t) : null;   // em quem caiu só o golpe da arma (a ordem de magia em alvo caído é cancelada)
   if (s) w.command(u, castAt(u, s, t));
   else w.command(u, { type: "attack", target: t.id });

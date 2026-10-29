@@ -285,7 +285,8 @@ addr	name	size	file	line	status	ts	note
 0x504391	FUN_00504391	263	game/g_500000.c	3331	pending		
 0x504498	FUN_00504498	34	game/g_500000.c	3372	out		cliente: aviso do efeito (stub; gancho clientEffect)
 0x5044ba	FUN_005044ba	106	game/g_500000.c	3382	out		cliente: aviso do efeito (stub; gancho clientEffect)
-0x5045a5	FUN_005045a5	616	game/g_500000.c	3418	pending		
+0x504524	FUN_00504524	129	game/g_500000.c	3401	pending		
+0x5045a5	FUN_005045a5	616	game/g_500000.c	3418	ported	fn_0x5045a5	só o efeito no registro corrente (consultas 0x55a88b) é do servidor; pacote = stub clientArea (0x503e41/0x503bef); folha de 0x5183a2/0x518594
 0x50480d	FUN_0050480d	488	game/g_500000.c	3486	pending		
 0x5049f5	FUN_005049f5	195	game/g_500000.c	3549	pending		
 0x504ab8	FUN_00504ab8	101	game/g_500000.c	3579	ported	combat.ts:fn_0x504ab8	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (115)
@@ -380,7 +381,7 @@ addr	name	size	file	line	status	ts	note
 0x510534	Unit_Revive	178	game/g_510000.c	159	review		Unit_Revive: gancho SpellHooks.revive (exec 0)
 0x5105e6	FUN_005105e6	236	game/g_510000.c	188	pending		
 0x5106d2	FUN_005106d2	34	game/g_510000.c	216	ported	combat.ts:fn_0x5106d2	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 1) (327)
-0x5106f4	FUN_005106f4	81	game/g_510000.c	225	out		gancho CombatHooks.effectPower (lista de efeitos +0x20 = buffs do motor antigo); exec 0 no corpus
+0x5106f4	FUN_005106f4	81	game/g_510000.c	225	ported	fn_0x5106f4	lote 5: anda na lista +0x20 da porta (gancho effectPower removido); exec 0, sem par próprio (lista: 0x51ce12/0x51cc9f provados)
 0x510745	FUN_00510745	271	game/g_510000.c	246	ported	combat.ts:fn_0x510745	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (72): ramo do item em uso (0x53ddf0, exec 0) = NotPorted
 0x5108fa	Sack_PickupAll	251	game/g_510000.c	320	out		saque no chão (caso 2 de 0x50f12c): exec 0; NotPorted
 0x5109f5	Unit_DeathLoot	49	game/g_510000.c	355	out		gancho DieHooks.sackDrop (saco do motor antigo: World.addLoot); exec 0 no corpus
@@ -390,6 +391,7 @@ addr	name	size	file	line	status	ts	note
 0x511266	FUN_00511266	52	game/g_510000.c	602	pending		
 0x5113e7	FUN_005113e7	213	game/g_510000.c	652	ported	fn_0x5113e7	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x5114f3	Monster_LoadTemplate	971	game/g_510000.c	690	pending		
+0x5118be	FUN_005118be	85	game/g_510000.c	785	ported	fn_0x5118be	exe_effects.ts: pares sintéticos (oracle/synth_spells.py) 13/13 (vtable+0x58 do monstro)
 0x511913	FUN_00511913	70	game/g_510000.c	802	pending		
 0x511959	Human_Create	1646	game/g_510000.c	815	pending		
 0x512133	FUN_00512133	84	game/g_510000.c	1147	pending		
@@ -446,8 +448,21 @@ addr	name	size	file	line	status	ts	note
 0x5178d4	Spell_AttachToTarget	117	game/g_510000.c	4710	ported	spellAttachToTarget	exe_spells.ts: pares 100% (m10_mage) 6/6
 0x517949	FUN_00517949	343	game/g_510000.c	4737	ported	fn_0x517949	exe_spells.ts: pares 100% (m10_mage) 4/4 (+2 Shield em gancho)
 0x517aa0	FUN_00517aa0	140	game/g_510000.c	4784	ported	deleteSpellObj	destrutor do preso ao alvo (0x52c279)
-0x517c1a	SpellArea_Construct	88	game/g_510000.c	4897	pending		
-0x518ba3	FUN_00518ba3	109	game/g_510000.c	5545	pending		
+0x517c1a	SpellArea_Construct	88	game/g_510000.c	4897	ported	spellAreaConstruct	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 294/294
+0x517c72	FUN_00517c72	140	game/g_510000.c	4917	ported	fn_0x542d50	corpo de 0x542d50 (6/6)
+0x517cfe	SpellArea_Process	386	game/g_510000.c	4945	ported	spellAreaProcess	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 468/468; modo 2 (0x51806c) e 0 (0x518833) NotPorted (exec 0, áreas de dano)
+0x517e80	FUN_00517e80	67	game/g_510000.c	5002	pending		
+0x517ec3	SpellArea_DirTransform	321	game/g_510000.c	5016	pending		
+0x518024	FUN_00518024	72	game/g_510000.c	5067	ported	fn_0x518024	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 6/6; definição[8] = 4 → SpellArea_Wall 0x5182b6 NotPorted
+0x51806c	Spell_AreaProgressive	586	game/g_510000.c	5087	pending		NotPorted em spellAreaProcess (modo 2: Blizzard/Acid Stream; exec 0, área de dano fora do lote 5)
+0x5182b6	SpellArea_Wall	236	game/g_510000.c	5170	pending		NotPorted em fn_0x518024 (paredes, definição[8] = 4; exec 0)
+0x5183a2	SpellArea_MarkCells	285	game/g_510000.c	5217	ported	spellAreaMarkCells	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 6/6 (Light×Darkness anulados); replay isolado idêntico (em série difere só pelo endereço do heap HLE do CMap)
+0x5184bf	FUN_005184bf	213	game/g_510000.c	5258	ported	fn_0x5184bf	folha de 0x5183a2/0x518024 (6/6); ramo Wall of Earth (0x11) sem par
+0x518594	SpellArea_Unmark	203	game/g_510000.c	5305	ported	spellAreaUnmark	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 6/6
+0x518681	SpellArea_HitCell	434	game/g_510000.c	5348	ported	spellAreaHitCell	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 525/525; Fireball (id 2, 0x51e5db) NotPorted
+0x518833	SpellArea_ApplyAll	386	game/g_510000.c	5416	pending		NotPorted em spellAreaProcess (modo 0: área de uma vez, Fireball; exec 0)
+0x5189b5	SpellArea_FireExtra	460	game/g_510000.c	5479	ported	spellAreaFireExtra	folha de 0x5183a2 (6/6: Light×Darkness); ramos do fogo (2/3) e do veneno sem par
+0x518ba3	FUN_00518ba3	109	game/g_510000.c	5545	ported	fn_0x518ba3	folha de 0x55a8f8/0x5183a2; id fora da tabela: log (stub) e byte baixo 0
 0x518ca1	FUN_00518ca1	16	game/g_510000.c	5616	out		GetRuntimeClass SpellTransport (so o pacote ao cliente de 0x52c279)
 0x518d1e	FUN_00518d1e	137	game/g_510000.c	5671	ported	fn_0x518d1e	exe_spells.ts: pares 100% (m10_mage) 4/4
 0x518e30	FUN_00518e30	205	game/g_510000.c	5731	ported	deleteSpellObj	destrutor do projetil (0x52c279 958/958)
@@ -463,7 +478,7 @@ addr	name	size	file	line	status	ts	note
 0x519998	Spell_SpendMana	620	game/g_510000.c	6356	ported	spells.ts:spellSpendMana	pares m10_mage 9/9 (exe_combat.ts; etapa 8b lote 2); ponto alvo/tempo de voo só no pacote (cliente); Prismatic 0xb gancho
 0x519c04	Spell_PrismaticSpray	379	game/g_510000.c	6461	pending		
 0x519d7f	Spell_Release	57	game/g_510000.c	6537	ported	spellRelease	exe_spells.ts: pares 100% (m10_mage) 7/7 (Spell_Apply portado nos case do corpus)
-0x519db8	Spell_Apply	8448	game/g_510000.c	6551	ported	spellApply	exe_spells.ts: pares 100% (m10_mage) 7/7; case Heal 0x18 e dano preso ao alvo (definicao[8]=1) portados; Effect/parede/area/Animate/Teleport/Summon/Drain = gancho spellApply (motor antigo)
+0x519db8	Spell_Apply	8448	game/g_510000.c	6551	ported	spellApply	exe_spells.ts: 9/9 corpus + 1435/1435 sintéticos (lote 5: todos os case de carga Effect, varredura do poder 0..255, SpellArea); paredes/Animate/Teleport/Summon/Drain = gancho spellApply (motor antigo)
 0x51c29e	Unit_AddSpellToBook	150	game/g_510000.c	7617	pending		
 0x51c391	Unit_GetBookSpell	83	game/g_510000.c	7665	ported	wave.ts:unitGetBookSpell	exe_wave.ts: pares 100% (3 episódios) (EDX lixo no replay, não é retorno)
 0x51c3e4	FUN_0051c3e4	97	game/g_510000.c	7696	ported	fn_0x51c3e4	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
@@ -475,11 +490,12 @@ addr	name	size	file	line	status	ts	note
 0x51cc53	FUN_0051cc53	76	game/g_510000.c	8158	ported	fn_0x51cc53	com duração ou contínuo; em 0x51cc9f/0x51ce12 (pares); exe/effects.ts
 0x51cc9f	FUN_0051cc9f	371	game/g_510000.c	8176	ported	fn_0x51cc9f	tique do efeito; exe/effects.ts; test/exe_effects.ts 1920/1920
 0x51ce12	FUN_0051ce12	867	game/g_510000.c	8210	ported	fn_0x51ce12	aplicar/fundir na lista +0x20; exe/effects.ts; test/exe_effects.ts 2/2
-0x51d175	FUN_0051d175	450	game/g_510000.c	8324	ported	fn_0x51d175	vtable+0x40; veneno com proteção de água (x87) NotPorted; exe/effects.ts; test/exe_effects.ts 2/2
+0x51d175	FUN_0051d175	450	game/g_510000.c	8324	ported	fn_0x51d175	vtable+0x40; veneno com proteção de água: x87 do assembly (lote 5); exe_effects.ts 2/2 + 79/79 sintéticos
 0x51d337	FUN_0051d337	255	game/g_510000.c	8377	ported	fn_0x51d337	vtable+0x44; exe/effects.ts; test/exe_effects.ts 2/2
 0x51d436	FUN_0051d436	3610	game/g_510000.c	8406	ported	fn_0x51d436	vtable+0x48 modificadores ±1; teachSpell NotPorted; exe/effects.ts; test/exe_effects.ts 4/4
 0x51e318	FUN_0051e318	258	game/g_510000.c	8815	pending		
 0x51e505	Spell_DamageObject	97	game/g_510000.c	8946	ported	spellDamageObject	exe_spells.ts: pares 100% (m10_mage) 4/4
+0x51e5db	FUN_0051e5db	128	game/g_510000.c	8998	pending		NotPorted em spellAreaHitCell (Fireball, id 2; exec 0)
 0x51e65b	FUN_0051e65b	307	game/g_510000.c	9032	ported	fn_0x51e65b	exe_spells.ts: pares 100% (m10_mage) 4/4 (vtable+0x54 = 0x516f6f)
 0x51e78e	FUN_0051e78e	364	game/g_510000.c	9077	pending		
 0x51e8fa	FUN_0051e8fa	1912	game/g_510000.c	9139	ported	fn_0x51e8fa	texto do efeito → carga temporária; exe/effects.ts; test/exe_effects.ts 2/2
@@ -960,6 +976,9 @@ addr	name	size	file	line	status	ts	note
 0x542ce0	FUN_00542ce0	19	game/g_540000.c	2942	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x542d00	FUN_00542d00	19	game/g_540000.c	2952	ported	fn_0x517949	exe_spells.ts: pares 100% (m10_mage) 4/4 (+2 Shield: carga Effect 0x51ce12 em gancho)
 0x542d20	FUN_00542d20	43	game/g_540000.c	2962	ported	deleteSpellObj	vtable+4 do preso ao alvo (0x52c279)
+0x542d50	FUN_00542d50	43	game/g_540000.c	2975	ported	fn_0x542d50	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 6/6 (vtable+4 da área; inclui 0x517c72)
+0x542d80	FUN_00542d80	20	game/g_540000.c	2988	ported	spellAreaProcess	+8 & 1 (em linha em 0x517cfe)
+0x542da0	FUN_00542da0	20	game/g_540000.c	2997	ported	spellAreaProcess	+8 & 2 (em linha em 0x517cfe)
 0x542dc0	FUN_00542dc0	43	game/g_540000.c	3006	ported	cellOff10000	exe_walk.ts: pares 100% (3 episódios)
 0x542df0	FUN_00542df0	19	game/g_540000.c	3015	ported	deleteSpellObj	destrutor da carga
 0x542e10	FUN_00542e10	19	game/g_540000.c	3025	ported	deleteSpellObj	destrutor da carga
@@ -1306,6 +1325,7 @@ addr	name	size	file	line	status	ts	note
 0x5514ce	FUN_005514ce	51	game/g_550000.c	862	ported	fn_0x5514ce	exe_walk.ts: pares 100% (3 episódios)
 0x551edb	FUN_00551edb	95	game/g_550000.c	1264	ported	wave.ts:fn_0x551edb	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
 0x55201a	Map_UnitAtCell	95	game/g_550000.c	1348	pending		
+0x552079	Map_StructureAtCell	95	game/g_550000.c	1376	pending		
 0x552244	FUN_00552244	240	game/g_550000.c	1467	pending		
 0x552334	FUN_00552334	1119	game/g_550000.c	1489	pending		
 0x552af8	FUN_00552af8	304	game/g_550000.c	1656	ported	vision.ts:visionCompute	laço interno da visão (inline em visionCompute; etapa 9 lote 2)
@@ -1361,13 +1381,20 @@ addr	name	size	file	line	status	ts	note
 0x559536	FUN_00559536	114	game/g_550000.c	5396	ported	vision.ts:visionSeen	laço interno da visão (etapa 9 lote 2)
 0x5595e5	FUN_005595e5	156	game/g_550000.c	5433	pending		
 0x5596ff	FUN_005596ff	401	game/g_550000.c	5503	pending		
+0x559b7f	Map_ObjectAtCell	44	game/g_550000.c	5704	ported	fn_0x5184bf	0x559bc9 na célula y×0x100+x (em linha em 0x5184bf)
 0x559bc9	FUN_00559bc9	95	game/g_550000.c	5729	ported	wave.ts:fn_0x559bc9	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
+0x559c28	SpellArea_FireExtra2	139	game/g_550000.c	5755	review	spellAreaFireExtra2	traduzido, sem par: só com carga Effect_DirectDamage +0x5c ≠ 0 (Wall of Fire), fora do lote 5
 0x559d70	FUN_00559d70	381	game/g_550000.c	5792	pending		
 0x559eed	FUN_00559eed	542	game/g_550000.c	5830	pending		
 0x55a10b	FUN_0055a10b	60	game/g_550000.c	5886	pending		
 0x55a147	FUN_0055a147	375	game/g_550000.c	5903	ported	walk_action.ts:fn_0x55a147	pares 3 episódios 100% (exe_walkaction.ts); divide o custo da célula por 4 na grade (escrita permanente)
-0x55a82c	FUN_0055a82c	95	game/g_550000.c	6231	pending		
-0x55a88b	FUN_0055a88b	109	game/g_550000.c	6257	pending		
+0x55a325	FUN_0055a325	48	game/g_550000.c	6005	ported	fn_0x55a325	folha de 0x5183a2 (6/6)
+0x55a37a	FUN_0055a37a	356	game/g_550000.c	6028	ported	fn_0x55a37a	folha de 0x5183a2 (6/6)
+0x55a4de	FUN_0055a4de	48	game/g_550000.c	6081	ported	fn_0x55a4de	folha de 0x518594/0x5189b5 (6/6)
+0x55a533	FUN_0055a533	252	game/g_550000.c	6104	ported	fn_0x55a533	folha de 0x518594 (6/6)
+0x55a82c	FUN_0055a82c	95	game/g_550000.c	6231	ported	fn_0x55a82c	folha de 0x5189b5 (0x5183a2 6/6)
+0x55a88b	FUN_0055a88b	109	game/g_550000.c	6257	ported	fn_0x55a88b	folha de 0x55a8f8 (5647/5647)
+0x55a8f8	FUN_0055a8f8	48	game/g_550000.c	6285	ported	fn_0x55a8f8	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 5647/5647
 0x55a928	Unit_CanPlaceAt	68	game/g_550000.c	6295	pending		
 0x55a96c	Unit_TeleportTo	181	game/g_550000.c	6315	pending		stub NotPorted em walk_action.ts:unitTeleportTo (exec 0; chamado por 0x555b38 no teleporte da célula)
 0x55aa21	AI_AngleTiebreak	84	game/g_550000.c	6345	ported	aiAngleTiebreak	exe/action.ts; pares 497/497

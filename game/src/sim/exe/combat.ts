@@ -11,8 +11,9 @@
  * 's' ao cliente; experiência vtable +0x6c), 0x516b2f Unit_StrikeExtra (carga extra do golpe à distância; Invisibility acaba), 0x542580
  * Weapon_CastsSpell, 0x53bff0, 0x542c90 AI_InBattle, 0x50fc3e, 0x50ff2d e 0x558b3d (aviso de giro/passo ao cliente: +0x138), 0x5040c4,
  * 0x504155, 0x504ab8 (começo do golpe para o cliente: +0x138), 0x510745 (cancela magia de item; ramo com exec 0).
- * Com gancho (magia, motor antigo): 0x5106f4 (efeito do tipo n na lista +0x20 → poder +0x40; exec 0: `effectPower`), o laço dos efeitos
- * 0xc em 0x516b2f (`effectExpire`), 0x519d7f Spell_Release (`spellRelease`), 0x513128 Unit_XPOnHit (`xpOnHit`); stub de cliente com
+ * Lote 5 da 8b: 0x5106f4 (efeito do id n na lista +0x20; Bless/Curse no golpe) e o laço dos efeitos 0xc em 0x516b2f andam na lista da
+ * porta (`effectExpire` fica só para os `buffs` do motor antigo). Com gancho (motor antigo): 0x519d7f Spell_Release (`spellRelease`),
+ * 0x513128 Unit_XPOnHit (`xpOnHit`); stub de cliente com
  * gancho: 0x504b1d/0x503672 's' (`clientHit`: HUD). 0x516ea0 (golpe à distância, exec 0): NotPorted.
  */
 import { crtFtol, mapObjCellX, mapObjCellY, mapObjFineX, mapObjFineY, unitCenterX, unitCenterY, vtGetSize } from "./path";
@@ -22,7 +23,8 @@ import { fn_0x53a5a0 } from "./action";
 import { randInclusive } from "./rand";
 import { vt2c, vt30, vt34, vt6c } from "./vtables";
 import { spellRelease, type SpellHooks } from "./spells";
-import { EXE_GLOBALS, type DmgRec, type ItemRec, type UnitRec, type WalkRec, type WorldRec } from "./types";
+import { CListPtrIter } from "./mfc";
+import { EXE_GLOBALS, type DmgRec, type ItemRec, type SpellPayloadRec, type UnitRec, type WalkRec, type WorldRec } from "./types";
 
 /** 0x582c40 (CRT abs, cdecl): |v| em 32 bits (INT_MIN fica INT_MIN). */
 function crtAbs(v: number): number {
@@ -32,8 +34,6 @@ function crtAbs(v: number): number {
 
 /** Ganchos para o que a porta do combate não cobre (magia: motor antigo). Sem gancho → NotPorted. */
 export interface CombatHooks extends SpellHooks {
-  /** 0x5106f4: efeito do tipo `type` na lista de efeitos da unidade (+0x20) → poder (+0x40, short); null = não há (a porta apaga o bit). */
-  effectPower?(u: UnitRec, type: number): number | null;
   /** 0x504b1d → 0x503672 's' (stub de cliente): o golpe acertou/errou `t` com `dmg` (HUD: evento, som, flecha). */
   clientHit?(a: UnitRec, t: UnitRec, dmg: number): void;
   /** 0x513128 Unit_XPOnHit (vtable +0x6c dos humanos): experiência pelo golpe (motor antigo). */
@@ -50,11 +50,24 @@ export function fn_0x5106d2(u: UnitRec, n: number): number {
   return ((1 << (n & 0x1f)) & u.effects) | 0;
 }
 
-/** 0x5106f4 (thiscall; exec 0 no corpus): procura na lista de efeitos +0x20 o efeito com +0xc == `type`; devolve o poder dele (+0x40)
- *  ou null. Servida pelo gancho `effectPower` (os efeitos vivem no motor antigo). */
-export function fn_0x5106f4(u: UnitRec, type: number, h: CombatHooks): number | null {
-  if (!h.effectPower) throw new NotPorted("0x5106f4");
-  return h.effectPower(u, type);
+/** 0x5106f4 (thiscall; exec 0 no corpus): o 1.º efeito da lista +0x20 (0x53b110/0x53b120/0x53b170) com +0xc == `type`, ou null
+ *  (lote 5: a lista é a da porta). */
+export function fn_0x5106f4(wd: WorldRec, u: UnitRec, param_1: number): SpellPayloadRec | null {
+  const local_10 = new CListPtrIter();
+  for (let local_8 = local_10.first(u.fx); local_8 !== 0; local_8 = local_10.next()) {
+    const e = wd.payloadAt(local_8);
+    if ((e.fc & 0xffff) === (param_1 >>> 0)) return e;
+  }
+  return null;
+}
+
+/** O laço comum de 0x516b2f e 0x519998 (0x53b110/0x53b120/0x53b170): os efeitos da lista +0x20 com id +0xc == `id` ficam com +0x42 = 1. */
+export function fn_0x53b120fx(wd: WorldRec, u: UnitRec, id: number): void {
+  const it = new CListPtrIter();
+  for (let a = it.first(u.fx); a !== 0; a = it.next()) {
+    const e = wd.payloadAt(a);
+    if (((e.fc << 16) >> 16) === id) e.f42 = 1;
+  }
 }
 
 /** 0x5169de (cdecl): distância de Chebyshev entre os centros finos (0x50d884/0x50d8c0) menos (lado(a) + lado(b)) × 0x80 − 0x100;
@@ -144,11 +157,11 @@ export function unitPhysicalDamage(wd: WorldRec, t: UnitRec, info: DmgRec | null
     if (a !== null) {   // param_2[5] (dono) ≠ 0: todo registro espelhado tem dono
       let uVar6 = fn_0x5106d2(a, 0x14);
       if (uVar6 !== 0) {
-        const iVar5 = fn_0x5106f4(a, 0x14, h);
+        const iVar5 = fn_0x5106f4(wd, a, 0x14);
         if (iVar5 === null) {
           a.effects = (a.effects & 0xffefffff) >>> 0;
         } else {
-          const sVar1 = (iVar5 << 16) >> 16;
+          const sVar1 = (iVar5.f40 << 16) >> 16;
           const r = randInclusive(wd, 100, 0x517057);
           if (r < sVar1) {
             local_24 = (local_24 + local_28) | 0;
@@ -158,11 +171,11 @@ export function unitPhysicalDamage(wd: WorldRec, t: UnitRec, info: DmgRec | null
       }
       uVar6 = fn_0x5106d2(a, 0x1c);
       if (uVar6 !== 0) {
-        const iVar5 = fn_0x5106f4(a, 0x1c, h);
+        const iVar5 = fn_0x5106f4(wd, a, 0x1c);
         if (iVar5 === null) {
           a.effects = (a.effects & 0xefffffff) >>> 0;
         } else {
-          const sVar1 = (iVar5 << 16) >> 16;
+          const sVar1 = (iVar5.f40 << 16) >> 16;
           const r = randInclusive(wd, 100, 0x5170b6);
           if (r < sVar1) bVar3 = false;
         }
@@ -314,17 +327,17 @@ export function fn_0x510745(u: UnitRec): void {
 }
 
 /** 0x516b2f Unit_StrikeExtra (cdecl): carga extra do golpe: com alvo, agressor vivo (+0x94 > 0; donos ≠ 0 sempre no espelho):
- *  d = 0x5169de (células); com Invisibility (bit 0xc) os efeitos 0xc da lista +0x20 ganham +0x42 = 1 (gancho `effectExpire`: a
- *  invisibilidade acaba); d > 1 → *out = (d × 256 + 128) / 200; e o cliente é avisado (0x504ab8: +0x138). */
-export function unitStrikeExtra(a: UnitRec | null, t: UnitRec | null, out: { v: number }, h: CombatHooks): void {
+ *  d = 0x5169de (células); com Invisibility (bit 0xc) os efeitos 0xc da lista +0x20 ganham +0x42 = 1 (a invisibilidade acaba no
+ *  tique seguinte, 0x51cc9f); d > 1 → *out = (d × 256 + 128) / 200; e o cliente é avisado (0x504ab8: +0x138). */
+export function unitStrikeExtra(wd: WorldRec, a: UnitRec | null, t: UnitRec | null, out: { v: number }, h: CombatHooks): void {
   out.v = 0;
   if (t !== null && a !== null && 0 < ((a.f94 << 16) >> 16)) {
     const iVar1 = fn_0x5169de(a, t);
     const local_8 = (iVar1 << 16) >> 16;
     const uVar2 = fn_0x5106d2(a, 0xc);
     if (uVar2 !== 0) {
-      if (!h.effectExpire) throw new NotPorted("0x53b120");
-      h.effectExpire(a, 0xc);
+      fn_0x53b120fx(wd, a, 0xc);
+      h.effectExpire?.(a, 0xc);   // não é do exe: a invisibilidade dos `buffs` do motor antigo (script)
     }
     if (1 < local_8) out.v = Math.trunc(((local_8 * 0x100 + 0x80) | 0) / 200);
     fn_0x504ab8(a);

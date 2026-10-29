@@ -173,12 +173,20 @@ console.log("\n[magia de chance] Troll.4 (Hydun): Stone Curse 10% no lugar do go
   const h = heroFighter(w, 21, 20);
   installMissionAi(w, { spells });
   h.hp = h.maxHp = 100000; h.stats = { ...h.stats, healthRegen: 0 };
+  // lote 5 da 8b: a Stone Curse é a da porta, com o poder do conjurador (0x519db8: habilidade de terra + Mind − 30, 0..255; poder 0 =
+  // duração 0 = sem efeito); o modelo genérico do teste não tem habilidade nem Mind
+  troll.stats = { ...troll.stats, mind: 30, magicSkills: { ...(troll.stats.magicSkills ?? {}), earth: 60 } };
   check(troll.procSpells.length === 1 && troll.procSpells[0]!.chance === 10, "Troll.4 tem Stone Curse com 10%");
   let stoned = false;
   run(w, sec(90), ev => { if (ev.some(e => e.type === "effect" && e.unit === h.id && e.kind === "stone" && e.on)) stoned = true; return stoned; });
-  check(stoned && h.hasBuff("stone"), "herói virou pedra");
-  const sp = h.stats.speed;
-  check(w.speedOf(h) === 0 && sp > 0, "petrificado não anda");
+  // lote 5 da 8b: a Stone Curse é a carga "Effect" da porta (lista +0x20 do exe, bit 0x40000 em +0x144) e a máquina 0x50f12c a respeita
+  // (a magia de chance 0x56a981 ainda é o motor antigo: `buffs`; a Stone Curse lançada é a da porta)
+  const petrified = () => h.hasBuff("stone") || w.exeFxHas(h, SPELL.StoneCurse);
+  check(stoned && petrified(), "herói virou pedra");
+  const sx = h.cx, sy = h.cy;
+  w.command(h, { type: "move", x: sx + 5, y: sy });
+  run(w, sec(1));
+  check(!petrified() || (h.cx === sx && h.cy === sy), `petrificado não anda (${sx},${sy} -> ${h.cx},${h.cy})`);
 }
 
 // ------------------------------------------------------------------------------------------------ fuga/recuo
@@ -371,18 +379,18 @@ console.log("\n[magias] efeitos");
   check(took(a) > tookBefore, `Wall of Fire queima com o tempo (${took(a) - tookBefore})`);
   cast(SPELL.PoisonCloud, undefined, 21, 20);
   run(w, sec(3));
-  check(b.hasBuff("poison"), "Poison Cloud envenena");
+  check(w.exeFxHas(b, SPELL.PoisonCloud), "Poison Cloud envenena");   // lote 5: a SpellArea do exe põe o efeito 6 (contínuo) na lista +0x20
   const spd = w.speedOf(h);
   cast(SPELL.Haste, h);
   check(w.speedOf(h) > spd, `Haste acelera (${spd.toFixed(2)} → ${w.speedOf(h).toFixed(2)} c/s)`);
   cast(SPELL.Slow, a);
   check(w.speedOf(a) < a.stats.speed, "Slow reduz a velocidade do alvo");
   cast(SPELL.Curse, a);
-  check(a.hasBuff("curse"), "Curse no alvo");
+  check(w.exeFxHas(a, SPELL.Curse), "Curse no alvo");
   // a pedra pode acabar antes do fim da espera do lançamento (duração curta com este poder): vale ter petrificado durante o lançamento
   let stoned = false;
   { h.mana = h.maxMana = 5000; h.cooldown = 0; w.command(h, { type: "cast", spell: String(SPELL.StoneCurse), target: far.id });
-    run(w, sec(6), () => { if (far.hasBuff("stone") && w.stunned(far)) stoned = true; return h.order.type === "none" && h.state === "idle"; }); }
+    run(w, sec(6), () => { if (w.exeFxHas(far, SPELL.StoneCurse)) stoned = true; return h.order.type === "none" && h.state === "idle"; }); }
   check(stoned, "Stone Curse petrifica");
   const aHp = a.hp; h.hp = 1;
   // com 1 PV a Retreat Mode (fuga do exe, LAB) faria o herói se teletransportar em vez de lançar: aqui só o Drain Life importa
@@ -395,10 +403,11 @@ console.log("\n[magias] efeitos");
   run(w, sec(2));
   check(took(a) > tookA && h.hp > 1, `Drain Life tira e devolve vida (alvo −${took(a) - tookA}, herói ${h.hp})`);
   cast(SPELL.Invisibility, h);
-  check(h.hasBuff("invisible") && !w.canSee(a, h), `Invisibility: inimigo comum não vê o herói (${JSON.stringify(h.buffs.map(b => [b.kind, b.amount]))}, mana ${h.mana}, ${h.spells.find(s => s.id === "12")?.name})`);
+  check(w.invisible(h) && !w.canSee(a, h), `Invisibility: inimigo comum não vê o herói (mana ${h.mana}, ${h.spells.find(s => s.id === "12")?.name})`);
   cast(SPELL.Light, undefined, 20, 20);
   run(w, sec(2));
-  check(w.sightOf(a) > a.stats.sight, "Light aumenta a visão de quem está na área");
+  // exe 0x51d175: Light tira +0x40 × 0x100 da visão +0xa4 de quem não tem equipamento (vtable+0x30 = 0: o monstro); Darkness, dos humanos
+  check(w.sightOf(a) < a.stats.sight, `Light ofusca o monstro na área (visão ${w.sightOf(a)} < ${a.stats.sight})`);
   const hx = h.cx;
   cast(SPELL.Teleport, undefined, 30, 30);
   check(h.cx !== hx && Math.abs(h.cx - 30) <= 1 && Math.abs(h.cy - 30) <= 1, `Teleport leva o herói ao ponto (${h.cx},${h.cy})`);

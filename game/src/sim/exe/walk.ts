@@ -15,7 +15,7 @@
 import { FLAGS_OFF, GRID10000_OFF, OccRec, type ByteGridRec, type FlagGridRec, type MapObjRec, type SessionRec, type UnitRec } from "./types";
 
 /** 0x582c40 (CRT abs, cdecl): |v| em 32 bits (INT_MIN fica como está). */
-function crtAbs(v: number): number {
+export function crtAbs(v: number): number {
   return (v < 0 ? -v : v) | 0;
 }
 

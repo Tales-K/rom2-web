@@ -588,7 +588,7 @@ export function unitActionMachine(wd: WorldRec, u: UnitRec, h: MachineHooks = {}
         const local_30 = { v: 0 };
         if ((u.act | 0) === 3) {
           if (!weaponSpellInstead(u)) {
-            unitStrikeExtra(u, targetOf(wd, u), local_30, h);
+            unitStrikeExtra(wd, u, targetOf(wd, u), local_30, h);
           } else {
             u.f64 = u.f74!.spell!.addr >>> 0;
             u.f68 = u.f74;

@@ -25,7 +25,7 @@
  * (sim/exe/combat.ts) sobre os atributos de combate do registro (`syncCombat`: toHit, dano, tipo de arma, elemental, defesa, absorção,
  * proteções, resistências, bits +0x4c, efeitos +0x144 a partir de `stats`/`buffs`); 0x56e6b8 marca na vítima quem bateu (IA+0x54, +0x94,
  * +0x98 relógio de 16/s absoluto, +0x9c ponto de fuga: `hitClock16`/`fleeCell` são vistas) e 0x57977a declara a guerra na tabela do exe,
- * que volta para `dip` em `syncDiplomacyBack`. Bless/Curse (lista de efeitos do exe, 0x5106f4) vêm dos `buffs` pelo gancho `effectPower`.
+ * que volta para `dip` em `syncDiplomacyBack`. Bless/Curse no golpe (0x5106f4) e a invisibilidade andam na lista de efeitos do exe (lote 5).
  *
  * MÁQUINA DE AÇÃO (etapa 8a, lote 2): `act(u)` traduz a ordem para a tarefa do exe e chama UMA vez por tique a máquina portada
  * 0x50f12c (`machine`: efeitos → queda/morte → despachante 0x56dca2 → golpe/magia por fases +0x58/+0x6c). O golpe físico é inteiro do
@@ -76,6 +76,7 @@ import { BookSpellRec, PlayerRec, UnitStatsRec, UnitTypeRec } from "./exe/types"
 import { DmgRec, ItemMagicRec, ItemRec, SpellObjRec, SpellPayloadRec, TemplateRec } from "./exe/types";
 import type { SpellObjsJson } from "./exe/recio";
 import { fn_0x52c279 } from "./exe/spells";
+import { vt30 } from "./exe/vtables";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
 import { BACKTRACE_UB, fn_0x55be86 } from "./exe/wave";
@@ -151,6 +152,13 @@ const FX_NAME: Partial<Record<string, string>> = {
 const FX_KIND: Partial<Record<number, BuffKind>> = {
   0xc: "attack", 0xf: "defense", 0x10: "absorption", 0x11: "speed", 0x13: "sight", 0x15: "resist.fire", 0x16: "resist.water",
   0x17: "resist.air", 0x18: "resist.earth", 0x19: "resist.astral",
+};
+
+/** Efeito do motor antigo pelo id da magia (+0xc) das cargas sem tipo que o motor antigo modele (Spell_WallObject: Invisibility, Bless,
+ *  Curse) ou cujo efeito o exe faz pelo id (Light/Darkness em 0x51d175, Stone Curse e Poison): só para a apresentação. */
+const FX_KIND_BY_ID: Partial<Record<number, BuffKind>> = {
+  [SPELL.Invisibility]: "invisible", [SPELL.Bless]: "bless", [SPELL.Curse]: "curse", [SPELL.StoneCurse]: "stone", [SPELL.PoisonCloud]: "poison",
+  [SPELL.Light]: "sight", [SPELL.Darkness]: "sight",
 };
 
 /** Efeito temporário numa unidade (`until` em tiques). Shield antigo = `absorption`. */
@@ -486,6 +494,9 @@ export interface SpellArea {
   dir?: number;
   step?: number;
   t0?: number;
+  /** a área é a SpellArea do exe (lote 5: o endereço do objeto): só apresentação, as células são as que ela marca na ocupação; o
+   *  motor antigo não a simula */
+  exe?: number;
 }
 
 export interface Loot { id: number; x: number; y: number; gold: number; items: string[]; }
@@ -579,6 +590,8 @@ export class World {
     this.exeWorld.allocGroupAddr = () => { const a = this.nextGroupAddr; this.nextGroupAddr = (a + 0x100) >>> 0; return a; };
     // `new` 0x401880 dos objetos de magia (Spell_Apply 0x519db8): endereços sintéticos, únicos no mundo
     this.exeWorld.allocObj = () => { const a = this.nextObjAddr; this.nextObjAddr = (a + 0x100) >>> 0; return a; };
+    // a definição da magia pelo id (0x53e260; lote 5: SpellArea 0x518024): a tabela Spells de data.bin
+    this.exeWorld.spellDefCol = (id, col) => { const row = this.spellTable?.[String(id)]; return row ? spellDefColumns(row)[col] ?? 0 : 0; };
     // a tabela de classes do mundo (+0xa54; igual nas 3 imagens do oráculo) desde a montagem: uma ordem dada antes do 1.º tique
     // (AI_TargetCost 0x5711ea em 0x570946) via tudo "não atacável" com a tabela zerada
     this.exeWorld.classTable.set([2, 1, 2, 4, 4, 2, 1, 0, 2, 1, 4, 0, 2, 1, 2, 4]);
@@ -1669,10 +1682,37 @@ export class World {
     let s = 0;
     for (const a of l.values()) {
       const e = this.exeWorld.payloads.get(a >>> 0);
-      if (!e || (e.f3d & 0x80) || ((e.f3d & 1) && (e.f42 & 0xffff) === 0) || FX_KIND[e.f3c & 0xff] !== kind) continue;
-      s += (e.f40 << 16) >> 16;
+      if (!e || (e.f3d & 0x80) || ((e.f3d & 1) && (e.f42 & 0xffff) === 0)) continue;
+      const id = (e.fc << 16) >> 16, v = (e.f40 << 16) >> 16;
+      if (id === SPELL.Light || id === SPELL.Darkness) {
+        // 0x51d175: Light tira +0x40 da visão dos monstros (vtable+0x30 = 0), Darkness soma +0x40 (< 0) na dos humanos; o tipo do texto
+        // (scanRange) não conta
+        if (kind === "sight" && (id === SPELL.Light ? vt30(u.rec) === 0 : vt30(u.rec) !== 0)) s += id === SPELL.Light ? -v : v;
+        continue;
+      }
+      if (FX_KIND[e.f3c & 0xff] !== kind) continue;
+      s += v;
     }
     return s;
+  }
+  /** A unidade tem o efeito `id` na lista +0x20 do exe (bit +0x144 ligado por 0x51ce12, apagado por 0x51cc9f). */
+  exeFxHas(u: Unit, id: number): boolean { return u.rec.fx.count !== 0 && (this.exeFxBits(u) & (1 << (id & 0x1f))) !== 0; }
+  /** O maior +0x42 ÷ 16 dos efeitos 0xc (Invisibility) da lista +0x20 do exe (≥ 1). */
+  private exeFxInvisPower(u: Unit): number {
+    let p = 1;
+    for (const a of u.rec.fx.values()) {
+      const e = this.exeWorld.payloads.get(a >>> 0);
+      if (e && ((e.fc << 16) >> 16) === SPELL.Invisibility && !(e.f3d & 0x80)) p = Math.max(p, (e.f42 & 0xffff) >> 4);
+    }
+    return p;
+  }
+  /** Não é do exe (testes, trapaças): os efeitos `id` da lista +0x20 acabam no tique seguinte (+0x42 = 1, como 0x516b2f faz com a
+   *  invisibilidade; 0x51cc9f os tira). */
+  exeFxExpire(u: Unit, id: number): void {
+    for (const a of u.rec.fx.values()) {
+      const e = this.exeWorld.payloads.get(a >>> 0);
+      if (e && ((e.fc << 16) >> 16) === id && (e.f3d & 3)) e.f42 = 1;
+    }
   }
   /** Os bits +0x144 (1 << id da magia) dos efeitos da lista +0x20 do exe que não acabaram. */
   exeFxBits(u: Unit): number {
@@ -1689,7 +1729,7 @@ export class World {
   attackOf(u: Unit): number { return u.stats.attack + this.buffSum(u, "attack"); }
   /** velocidade (células/s): Haste/Slow somam em unidades brutas do jogo (÷16, docs/DATA.md); Stone Curse = 0 */
   speedOf(u: Unit): number {
-    if (u.hasBuff("stone")) return 0;
+    if (u.hasBuff("stone")) return 0;   // a Stone Curse do exe (lote 5) para a unidade pela máquina (bit 0x40000 → IA+9 = 4), não aqui
     return Math.max(0.15, u.stats.speed + this.buffSum(u, "speed") / 16);
   }
   /** visão (células): Light/Darkness e itens de scanRange */
@@ -1699,13 +1739,18 @@ export class World {
     const base = (u.stats.resist as Record<string, number>)[element] ?? 0;
     return Math.max(-100, Math.min(100, base + this.buffSum(u, `resist.${element}` as BuffKind)));
   }
+  /** Petrificada pelos `buffs` do motor antigo (script); a Stone Curse do exe (lote 5) fica com a máquina 0x50f12c, que segue rodando
+   *  (é nela que o efeito desconta e acaba). */
   stunned(u: Unit): boolean { return u.buffs.length > 0 && u.hasBuff("stone"); }
+  /** Invisível pelos `buffs` (script) ou pelo efeito 0xc da lista do exe. */
+  invisible(u: Unit): boolean { return u.hasBuff("invisible") || this.exeFxHas(u, SPELL.Invisibility); }
   /** `viewer` enxerga `u`? Invisibility esconde de quem não tem "See invisible" suficiente [est: seeInvisible × 10 ≥ poder] */
   canSee(viewer: Unit, u: Unit): boolean {
-    if (!u.buffs.length) return true;
-    const inv = u.buffs.find(b => b.kind === "invisible");
-    if (!inv) return true;
-    return (viewer.stats.seeInvisible ?? 0) * 10 >= inv.amount;
+    // o efeito 0xc do exe (lote 5) não guarda o poder: a duração +0x42 nasce poder × 16 (0x519db8), conta o que resta ÷ 16 [est]
+    const inv = u.buffs.length ? u.buffs.find(b => b.kind === "invisible") : undefined;
+    const amount = inv ? inv.amount : this.exeFxHas(u, SPELL.Invisibility) ? this.exeFxInvisPower(u) : 0;
+    if (!amount) return true;
+    return (viewer.stats.seeInvisible ?? 0) * 10 >= amount;
   }
 
   private setState(u: Unit, s: UnitState): void {
@@ -2033,15 +2078,9 @@ export class World {
       }
       return false;
     },
-    // 0x5106f4: o efeito Bless (0x14) / Curse (0x1c) da lista de efeitos do exe → o poder; os efeitos são os `buffs` do motor antigo
-    effectPower: (r, type) => {
-      const u = this.unitByAddr(r.addr), kind = type === 0x14 ? "bless" : type === 0x1c ? "curse" : null;
-      const b = u && kind ? u.buffs.find(x => x.kind === kind) : undefined;
-      return b ? b.amount | 0 : null;
-    },
     // laço dos efeitos (+0x20) no começo da máquina: os `buffs` expiram aqui
     effectsTick: r => { const u = this.unitByAddr(r.addr); if (u && u.buffs.length) this.expireBuffs(u); },
-    // 0x516b2f: os efeitos 0xc (Invisibility) acabam no golpe
+    // 0x516b2f/0x519998: a invisibilidade dos `buffs` (script) acaba no golpe/na magia (a da lista +0x20 é a porta)
     effectExpire: (r, type) => { const u = this.unitByAddr(r.addr); if (u && type === 0xc) this.breakInvisibility(u); },
     // 0x519998/0x519d7f portados (exe/spells.ts): o pacote ao cliente começa a apresentação; Spell_Apply e o Prismatic Spray ainda
     // são o motor antigo
@@ -2055,6 +2094,7 @@ export class World {
     clientHeal: (t, amount) => { const u = this.unitByAddr(t.addr); if (u) this.events.push({ type: "heal", unit: u.id, amount }); },
     clientSpellHit: (a, t, dmg, id) => this.hookSpellHit(a, t, dmg, id),
     clientMissile: (sp, r, t, ticks) => this.hookMissile(sp, r, t, ticks),
+    clientArea: o => this.hookArea(o),
     clientHit: (a, t, dmg) => this.hookHit(a, t, dmg),
     xpOnHit: (a, t, dmg, p3) => this.hookXp(a, t, dmg, p3),
     fell: r => this.hookFell(r),
@@ -2086,7 +2126,7 @@ export class World {
     clientEffect: (r, id, type, v, on) => {
       const u = this.unitByAddr(r.addr);
       if (!u) return;
-      this.events.push({ type: "effect", unit: u.id, spell: String(id), kind: FX_KIND[type] ?? "absorption", on });
+      this.events.push({ type: "effect", unit: u.id, spell: String(id), kind: FX_KIND_BY_ID[id] ?? FX_KIND[type] ?? "absorption", on });
       if (on && id === SPELL.Shield) this.events.push({ type: "buff", unit: u.id, spell: String(id), amount: v });
     },
     onDieHuman: () => { /* 0x512697: o equipamento já está na mochila do motor antigo */ },
@@ -2256,8 +2296,37 @@ export class World {
     else if (a && a.player !== t.player && t.alive) this.alertGroup(t, a);
   }
   /** o projétil da magia portada (0x518d1e na lista do mundo): só o desenho, com o voo do exe (`ticks` de 16/s). */
-  private hookMissile(sp: number, r: UnitRec, tr: UnitRec, ticks: number): void {
-    const u = this.unitByAddr(r.addr), t = this.unitByAddr(tr.addr);
+  /** 0x5045a5 (a área ao cliente): a apresentação da SpellArea do exe `o` (`world.areas` com `exe`) são as células do quadrado do raio em
+   *  que a vaga dela no registro de ocupação é ela (lidas sem mexer no registro corrente); sem células, some. */
+  private hookArea(o: SpellObjRec): void {
+    const m = this.exe, r = o.f4d & 0xff, cx = o.mapObj.x & 0xff, cy = o.mapObj.y & 0xff, tmp = new OccRec();
+    const slot = ({ 3: 0, 6: 2, 0xe: 5, 0xf: 4, 0x11: 3 } as Record<number, number>)[o.fc & 0xffff] ?? 0;   // 0x518ba3
+    const cells: number[] = [];
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const x = cx + dx, y = cy + dy, c = ((y & 0xff) << 8) | (x & 0xff);
+      if (!this.grid.inside(x, y) || (m.mem[c + 0x10000]! & 0x20) === 0 || !m.occ.lookup(c, tmp)) continue;
+      if ((tmp.u32(0x14 + slot * 4) >>> 0) === (o.addr >>> 0)) cells.push(this.grid.idx(x, y));
+    }
+    const i = this.areas.findIndex(a => a.exe === (o.addr >>> 0));
+    if (!cells.length) {
+      if (i < 0) return;
+      const a = this.areas[i]!;
+      this.areas.splice(i, 1);
+      this.events.push({ type: "area", id: a.id, spell: a.spell, x: a.x, y: a.y, radius: a.radius, on: false });
+      return;
+    }
+    if (i >= 0) { this.areas[i]!.cells = cells; return; }
+    const src = o.f3c ? this.unitByAddr(o.f3c) : undefined, never = Number.MAX_SAFE_INTEGER;
+    const a: SpellArea = {
+      id: this.nextId++, spell: String(o.fc & 0xffff), kind: "field", owner: src?.id ?? 0, player: src?.player ?? 0, x: cx, y: cy, radius: r,
+      until: never, next: never, period: 0, min: 0, max: 0, element: "", effects: [], cells, exe: o.addr >>> 0,
+    };
+    this.areas.push(a);
+    this.events.push({ type: "area", id: a.id, spell: a.spell, x: cx, y: cy, radius: r, on: true });
+  }
+
+  private hookMissile(sp: number, r: UnitRec, tr: UnitRec | null, ticks: number): void {
+    const u = this.unitByAddr(r.addr), t = tr ? this.unitByAddr(tr.addr) : undefined;
     if (!u || !t) return;
     const s = this.spellFor(u, sp);
     if (!s || t === u) return;
@@ -2987,6 +3056,11 @@ export class World {
   setBuffDuration(u: Unit, spell: number, duration: number): boolean {
     let found = false;
     for (const b of u.buffs) if (Number(b.spell) === spell) { b.until = this.tick + Math.max(0, Math.round(duration)); found = true; }
+    // os efeitos da lista +0x20 do exe (lote 5): a duração +0x42 (u16; ≥ 0x2581 não desconta em 0x51cc9f) [est]
+    for (const a of u.rec.fx.values()) {
+      const e = this.exeWorld.payloads.get(a >>> 0);
+      if (e && ((e.fc << 16) >> 16) === spell && !(e.f3d & 0x80)) { e.f42 = Math.max(1, Math.min(0xffff, Math.round(duration))); found = true; }
+    }
     return found;
   }
 
@@ -2995,6 +3069,9 @@ export class World {
   setAreaDuration(x: number, y: number, spell: number, duration: number): boolean {
     const a = this.areaAt(x, y, spell);
     if (!a) return false;
+    // a SpellArea do exe (lote 5): os tiques que faltam +0x50 (i16) [est]
+    const o = a.exe !== undefined ? this.exeWorld.spellObjs.get(a.exe) : undefined;
+    if (o) { o.f50 = (Math.max(0, Math.min(0x7fff, Math.round(duration))) << 16) >> 16; return true; }
     a.until = this.tick + Math.max(0, Math.round(duration));
     return true;
   }

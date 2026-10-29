@@ -14,23 +14,27 @@
  *    0x504498/0x5044ba): stubs.
  *  - 0x51cc9f (vtable+0x38: um tique do efeito na unidade), 0x542540 (acabou), 0x53af60 (tira da lista e destrói), 0x51cc53 (com
  *    duração ou contínuo).
- *  - 0x51d175 / 0x51d337 (vtable+0x40 / +0x44: põe / tira): Poison (6) tira vida (com proteção de água a conta é x87: NotPorted),
+ *  - 0x51d175 / 0x51d337 (vtable+0x40 / +0x44: põe / tira): Poison (6) tira vida (com proteção de água, x87 do assembly; lote 5),
  *    Light/Darkness (0xf/0xe) mexem na visão +0xa4/+0xe4, o resto 0x51d436 com ±1.
  *  - 0x51d436 (vtable+0x48; unidade, ±1): soma o valor (vezes ±1) no atributo do tipo +0x3c (na unidade sem equipamento, vtable+0x30 = 0,
  *    direto; no humano, no bônus +0xd4..) e os bits de aviso +0x150; depois vtable+0x58 (o recálculo).
  *  - 0x51366b (vtable+0x58 dos humanos/herói): os atributos derivados de Body/Reaction/Mind/Spirit (tetos por classe e sexo 0x53a5c0),
  *    experiência +0x130 (nível = log(exp/5000 + 1)/log 1,1: 0x5127f2; 1,1^x: 0x5127d2), habilidades, defesa e o bônus (0x5155dd,
  *    0x5113e7, 0x515617, 0x515a6c); as magias do livro refeitas (0x51c3e4 → Spell_CasterPower 0x519483 → Spell_Instance). x87 do assembly.
+ * Lote 5: os outros `case` de carga "Effect" de Spell_Apply (`spellApplyEffect`: proteções 4/8/0xd/0x13, Poison 6, Invisibility 0xc,
+ * Light/Darkness 0xf/0xe, Stone Curse 0x12, Bless/Curse 0x14/0x1c, Haste/Slow 0x15/0x1d; durações pow(1,025, poder) do assembly) e o
+ * recálculo do monstro 0x5118be; provados por pares sintéticos (tools/re/oracle/synth_spells.py: o poder 0..255 em cada `case`).
  * Com gancho: vtable+0x58 `recompute` (no mundo o motor antigo ainda é dono dos atributos: `syncCombat` a cada tique); sem gancho, 0x51366b
- * (humano/herói) ou NotPorted 0x5118be (monstro, exec 0). teachSpell (0x2a: 0x51906d/Unit_AddSpellToBook 0x51c29e, exec 0): NotPorted.
+ * (humano/herói) ou 0x5118be (monstro, lote 5). teachSpell (0x2a: 0x51906d/Unit_AddSpellToBook 0x51c29e, exec 0): NotPorted.
  */
 import { fn_0x53a5a0 } from "./action";
 import { aiInBattle, type CombatHooks } from "./combat";
 import { CListPtrIter } from "./mfc";
 import { crtFtol } from "./path";
+import { randInclusive } from "./rand";
 import { NotPorted } from "./walk_action";
 import { unitGetBookSpell } from "./wave";
-import { vt30, vt6c, VT_HERO, VT_HUMAN, VT_MONSTER } from "./vtables";
+import { vt2c, vt30, vt6c, VT_HERO, VT_HUMAN, VT_MONSTER } from "./vtables";
 import { fn_0x54feae, objBase, spellInstance, spellWallObject } from "./spells";
 import {
   MapObjRec, SpellPayloadRec, VT_EFFECT, type BookSpellRec, type DefRec, type DmgRec, type UnitRec, type WorldRec,
@@ -280,12 +284,18 @@ export function fxVt40(wd: WorldRec, e: SpellPayloadRec, u: UnitRec, h: CombatHo
 export function fxVt44(wd: WorldRec, e: SpellPayloadRec, u: UnitRec, h: CombatHooks): void { vtFx(e, 0x44); fn_0x51d337(wd, e, u, h); }
 function fxVt48(wd: WorldRec, e: SpellPayloadRec, u: UnitRec, p: number, h: CombatHooks): void { vtFx(e, 0x48); fn_0x51d436(wd, e, u, p, h); }
 
-/** vtable+0x58 da unidade: 0x51366b (humano/herói); 0x5118be (monstro, exec 0): NotPorted. No mundo: gancho `recompute`. */
+/** 0x5118be (fastcall; vtable+0x58 do monstro): +0xa0 = mana máxima +0x9c, ou × dono+0xa5c ÷ 100 com dono (+0x14 ≠ 0: todo registro
+ *  espelhado tem dono). */
+export function fn_0x5118be(u: UnitRec): void {
+  u.fa0 = s16(Math.trunc(Math.imul(u.owner.fa5c | 0, s16(u.f9c)) / 100));
+}
+
+/** vtable+0x58 da unidade: 0x51366b (humano/herói), 0x5118be (monstro). No mundo: gancho `recompute`. */
 export function vt58(wd: WorldRec, u: UnitRec, h: CombatHooks): void {
   if (h.recompute) { h.recompute(u); return; }
   switch (u.vtbl) {
     case VT_HUMAN: case VT_HERO: unitRecompute(wd, u); return;
-    case VT_MONSTER: throw new NotPorted("0x5118be");
+    case VT_MONSTER: fn_0x5118be(u); return;
   }
   throw new Error(`vtable 0x${u.vtbl.toString(16)} sem slot +0x58 espelhado`);
 }
@@ -375,9 +385,11 @@ function fn_0x542770(u: UnitRec): boolean {
 export function fn_0x51d175(wd: WorldRec, e: SpellPayloadRec, param_1: UnitRec, h: CombatHooks): void {
   const id = (e.fc << 16) >> 16;
   if (id === 6) {
-    const local_8 = -((e.f40 << 16) >> 16);
-    // proteção de água ≠ 0: a conta em x87 (CRT_ftol sem argumento no C) não foi reconstruída; exec 0 no corpus
-    if (((param_1.prot[2]! << 16) >> 16) !== 0) throw new NotPorted("0x51d175 (veneno com proteção de água)");
+    let local_8 = -((e.f40 << 16) >> 16);
+    // proteção de água ≠ 0: ftol(dano × (100 − proteção) ÷ 100.0 + 0.5) (x87 do assembly: fdiv [0x5d0840], fadd [0x5d0828]; o
+    // quociente só cai num inteiro + 0,5 quando é exato, então a dupla precisão trunca igual)
+    const prot = (param_1.prot[2]! << 16) >> 16;
+    if (prot !== 0) local_8 = crtFtol(Math.imul(local_8, (100 - prot) | 0) / 100 + 0.5);
     if (local_8 !== 0) {
       param_1.f94 = ((((param_1.f94 << 16) >> 16) - ((local_8 << 16) >> 16)) << 16) >> 16;
       if (e.f44 !== 0) {
@@ -687,14 +699,90 @@ export function unitEffectsOnDie(wd: WorldRec, u: UnitRec, h: CombatHooks): void
   }
 }
 
-/** Spell_Apply 0x519db8, `case` 0x1b (Shield): carga "Effect" do texto da definição (0x51caa0), +0x3d |= 1, valor = poder ÷ 10 + 3,
- *  duração = ftol(1,025^poder × definição[0xe] × 16.0) (x87 do assembly: 0x5845c9, [0x5d08a8]), id e desenho (id × 2 + 8). */
-export function spellApplyShield(wd: WorldRec, s: BookSpellRec, local_44: number): SpellPayloadRec {
-  const o = fn_0x51caa0(wd, s.effText);
-  o.f3d = (o.f3d | FX_TIMED) & 0xff;
-  o.f40 = s16(Math.trunc(local_44 / 10) + 3);
-  o.f42 = crtFtol(Math.pow(1.025, local_44) * (s.def[0xe]! | 0) * 16) & 0xffff;
-  o.fc = s.id & 0xff;
-  o.fe = ((s.id & 0xff) * 2 + 8) & 0xffff;
+/** 1,025^poder × definição[0xe] × 16.0 truncado (x87 do assembly: pow 0x5845c9, fmul [0x5d08a8], CRT_ftol): a duração dos `case` com
+ *  duração do poder (proteções, Bless/Curse, Haste/Slow, Shield). */
+function durationOfPower(s: BookSpellRec, local_44: number): number {
+  return crtFtol(Math.pow(1.025, local_44) * (s.def[0xe]! | 0) * 16) & 0xffff;
+}
+
+/** Spell_Apply 0x519db8, os `case` de carga "Effect" (lote 4: Shield 0x1b; lote 5: o resto). Carga do texto da definição (0x51caa0) ou
+ *  zerada (Spell_WallObject 0x51ca4d: Invisibility, Bless/Curse), +0x3d |= 1 (com duração) onde o exe põe, o valor +0x40 e a duração
+ *  +0x42 pelo poder, o id +0xc e o desenho +0xe = id × 2 + 8. `null` = o exe destrói a carga (vtable+4) e sai (duração 0 na
+ *  Invisibility e na Stone Curse). `local_30` = poder ÷ 45 + 1 (double, [ebp−0x2c]); Stone Curse sorteia a duração contra a proteção de
+ *  terra do alvo (+0xca) se ele é unidade (vtable+0x2c; alvo nulo: o exe lê [0] e cai). */
+export function spellApplyEffect(wd: WorldRec, s: BookSpellRec, local_44: number, param_1: UnitRec, param_2: UnitRec | null): SpellPayloadRec | null {
+  const id = s.id & 0xff;
+  let o: SpellPayloadRec;
+  switch (id) {
+    case 4: case 8: case 0xd: case 0x13:
+      o = fn_0x51caa0(wd, s.effText);
+      o.f3d = (o.f3d | FX_TIMED) & 0xff;
+      o.f40 = s16(Math.trunc(local_44 / 2));
+      o.f42 = durationOfPower(s, local_44);
+      break;
+    case 6: {
+      o = fn_0x51caa0(wd, s.effText);
+      const local_30 = local_44 / 45 + 1;
+      o.f40 = s16(crtFtol(s16(o.f40) * local_30));
+      break;
+    }
+    case 0xc:
+      o = spellWallObject(wd);
+      o.f3d = (o.f3d | FX_TIMED) & 0xff;
+      o.f42 = (local_44 << 4) & 0xffff;
+      o.fc = id; o.fe = (id * 2 + 8) & 0xffff;
+      if (s16(o.f42) === 0) { deletePayload(wd, o.addr); return null; }
+      return o;
+    case 0xe:
+      o = fn_0x51caa0(wd, s.effText);
+      o.fc = id;
+      o.f40 = s16(-1 - Math.trunc(local_44 / 0x1e));
+      o.fe = (id * 2 + 8) & 0xffff;
+      return o;
+    case 0xf:
+      o = fn_0x51caa0(wd, s.effText);
+      o.fc = id;
+      o.f40 = s16(Math.trunc(local_44 / 0x1e) + 1);
+      o.fe = (id * 2 + 8) & 0xffff;
+      return o;
+    case 0x12: {
+      o = fn_0x51caa0(wd, s.effText);
+      o.f3d = (o.f3d | FX_TIMED) & 0xff;
+      o.f42 = Math.trunc(Math.imul(Math.imul(local_44, 0xf0), (param_1.f68 === null ? 1 : 0) + 1) / 100) & 0xffff;
+      if (param_2 === null) throw new NotPorted("0x519db8 (Stone Curse sem alvo: o exe lê [0])");
+      if (vt2c(param_2) !== 0) {
+        const n = Math.trunc(Math.imul(o.f42 & 0xffff, (100 - s16(param_2.prot[4]!)) | 0) / 100);
+        o.f42 = randInclusive(wd, n, 0x51b799) & 0xffff;
+        if ((o.f42 & 0xffff) === 0) { deletePayload(wd, o.addr); return null; }
+      }
+      break;
+    }
+    case 0x14: case 0x1c:
+      o = spellWallObject(wd);
+      o.f3d = (o.f3d | FX_TIMED) & 0xff;
+      o.f40 = s16(Math.trunc((local_44 << 2) / 5) + 0x14);
+      o.f42 = durationOfPower(s, local_44);
+      break;
+    case 0x15: case 0x1d:
+      o = fn_0x51caa0(wd, s.effText);
+      o.f3d = (o.f3d | FX_TIMED) & 0xff;
+      o.f40 = s16(Math.trunc(local_44 / 0xf) + 1);
+      if (id === 0x1d) o.f40 = s16(-o.f40);
+      o.f42 = durationOfPower(s, local_44);
+      break;
+    case 0x1b:
+      o = fn_0x51caa0(wd, s.effText);
+      o.f3d = (o.f3d | FX_TIMED) & 0xff;
+      o.f40 = s16(Math.trunc(local_44 / 10) + 3);
+      o.f42 = durationOfPower(s, local_44);
+      break;
+    default:
+      throw new NotPorted(`0x519db8 (magia 0x${id.toString(16)})`);
+  }
+  o.fc = id;
+  o.fe = (id * 2 + 8) & 0xffff;
   return o;
 }
+
+/** Os ids de `spellApplyEffect`. */
+export const EFFECT_CASES: ReadonlySet<number> = new Set([4, 6, 8, 0xc, 0xd, 0xe, 0xf, 0x12, 0x13, 0x14, 0x15, 0x1b, 0x1c, 0x1d]);

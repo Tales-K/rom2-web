@@ -274,7 +274,7 @@ export class MissionHost implements ScriptHost {
     if (!u || !this.world.setBuffDuration(u, spell, duration)) this.log("info", `Unit Spell Duration: unidade ${ref} sem a magia ${spell}`);
   }
   /** "Spell on Unit": a unidade tem um efeito (buff/debuff) da magia. */
-  unitHasSpell(ref: number, spell: number): boolean { const u = this.u(ref); return !!u && u.buffs.some(b => Number(b.spell) === spell); }
+  unitHasSpell(ref: number, spell: number): boolean { const u = this.u(ref); return !!u && (u.buffs.some(b => Number(b.spell) === spell) || this.world.exeFxHas(u, spell)); }
   setFormation(): void { /* formações do grupo: sem efeito no motor (docs/GAPS.md) */ }
   setScenarioVariable(i: number, v: number): void { this.scenarioVars.set(i, v); }
   /** "Cast spell to unit": magia lançada de um ponto (sem conjurador) na unidade (World.castFromPoint, frente MOTOR-C). */

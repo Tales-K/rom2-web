@@ -6,7 +6,7 @@
  *   npx tsx src/sim/test/exe_effects.ts            (EXE_EFFECTS_ONLY=0x51366b,... para só algumas)
  */
 import {
-  fn_0x51caa0, fn_0x51cc9f, fn_0x51ce12, fn_0x51d175, fn_0x51d337, fn_0x51d436, fn_0x51e8fa, fn_0x542540, unitRecompute,
+  fn_0x5118be, fn_0x51caa0, fn_0x51cc9f, fn_0x51ce12, fn_0x51d175, fn_0x51d337, fn_0x51d436, fn_0x51e8fa, fn_0x542540, unitRecompute,
 } from "../exe/effects";
 import type { CombatHooks } from "../exe/combat";
 import { VT_EFFECT, type SpellPayloadRec, type UnitRec, type WorldRec } from "../exe/types";
@@ -64,6 +64,7 @@ const CHECKS: Record<string, Check> = {
   "0x51d175": runE((c, d) => { const w = world(c), u = U(c, A(d, 0)); fn_0x51d175(w, fx(c, w, d.this), u, H); return { r: null, u }; }),
   "0x51d337": runE((c, d) => { const w = world(c), u = U(c, A(d, 0)); fn_0x51d337(w, fx(c, w, d.this), u, H); return { r: null, u }; }),
   "0x51d436": runE((c, d) => { const w = world(c), u = U(c, A(d, 0)); fn_0x51d436(w, fx(c, w, d.this), u, A(d, 1) | 0, H); return { r: null, u }; }),
+  "0x5118be": runE((c, d) => { const u = U(c, d.this); fn_0x5118be(u); return { r: null, u }; }),
   "0x51366b": runE((c, d) => { const u = U(c, d.this); unitRecompute(world(c), u); return { r: null, u }; }),
 };
 

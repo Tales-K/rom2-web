@@ -77,7 +77,7 @@ const CHECKS: Record<string, Check> = {
   }, AL),
   "0x50ff2d": run((c, d) => { WR(c, 0); fn_0x50ff2d(U(c, d.this), A(d, 0), A(d, 1), A(d, 2), A(d, 3)); return null; }),
   "0x510745": run((c, d) => { fn_0x510745(U(c, d.this)); return null; }),
-  "0x516b2f": run((c, d) => { WR(c, 0); unitStrikeExtra(U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), { v: 0 }, hooksFor(c)); return null; }),
+  "0x516b2f": run((c, d) => { const w = WR(c, 0); unitStrikeExtra(w, U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), { v: 0 }, hooksFor(c)); return null; }),
   "0x516ceb": runS((c, d) => { const w = worldRec(c, c.cm.u32(WORLD_PTR), M(c, c.cm.u32(MAP_PTR))); unitStrikeHit(w, U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), hooksFor(c)); return null; }),
   "0x516c1f": run((c, d) => { const w = WR(c, c.cm.u32(WORLD_PTR)); unitStrikeBegin(w, U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), hooksFor(c)); return null; }),
   "0x50f12c": runS((c, d) => {

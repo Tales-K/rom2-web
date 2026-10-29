@@ -812,6 +812,12 @@
    "source": "notes/ai-behaviors.md"
   },
   {
+   "va": "0x5118be",
+   "name": "Monster_Recompute",
+   "desc": "vtable+0x58 do monstro: +0xa0 = mana max +0x9c x dono+0xa5c / 100",
+   "source": "notes/magias.md (lote 5)"
+  },
+  {
    "va": "0x511959",
    "name": "Human_Create",
    "desc": "Cria unidade humana",
@@ -942,6 +948,12 @@
    "name": "SpellArea_MarkCells",
    "desc": "Marca celulas |dx|+|dy| <= r+1",
    "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x5184bf",
+   "name": "SpellArea_MarkCell",
+   "desc": "marca a area numa celula (salvo estrutura bloqueante); anula as opostas (0x5189b5)",
+   "source": "notes/magias.md (lote 5)"
   },
   {
    "va": "0x518500",
@@ -1352,6 +1364,12 @@
    "source": "notes/ai-original.md"
   },
   {
+   "va": "0x542d50",
+   "name": "SpellArea_Delete",
+   "desc": "vtable+4 da area: destroi a carga +0x48 e libera",
+   "source": "notes/magias.md (lote 5)"
+  },
+  {
    "va": "0x543040",
    "name": "Spell_FireDamageObj",
    "desc": "Objeto de dano de fogo",
@@ -1614,6 +1632,24 @@
    "name": "SpellArea_FireExtra2",
    "desc": "Efeito extra do fogo (objetos)",
    "source": "notes/combat-formulas.md"
+  },
+  {
+   "va": "0x55a37a",
+   "name": "Map_AreaMarkCell",
+   "desc": "poe a area na vaga dela no registro de ocupacao da celula (cria o registro)",
+   "source": "notes/magias.md (lote 5)"
+  },
+  {
+   "va": "0x55a533",
+   "name": "Map_AreaUnmarkCell",
+   "desc": "tira a area da vaga dela na celula; desfaz o registro vazio",
+   "source": "notes/magias.md (lote 5)"
+  },
+  {
+   "va": "0x55a88b",
+   "name": "Map_AreaAtCell",
+   "desc": "area que ocupa a vaga desta area na celula, ou 0",
+   "source": "notes/magias.md (lote 5)"
   },
   {
    "va": "0x55a928",
@@ -2216,6 +2252,12 @@
    "source": "notes/maquina-de-acao.md"
   },
   {
+   "va": "0x5045a5",
+   "name": "Server_SendArea",
+   "desc": "pacote da area ao cliente (mascara das celulas pelo 0x55a88b; 0x86 na Fireball)",
+   "source": "notes/magias.md (lote 5)"
+  },
+  {
    "va": "0x504ab8",
    "name": "Server_SendStrikeStart",
    "desc": "Comeco do golpe para o cliente ('q' ou 0x72)",
@@ -2556,6 +2598,12 @@
    "name": "DirectDamage_Apply",
    "desc": "Carga de dano: vtable+0x54 (0x516f6f) com quem lancou, vida -= dano, experiencia e 's'",
    "source": "notes/magias.md (etapa 8b, lote 3)"
+  },
+  {
+   "va": "0x518ba3",
+   "name": "SpellArea_Slot",
+   "desc": "vaga da area no registro de ocupacao (occCur+0x14+4k) pelo id: 3->0, 6->2, 0x11->3, 0xf->4, 0xe->5",
+   "source": "notes/magias.md (lote 5)"
   },
   {
    "va": "0x518d1e",

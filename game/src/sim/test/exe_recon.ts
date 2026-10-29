@@ -10,7 +10,7 @@ import { CListEvent, CListEventNode, CListNode, CListPtr, CListPtrNode, CListWor
 import {
   BookSpellRec, CellStructRec, DefRec, DmgRec, Obj7cRec, EVENT_SIZE, EXE_GLOBALS, ItemMagicRec, ItemRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MAP_WORLD_OFF, MapObjRec,
   MapRec, OccRec, PlayerRec, SPELL_DEF_N, SpellBookRec, SpellObjRec, SpellPayloadRec, TemplateRec, UnitListsRec, UnitRec, UnitTypeRec,
-  VT_DIRECT_DAMAGE, VT_TRANSPORT, WorldRec,
+  VT_DIRECT_DAMAGE, VT_SPELL_AREA, VT_TRANSPORT, WorldRec,
 } from "../exe/types";
 import { Rng } from "../rng";
 import { NotPorted } from "../exe/walk_action";
@@ -644,6 +644,13 @@ function checkBytes(cm: CallMem, base: number, offs: number[], before: Uint8Arra
   return null;
 }
 
+/** Objeto de mapa `o` contra o de `p` na memória: os bytes +6..+7 são preenchimento (sem campo; a cópia de estrutura do exe leva o
+ *  lixo da pilha junto, lote 5) e ficam com o que o original deixou. */
+export function checkMapObj(cm: CallMem, p: number, o: MapObjRec): string | null {
+  const before = packMapObj(mapObjFrom(cm, p)), after = packMapObj(o);
+  for (const i of [6, 7]) { before[i] = 0; after[i] = cm.written.has(p + i) ? cm.fin.get(p + i)! : 0; }
+  return cm.checkRecord(p, before, after);
+}
 export function packMapObj(o: MapObjRec): Uint8Array {
   const b = new Uint8Array(12);
   b[0] = o.x; b[1] = o.y; b[2] = o.cell & 0xff; b[3] = (o.cell >> 8) & 0xff; b[4] = o.fx; b[5] = o.fy;
@@ -675,7 +682,7 @@ export function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string |
   let e = checkFields(cm, a, u as unknown as Rec, UNIT_FIELDS, "unidade")
     ?? checkFields(cm, w, u.walk as unknown as Rec, WALK_FIELDS, "andar")
     ?? checkFields(cm, ai, u.ai as unknown as Rec, AI_FIELDS, "ia")
-    ?? cm.checkRecord(mo, packMapObj(mapObjFrom(cm, mo)), packMapObj(u.mapObj))
+    ?? checkMapObj(cm, mo, u.mapObj)
     ?? checkBytes(cm, a + DMG_OFF, DMG_BYTES, packDmg(dmgFrom(cm, a + DMG_OFF)), packDmg(u.dmg), "golpe")
     ?? cm.checkRecord(a + PROT_OFF, cm.bytes(a + PROT_OFF, 12), packProt(u))
     ?? cm.checkRecord(a + RESIST_OFF, cm.bytes(a + RESIST_OFF, 6), u.resist)
@@ -804,6 +811,11 @@ export function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
   // objetos de magia (etapa 8b, lote 3): remontados da memória sob demanda; `new` 0x401880 devolve os endereços que o par alocou
   wr.spellObjAt = (a: number) => { let o = wr.spellObjs.get(a >>> 0); if (!o) { o = spellObjFrom(c.cm, a); wr.spellObjs.set(a >>> 0, o); } return o; };
   wr.payloadAt = (a: number) => { let o = wr.payloads.get(a >>> 0); if (!o) { o = payloadFrom(c.cm, a); wr.payloads.set(a >>> 0, o); } return o; };
+  // a definição da magia pelo id (lote 5: 0x518024): [0x68f5cc]+4 + id × 0x20, colunas em [+0xc]
+  wr.spellDefCol = (id: number, col: number) => {
+    const d = c.cm.u32(c.cm.u32(0x68f5cc + 4) + id * 0x20 + 0xc);
+    return c.cm.u32(d + col * 4) | 0;
+  };
   const allocs = allocsOf(c.d);
   wr.allocObj = () => { const a = allocs.shift(); if (a === undefined) throw new Error("new 0x401880: o par não alocou mais objetos"); return a; };
   c.world = wr;
@@ -819,19 +831,31 @@ const SPELLOBJ_FIELDS: Field[] = [
   [0x40, 1, "f40"], [0x41, 1, "f41"], [0x42, 2, "f42"], [0x44, 2, "f44"], [0x46, 2, "f46"], [0x48, 4, "f48"], [0x4c, 4, "f4c"],
 ];
 const TRANSPORT_FIELDS: Field[] = [...SPELLOBJ_FIELDS, [0x50, 2, "f50", true]];
+/** SpellArea (0x54 bytes, lote 5): +8 modo e +0x4c..+0x4f bytes no lugar do u32 +0x4c. */
+const AREA_FIELDS: Field[] = [
+  ...SPELLOBJ_FIELDS.filter(f => f[0] !== 0x4c), [0x08, 4, "f08"], [0x4c, 1, "f4c"], [0x4d, 1, "f4d"], [0x4e, 1, "f4e"], [0x4f, 1, "f4f"],
+  [0x50, 2, "f50", true],
+];
 const PAYLOAD_FIELDS: Field[] = [
   [0x00, 4, "vtbl"], [0x04, 4, "f04"], [0x0c, 2, "fc"], [0x0e, 2, "fe"], [0x14, 4, "f14"], [0x18, 2, "f18"], [0x1c, 4, "f1c"], [0x3c, 1, "f3c"],
   [0x3d, 1, "f3d"], [0x40, 2, "f40", true], [0x42, 2, "f42", true], [0x44, 4, "f44"],
 ];
-const objFields = (o: SpellObjRec): Field[] => (o.vtbl === VT_TRANSPORT ? TRANSPORT_FIELDS : SPELLOBJ_FIELDS);
+const objFields = (o: SpellObjRec): Field[] => (o.vtbl === VT_TRANSPORT ? TRANSPORT_FIELDS : o.vtbl === VT_SPELL_AREA ? AREA_FIELDS : SPELLOBJ_FIELDS);
 /** O CObject 0x401900 escreve a vtable 0x5d1d74 primeiro em todo objeto novo: os endereços alocados, na ordem. O CList embutido em
- *  +0x20 (0x541de0, vtable final 0x5d0e60) também é CObject e fica de fora. */
+ *  +0x20 (0x541de0, vtable final 0x5d0e60) também é CObject e fica de fora. O destrutor do CObject também escreve 0x5d1d74 (com a
+ *  vtable de uma classe antes): as escritas alternam vivo/morto por endereço, e o bloco liberado volta no `new` seguinte (lote 5: a
+ *  temporária de 0x51e8fa destruída e o preso ao alvo no mesmo endereço). A 1.ª escrita com uma vtable de classe antes (0x5c0000..
+ *  0x5dffff, ≠ 0x5d1d74) é o destrutor de um objeto de antes da chamada. */
 export function allocsOf(d: Pair): number[] {
-  const r: number[] = [], seen = new Set<number>(), lists = new Set<number>();
+  const r: number[] = [], alive = new Map<number, boolean>(), lists = new Set<number>();
   // a vtable do CList (0x5d0e60) em algum momento: é a lista embutida, mesmo que o destrutor a tenha devolvido a 0x5d1d74 (lote 4)
   for (const [a, s, , after] of d.writes) if (s === 4 && (after >>> 0) === 0x5d0e60) lists.add(a);
-  for (const [a, s, , after] of d.writes) {
-    if (s === 4 && (after >>> 0) === 0x5d1d74 && !seen.has(a) && !lists.has(a)) { seen.add(a); r.push(a >>> 0); }
+  for (const [a, s, before, after] of d.writes) {
+    if (s !== 4 || (after >>> 0) !== 0x5d1d74 || lists.has(a)) continue;
+    const b = before >>> 0;
+    const was = alive.get(a) ?? (b !== 0x5d1d74 && b >= 0x5c0000 && b < 0x5e0000);
+    alive.set(a, !was);
+    if (!was) r.push(a >>> 0);
   }
   return r;
 }
@@ -868,7 +892,7 @@ export function checkSpellWorld(c: Ctx): string | null {
   const f = finView(c.cm);
   const mo = (a: number, o: { mapObj: MapObjRec }, what: string): string | null => {
     const p = f.u32(a + 0x10);
-    const e = c.cm.checkRecord(p, packMapObj(mapObjFrom(c.cm, p)), packMapObj(o.mapObj));
+    const e = checkMapObj(c.cm, p, o.mapObj);
     return e ? `${what}.objeto de mapa ${e}` : null;
   };
   // vtable dada pelo teste (não lida nem escrita pela chamada) fica fora da conferência

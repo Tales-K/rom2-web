@@ -4,15 +4,18 @@
  * 0x518d1e, a lista do mundo 0x52c279 e os métodos 0x518efd/0x542d00/0x517949/0x51e65b; Spell_Release 0x519d7f) contra os pares do
  * oráculo (tools/re/oracle/fnprobe.py), com o arnês de exe_recon.ts: retorno, sorteios, unidades tocadas, os objetos de magia (campos,
  * objeto de mapa, dano) e a lista [[0x6044c4]+0x7c]+4, e a magia do livro (+9/+0xe/+0xf/+0x10). Os `case` de Spell_Apply fora da
- * porta (gancho `spellApply`: NotPorted 0x519db8) contam à parte. Rodar em game/:
+ * porta (gancho `spellApply`: NotPorted 0x519db8) contam à parte. Lote 5: os `case` de carga "Effect" e a SpellArea (0x517c1a, 0x517cfe,
+ * 0x518681, 0x5183a2, 0x518024, 0x518594, 0x55a8f8, 0x542d50) pelos pares sintéticos de tools/re/oracle/synth_spells.py (pasta
+ * refs/oracle/pairs/synth_m10_mage). Rodar em game/:
  *   npx tsx src/sim/test/exe_spells.ts            (EXE_SPELLS_ONLY=0x519db8,... para só algumas)
  */
 import {
-  fn_0x517949, fn_0x518d1e, fn_0x518efd, fn_0x51e65b, fn_0x52c279, fn_0x5238c5, fn_0x543130, fn_0x54feae, fn_0x54ff06, spellApply,
+  fn_0x517949, fn_0x518024, fn_0x518d1e, fn_0x518efd, fn_0x51e65b, fn_0x52c279, fn_0x5238c5, fn_0x542d50, fn_0x543130, fn_0x54feae,
+  fn_0x54ff06, fn_0x55a8f8, spellApply, spellAreaConstruct, spellAreaHitCell, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
   spellAttachToTarget, spellDamageObject, spellFireDamageObj, spellInstance, spellProjectileDist, spellRelease, unitAddHeal,
 } from "../exe/spells";
 import type { CombatHooks } from "../exe/combat";
-import { VT_DIRECT_DAMAGE, VT_POINT_EFFECT, VT_TRANSPORT, type BookSpellRec, type SpellObjRec, type WorldRec } from "../exe/types";
+import { VT_DIRECT_DAMAGE, VT_POINT_EFFECT, VT_SPELL_AREA, VT_TRANSPORT, type BookSpellRec, type SpellObjRec, type WorldRec } from "../exe/types";
 import {
   A, AL, EAX, M, U, checkFields, checkSpellWorld, ctx, done, eq, finView, itemFrom, mapObjFrom, packMapObj, payloadFrom, ptrListFrom, runPairs, runS, spellFrom, spellObjFrom,
   worldRec, type CallMem, type Check, type Ctx, type Field, type Pair, type Rec,
@@ -81,6 +84,15 @@ const CHECKS: Record<string, Check> = {
     fn_0x52c279(w, H);
     return null;
   }),
+  // lote 5: SpellArea (pares sintéticos: tools/re/oracle/synth_spells.py)
+  "0x517c1a": runS((c, d) => { const w = world(c); return spellAreaConstruct(w, w.payloadAt(A(d, 0)), mapObjFrom(c.cm, A(d, 1)), A(d, 2) & 0xff).addr; }, (v) => v >>> 0),
+  "0x517cfe": runS((c, d) => { const w = world(c); spellAreaProcess(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
+  "0x518681": runS((c, d) => { const w = world(c); spellAreaHitCell(w, obj(c, w, d.this, VT_SPELL_AREA), T(c, A(d, 0)), H); return null; }),
+  "0x5183a2": runS((c, d) => { const w = world(c); spellAreaMarkCells(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
+  "0x518024": runS((c, d) => { const w = world(c); fn_0x518024(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
+  "0x518594": runS((c, d) => { const w = world(c); spellAreaUnmark(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
+  "0x55a8f8": runS((c, d) => { const w = worldRec(c, c.cm.u32(WORLD_PTR), M(c, d.this)); return fn_0x55a8f8(w.map, obj(c, w, A(d, 0), VT_SPELL_AREA), A(d, 1) & 0xffff, A(d, 2)); }, (v) => v >>> 0),
+  "0x542d50": runS((c, d) => { const w = world(c); fn_0x542d50(w, obj(c, w, d.this, VT_SPELL_AREA)); return null; }),
   "0x519db8": runSp((c, d, s) => { spellApply(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), A(d, 2) & 0xff, A(d, 3) & 0xff, H); return null; }),
   "0x519d7f": runSp((c, d, s) => { spellRelease(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), H); return null; }),
 };

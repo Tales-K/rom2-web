@@ -364,7 +364,10 @@ export class UnitRec {
   fa2 = 0;                     // +0x0a2 u8  resto (centésimos) da regeneração de vida (0x50fc5a)
   fa3 = 0;                     // +0x0a3 u8  resto (centésimos) da regeneração de mana (0x50fc5a)
   fa4 = 0;                     // +0x0a4 i16 visão × 256 ((Mind + Reaction) / 25 + 4) × 256 (0x51366b; Light/Darkness/scanRange ±0x100)
-  fa5 = 0;                     // +0x0a5 u8  visão em células (Vision_Compute 0x552c28: orçamento (visão << 7) + 64; 0x56fa63)
+  /** +0x0a5 u8 visão em células (Vision_Compute 0x552c28: orçamento (visão << 7) + 64; 0x56fa63): o byte alto de +0xa4 (lote 5: Light/
+   *  Darkness e scanRange somam ±0x100 em +0xa4 e mudam este byte) */
+  get fa5(): number { return (this.fa4 >> 8) & 0xff; }
+  set fa5(v: number) { this.fa4 = (((this.fa4 & 0xff) | ((v & 0xff) << 8)) << 16) >> 16; }
   dmg: DmgRec = new DmgRec();  // +0x0a6 atributos do golpe (ponteiro passado a 0x516f6f)
   fbe = 0;                     // +0x0be i16 defesa (0x516f6f; ÷ 2 na queda, 0x50f12c)
   fc0 = 0;                     // +0x0c0 i16 absorção (0x516f6f)
@@ -474,6 +477,7 @@ export class SpellObjRec {
   addr = 0;                            // endereço (new 0x401880; sintético na World)
   vtbl = 0;                            // +0x00 u32 vtable (VT_POINT_EFFECT / VT_TRANSPORT / VT_SPELL_AREA)
   f04 = 0;                             // +0x04 u32 0 (0x50d6ae)
+  f08 = 0;                             // +0x08 u32 SpellArea: modo (1 com duração: marca as células; 2 progressiva, definição[8] = 5; 0 de uma vez)
   fc = 0;                              // +0x0c u16 id da magia
   fe = 0;                              // +0x0e u16 desenho no cliente (id × 2 + 9)
   mapObj: MapObjRec = new MapObjRec(); // +0x10 ptr objeto de mapa (o do alvo copiado, 0x54ff06; o do conjurador no projétil, 0x54feae)
@@ -487,8 +491,11 @@ export class SpellObjRec {
   f44 = 0;                             // +0x44 u16 máscara já avisada ao cliente (só SpellArea a atualiza)
   f46 = 0;                             // +0x46 u16 0
   f48 = 0;                             // +0x48 u32 preso: o alvo (unidade); projétil: o objeto que ele solta ao chegar
-  f4c = 0;                             // +0x4c u32 preso: a carga (SpellPayloadRec); projétil: 0
-  f50 = 0;                             // +0x50 i16 projétil: tiques até chegar (Spell_ProjectileDist ÷ definição[7]; 10 em 0xa/0xb)
+  f4c = 0;                             // +0x4c u32 preso: a carga (SpellPayloadRec); projétil: 0; SpellArea: u8 células marcadas (0x5183a2)
+  f4d = 0;                             // +0x4d u8  SpellArea: raio (definição[9])
+  f4e = 0;                             // +0x4e u8  SpellArea: direção de quem lançou ao centro (Dir_FromDelta16 >> 5)
+  f4f = 0;                             // +0x4f u8  SpellArea: 0
+  f50 = 0;                             // +0x50 i16 projétil: tiques até chegar (Spell_ProjectileDist ÷ definição[7]; 10 em 0xa/0xb); SpellArea: tiques que faltam
 }
 
 export const MAP_MASK_OFF = 0x10000;
@@ -671,6 +678,9 @@ export class WorldRec {
   /** não é do exe: o endereço do objeto que `new` 0x401880 aloca (Spell_Apply 0x519db8: carga, preso ao alvo, projétil); a World dá
    *  endereços sintéticos, o arnês de remontagem os do par */
   allocObj: (size: number) => number = () => { throw new Error("WorldRec.allocObj não definido (0x401880)"); };
+  /** não é do exe: a coluna `col` da definição da magia `id` (0x53e260 na tabela [0x68f5cc]+4, passo 0x20; 0x41e7e0 na coluna); a World
+   *  lê a tabela Spells (spellDefColumns), o arnês de remontagem a memória do par */
+  spellDefCol: (id: number, col: number) => number = (id) => { throw new Error(`WorldRec.spellDefCol não definido (magia ${id})`); };
   /** não é do exe: a magia do livro pelo endereço que o exe guarda como ponteiro (IA+0x30, unidade+0x44); a World procura nos livros
    *  espelhados, o arnês de remontagem lê o registro da memória do par */
   spellAt: (addr: number) => BookSpellRec = (addr) => { throw new Error(`WorldRec.spellAt não definido (magia 0x${(addr >>> 0).toString(16)})`); };

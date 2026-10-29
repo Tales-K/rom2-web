@@ -43,6 +43,9 @@ ROOTS = {
     "0x569321": "AI_TaskDispatcher",
     "0x570087": "AI_PlayerThink",
     "0x52bbb7": "World_SecondTick",
+    "0x517cfe": "SpellArea_Process (vtable +0x18 da área 0x5d10e0; exec 0, pares sintéticos: oracle/synth_spells.py)",
+    "0x542d50": "SpellArea (vtable +4: destrói)",
+    "0x5118be": "recálculo do monstro (vtable +0x58 de 0x5d0eb0; exec 0)",
 }
 HEX = re.compile(r"^0x[0-9a-f]+$")
 

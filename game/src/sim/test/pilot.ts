@@ -75,7 +75,12 @@ export function immortal(r: Run): void { for (const id of [10001, 10002, 10003])
 /** Dragões e súcubos petrificam quem se aproxima (Stone Curse de chance, poder alto = pedra por muito tempo): tira a pedra do grupo para o piloto seguir.
  *  Todos os efeitos da Stone Curse (18: pedra, defesa, absorção): um que sobre mantém o bit 0x40000 em +0x144 e o despachante 0x56dca2
  *  prende a unidade na sub-ação 4. */
-export function unstone(r: Run): void { for (const id of [10001, 10002, 10003]) { const u = r.b.host.units.get(id); if (u) u.buffs = u.buffs.filter(b => b.kind !== "stone" && Number(b.spell) !== 18); } }
+export function unstone(r: Run): void {
+  for (const id of [10001, 10002, 10003]) {
+    const u = r.b.host.units.get(id);
+    if (u) { u.buffs = u.buffs.filter(b => b.kind !== "stone" && Number(b.spell) !== 18); r.b.world.exeFxExpire(u, 18); }   // lote 5: a Stone Curse do exe
+  }
+}
 
 /** Mata o herói / Igles / Dina e confere a causa de falha do motor (2 / 3 / 4) */
 export function companionsFail(start: () => Run, dina = true): void {
