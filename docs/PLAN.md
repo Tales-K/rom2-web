@@ -85,3 +85,5 @@ Estado 2026-10-28 (etapa 8b lote 4): efeitos com duração (Shield) e recálculo
 golden 76,5 %. Próximo: 8b lote 5 (outros efeitos, recálculo do monstro, áreas).
 Estado 2026-10-29 (etapa 8b lote 5): outros efeitos, monstro e SpellArea portados por pares sintéticos; estado inteiro
 97,4/98,4/98,6 %, golden 76,5 %. Próximo: resíduo nomeado do tickcmp.
+Estado 2026-10-29 (resíduo do tickcmp fechado): estado inteiro idêntico 100,0/99,9/100,0 % (sobra 1 tique: +0x12c do syncCombat),
+golden 79,4 %. Próximo: etapa 9b (carregador).
