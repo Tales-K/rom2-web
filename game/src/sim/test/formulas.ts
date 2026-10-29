@@ -163,8 +163,11 @@ console.log("— fuga/recuo da IA [exe 0x573713, 0x56cb0c, 0x56cb8c, 0x558b92, 0
   const peasant = dummy(w, 2, 25, 25, 60);
   (peasant as { typeId: number }).typeId = 1;
   installMissionAi(w, { spells });
-  check(mage.withdrawHp === 100 && mage.wimpyHp === 25, `mago humano da IA: Withdraw = vidaMáx, Wimpy = vidaMáx div 4 (${mage.withdrawHp}, ${mage.wimpyHp})`);
+  // 0x57382c só roda em 0x511959 com a vtable de monstro (vt+0x30 = 0 → nada): na carga os humanos ficam com 0/0 (46 despejos do tique 0,
+  // notes/carregador.md, lote 2)
+  check(mage.withdrawHp === 0 && mage.wimpyHp === 0, `mago humano da IA: Withdraw/Wimpy 0 na carga [exe 0x57382c morto] (${mage.withdrawHp}, ${mage.wimpyHp})`);
   check(peasant.withdrawHp === 0 && peasant.wimpyHp === 0, "camponês (corpo a corpo, sem livro): não foge por Wimpy/Withdraw");
+  mage.withdrawHp = 100; mage.wimpyHp = 25;   // os limiares que o resto do teste exercita (IA+0x40/+0x44)
   const p = w.exeFleePoint(mage, [foe], 8);
   check(p.x === 31 && p.y === 24,
     `ponto de fuga: 8 células no eixo dominante, longe do centroide (${p.x},${p.y}) [exe 0x558b92]`);

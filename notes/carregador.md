@@ -94,8 +94,22 @@ Resíduo depois do 2b, nomeado: `withdraw`/`wimpy` (25 missões) = o trecho não
 `World.knockOut` (o original só põe a vida 0; o HEAD dava 5 % da vida); `u.task` 0xc × 0xb nas unidades do jogador 1 (m53, m73: 5) =
 o modo de grupo do lado humano (lote 3); `walk.f72` (3) = MapRec "passo" (lote 4); `g_radius`/`g_base` m30 G6 (8 × 20) = AI_GuardLoad.
 
+### Lote 2c: o padrão 0x57382c dos humanos sai da árvore
+Com o aval do coordenador, saiu da árvore o trecho NÃO commitado de `sim/behaviors.ts` (`installMissionAi`) que dava aos humanos o
+padrão de 0x57382c (com livro: Withdraw = vida máx., Wimpy = ¼; à distância: Withdraw = ½). Evidência: os 46 despejos do tique 0 têm
+Withdraw/Wimpy (IA+0x40/+0x44) = 0 em todos os humanos, e o C mostra que 0x57382c só é chamado por 0x511959 — o ramo do MONSTRO, com a
+vtable 0x5d0eb0, cuja vt+0x30 é 0x542420 → 0, então ele sai na hora (os humanos, 0x5143e4 → 0x5145d1, nem passam por 0x511959). O hunk
+removido está salvo em **`notes/carregador-removido-behaviors.patch`** (não versionado; `git apply` o devolve). Os outros trechos não
+commitados de behaviors.ts ficaram. `sim/test/formulas.ts` passou a afirmar 0/0 na carga e dá ao mago os limiares à mão para seguir
+testando a fuga por Teleport.
+
+loadcmp `--no-map`: **35 de 46** missões exatas, 99,99 % (57 pares); com o MapRec 99,96 % (0 de 46: o MapRec diverge nas 46). tickcmp
+(100,0 / 99,9 / 100,0 %; T=322 / 822 / 740), golden (79,37 %, CI ok) e test:sim iguais. O `g_radius`/`g_base` do G6 da m30 sumiu junto
+(o raio vinha do Withdraw). Resíduo, nomeado: vida 0 no `.alm` (m30 ×2, m50, m101: o `knockOut` do trecho não commitado de setup.ts),
+`u.task` 0xc × 0xb nas unidades do jogador 1 (m53, m73), `walk.f72` (3, MapRec "passo") e `dip` da m92 (8.º jogador).
+
 ## Próximo lote (3)
-Os grupos: `AI_GuardLoad 0x570aba` (`g_radius`/`g_base` do G6 da m30), a tarefa 0xc das unidades do jogador 1 (m53, m73) e os dados de
+Os grupos e o lado humano: a tarefa 0xc das unidades do jogador 1 (m53, m73; `AI_GuardLoad 0x570aba` e o modo de grupo) e os dados de
 grupo do exe em bytes no comparador. Depois o MapRec (lote 4: mascarar ponteiros na faixa "resto" +0x5400c…, passo 6 do pé das estruturas — inclui o
 `walk.f72` acima) e o herói (lote 5). Fora do comparador ainda: o construtor dos itens (atributos de items.json) e o resto da criação
 para os companheiros/invocações (`spawnCompanions`, `summonFactoryFor` usam o `statsFor`).
