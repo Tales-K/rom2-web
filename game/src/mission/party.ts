@@ -28,21 +28,21 @@ export class PartyControl {
   /** Dá a ordem `o` a `u` (qualquer unidade do jogador). */
   order(world: World, u: Unit, o: Order): void {
     if (!u.active) return;
-    if (u.isHero) { world.command(u, o); return; }
+    if (u.isHero) { world.command(u, o, true); return; }
     this.release(u, false);
     // unidade congelada pelo script (suspendGroup): só a ordem, a IA continua desligada
-    if (u.suspended) { world.command(u, o); return; }
+    if (u.suspended) { world.command(u, o, true); return; }
     const cell = { x: u.cx, y: u.cy };
     switch (o.type) {
       case "move":
         u.ai = o.attackMove ? { type: "swarm", x: o.x, y: o.y } : { type: "move", x: o.x, y: o.y };
-        world.command(u, o);
+        world.command(u, o, true);
         break;
       case "attack": {
         const t = world.get(o.target);
         // depois de matar, procura o próximo inimigo por perto e só então guarda o ponto do alvo
         u.ai = { type: "swarm", x: t ? t.cx : cell.x, y: t ? t.cy : cell.y };
-        world.command(u, o);
+        world.command(u, o, true);
         break;
       }
       case "guard":
@@ -59,21 +59,21 @@ export class PartyControl {
         world.command(u, { type: "none" });
         break;
       case "retreat":
-        world.command(u, o);
+        world.command(u, o, true);
         u.suspended = true;
         this.retreating.add(u.id);
         break;
       case "cast":
         if (u.ai.type === "move" || u.ai.type === "swarm" || u.ai.type === "patrol") { u.home = cell; u.ai = { type: "guard", range: MINIMAL_GUARD_RANGE }; }
-        world.command(u, o);
+        world.command(u, o, true);
         break;
       case "pickup":
         u.home = { x: o.x, y: o.y };
         u.ai = { type: "guard", range: MINIMAL_GUARD_RANGE };
-        world.command(u, o);
+        world.command(u, o, true);
         break;
       default:
-        world.command(u, o);
+        world.command(u, o, true);
     }
   }
 

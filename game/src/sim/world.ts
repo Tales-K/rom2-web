@@ -96,7 +96,7 @@ import {
 } from "./spells";
 import { BLIZZARD_PULSES, PULSE_EXE_TICKS, acidSteps, areaCells, exeDir8 } from "./areas";
 import {
-  DIP_ALLY, DIP_WAR, TICK_MS, TICKS_PER_SEC, dirFromDelta,
+  DIP_ALLY, DIP_WAR, TICK_MS, TICKS_PER_SEC,
   type Cell, type Order, type SimEvent, type UnitState, type UnitStats,
 } from "./types";
 
@@ -325,7 +325,10 @@ export class Unit {
   waitTicks = 0;
   order: Order = { type: "none" };
   ai: AiMode = { type: "guard", range: MINIMAL_GUARD_RANGE };
-  home: Cell;
+  /** posto (IA+0 do exe, célula y*256+x): vista sobre o registro — as tarefas portadas (0x56d4ba guarda, 0x56d52b Stand ground,
+   *  0x569b62 patrulha) o escrevem; o motor antigo o lê e escreve por aqui */
+  get home(): Cell { const c = this.rec.ai.f00 & 0xffff; return { x: c & 0xff, y: c >> 8 }; }
+  set home(c: Cell) { this.rec.ai.f00 = ((c.y & 0xff) << 8) | (c.x & 0xff); }
   target = 0;
   cooldown = 0;
   phased = false;
@@ -433,8 +436,8 @@ export class Unit {
     this.maxMana = this.mana = Math.max(0, init.stats.mana);
     this.x = Math.floor(init.x) + 0.5; this.y = Math.floor(init.y) + 0.5;
     this.dir = 0;
-    this.home = { x: this.cx, y: this.cy };
     initUnitRec(this);
+    this.home = { x: this.cx, y: this.cy };
   }
 
   get alive(): boolean { return this.state !== "dying" && this.state !== "dead"; }
@@ -899,9 +902,6 @@ export class World {
   private exeSyncGroups(): void {
     for (const u of this.units) {
       const g = this.exeGroupSync(u), r = u.rec;
-      // posto (0x56d52b / carga do mapa) do motor antigo; com o pensamento portado (`exeTask`) quem o escreve são as tarefas
-      // (0x56d4ba guarda, 0x569b62 patrulha: o posto acompanha a unidade, 0x56d52b Stand ground)
-      if (!u.exeTask) r.ai.f00 = ((u.home.y & 0xff) << 8) | (u.home.x & 0xff);
       r.ai.f40 = u.withdrawHp | 0; r.ai.f44 = u.wimpyHp | 0;
       for (let i = 0; i < 3; i++) { const ps = u.procSpells[i]; r.ai.f7c[i] = ps ? Number(ps.spell.base ?? ps.spell.id) | 0 : 0; r.ai.f88[i] = ps ? Math.round(ps.chance * 0x8000 / 100) | 0 : 0; }
       r.fa5 = Math.max(0, Math.floor(this.sightOf(u))) & 0xff;
@@ -1300,12 +1300,22 @@ export class World {
 
   // ------------------------------------------------------------------------------------------- ordens
 
-  command(u: Unit, o: Order): void {
+  /** `client` = a ordem é uma mensagem do cliente (interface, roteiro dos episódios): o servidor (0x4f515d) a trata mesmo igual à
+   *  ordem em curso — o ataque repetido no mesmo alvo larga a perseguição (IA+8 = 0, andar+0x7c = 0) até o pensamento (medido: herói
+   *  da m10_mage, T=463→464). As ordens internas do motor (retomadas, IA do motor antigo) só valem quando mudam. Antes de um passo
+   *  com pensamento a mensagem espera o pensamento (`clientQueue`; as ordens do motor antigo, sem `clientOrder`, valem já).
+   *  `now` = tratar já (a fila sendo esvaziada no passo). */
+  command(u: Unit, o: Order, client = false, now = false): void {
     if (!u.active) return;
+    if (client && !now && !this.isAiPlayerUnit(u) && !World.legacyAi(u.ai) && !World.legacyOrder(o) && this.aiTickAt(this.tick + 1)) {
+      this.clientQueue.push([u, o]);
+      return;
+    }
+    const resend = client && !this.isAiPlayerUnit(u) && sameOrder(u.order, o);
     if ((o.type === "attack" || o.type === "cast") && !this.isAiPlayerUnit(u)) {
       const p = u.order as { type: string; target?: number; spell?: string; x?: number; y?: number };
       const q = o as { type: string; target?: number; spell?: string; x?: number; y?: number };
-      if (p.type !== q.type || p.target !== q.target || p.spell !== q.spell || p.x !== q.x || p.y !== q.y) {
+      if (resend || p.type !== q.type || p.target !== q.target || p.spell !== q.spell || p.x !== q.x || p.y !== q.y) {
         u.orderArmed = false; u.orderTick = this.tick;
         // a mensagem do cliente larga a tarefa em curso até o pensamento (IA+8 = 0, alvo novo em IA+0xc; medido: herói da m10_start,
         // ataque novo em T=119) [est: o tratador da mensagem não está portado]
@@ -1318,7 +1328,7 @@ export class World {
     // regrupa a unidade [est: seleção de uma] e despacha andar (4), atacar unidade (7), lançar em unidade (0xc), Stand ground (6).
     // As ordens sem `case` executado no corpus (andar "perto" = pegar/usar, pacote 0x22; magia no chão 0xd; guarda 5; patrulha 0xb;
     // defender 9; parado) ficam como estavam: só zeram a perseguição e o "parado" [est]
-    if (!this.isAiPlayerUnit(u) && !sameOrder(u.order, o)) {
+    if (!this.isAiPlayerUnit(u) && (resend || !sameOrder(u.order, o))) {
       const wd = this.exeWorld, r = u.rec;
       let g: UnitTypeRec | null = null;
       if (!World.legacyAi(u.ai) && !World.legacyOrder(o)) {
@@ -1544,13 +1554,21 @@ export class World {
 
   // ------------------------------------------------------------------------------------------- laço
 
+  /** O passo do tique `t` roda o pensamento do exe (0x56fe4d). */
+  private aiTickAt(t: number): boolean {
+    // estado importado do original: o pensamento sai no tique de servidor com relógio de 16/s ≡ 7, ANTES do laço das unidades desse
+    // tique (sonda rngprobe: os sorteios do apoio dos conjuradores vêm antes dos do olhar em volta)
+    return this.t16base === null ? (t + this.clockPhase) % TICKS_PER_SEC === AI_THINK_PHASE
+      : this.clock16(t) !== this.clock16(t - 1) && (((this.t16base + this.clock16(t)) % 16) + 16) % 16 === 7;
+  }
+  /** mensagens do cliente que chegaram antes de um passo com pensamento: Server_Tick 0x4f08c0 pensa (0x56fe4d) e só depois
+   *  Server_ClockTick 0x4f8521 as trata (Server_ClientMessages 0x4f84c6) — o pensamento desse tique não as vê */
+  private clientQueue: [Unit, Order][] = [];
+
   step(): void {
     this.tick++;
     const serverTick = this.clock16() !== this.clock16(this.tick - 1);
-    // estado importado do original: o pensamento sai no tique de servidor com relógio de 16/s ≡ 7, ANTES do laço das unidades desse
-    // tique (sonda rngprobe: os sorteios do apoio dos conjuradores vêm antes dos do olhar em volta)
-    const aiTick = this.t16base === null ? (this.tick + this.clockPhase) % TICKS_PER_SEC === AI_THINK_PHASE
-      : serverTick && (((this.t16base + this.clock16()) % 16) + 16) % 16 === 7;
+    const aiTick = this.aiTickAt(this.tick);
     this.thinkNow = aiTick;
     // o pensamento do exe (Server_Tick 0x4f08c0: `t16 & 15 == 6` → 0x56fe4d) roda ANTES de Server_ClockTick incrementar o relógio e
     // rodar as unidades: é o mesmo tique do nosso ≡ 7 (relógio já incrementado), mas os sorteios dele foram gravados com o relógio
@@ -1585,6 +1603,8 @@ export class World {
     }
     // ordem do servidor: jogadores em ordem e, em cada um, as unidades por id (sonda rngprobe: a posição dos sorteios do olhar em volta
     // bate 9/9 com (jogador, id)); `regenSlot` = id do original nos estados importados
+    // Server_ClockTick 0x4f8521: as mensagens do cliente (Server_ClientMessages 0x4f84c6) guardadas para depois do pensamento
+    if (this.clientQueue.length) { const q = this.clientQueue; this.clientQueue = []; for (const [u, o] of q) this.command(u, o, true, true); }
     // Server_ClockTick 0x4f8521 → Server_WorldTick 0x4f04cf: os objetos de magia ([[0x6044c4]+0x7c]+4, 0x52c279) antes das unidades
     this.rng.shift = 0;
     if (this.exeWorld.lists.spellObjs.count) { EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff; fn_0x52c279(this.exeWorld, this.exeHooks); }
@@ -1967,6 +1987,9 @@ export class World {
           if (o.type === "attack") { if (!this.exeExact || r.ai.task !== 5) { r.ai.task = 5; r.ai.f0c = t.rec.addr; r.ai.range = this.attackRange(u) & 0xff; } }
           else if (!this.exeExact || r.ai.task !== 8) { r.ai.task = 8; r.ai.f28 = t.rec.addr; r.ai.range = spell!.range & 0xff; r.ai.f30 = this.spellAddr(spell!); }
           this.machine(u);
+          // lado humano pelo porte: a magia começou (0x56e906 com +0x60 = 0 → 0x56dbc6, Stand ground: classe 0xd → 0xc, posto = a
+          // célula) — a ordem apresentada acaba no mesmo tique, como a de andar (medido: herói da m10_mage, T=241→242)
+          if (o.type === "cast" && u.exeTask && !this.isAiPlayerUnit(u) && (r.task & 0xff) !== 0xd && (r.ai.sub as number) === 2) { u.order = { type: "none" }; return; }
           // a perseguição acabou sem alcançar o alvo (fim de caminho, 0x56ed4e: a tarefa virou 0, 0xb ou 6). Ataque de jogador de IA:
           // a ordem antiga acaba (o pensamento do exe decide a seguinte) e o alvo fica fora da escolha da IA por uns segundos
           // (Unit.unreachTarget); lado humano e magias: a ordem fica e a tarefa volta a 5/8 no tique seguinte (no exe, no pensamento)
@@ -2004,7 +2027,8 @@ export class World {
     u.castAuto = auto;
     u.target = t ? t.id : 0;
     u.castX = tx; u.castY = ty;
-    if (tx !== u.cx || ty !== u.cy) u.dir = dirFromDelta(tx - u.cx, ty - u.cy);
+    // o rumo é do registro (andar+0, o giro do exe antes da sub-ação): o pacote da magia ao cliente (0x5041d6) não vira a unidade
+    // (medido: herói da m10_mage com o cajado, T=854→855: rumo 64 mantido ao lançar no alvo a leste-nordeste)
     this.setState(u, "cast");
     if (spell.kind !== "buff" && spell.kind !== "shield" && spell.kind !== "heal") this.breakInvisibility(u);
     this.events.push({ type: "cast", unit: u.id, spell: spell.id });

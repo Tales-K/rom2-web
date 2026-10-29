@@ -69,7 +69,7 @@ function killTo(w: World, u: Unit, hp: number): void { w.damage(undefined, u, u.
 function castBy(w: World, h: Unit, id: number, o: { target?: Unit; x?: number; y?: number }): void {
   h.mana = h.maxMana = 5000; h.cooldown = 0;
   w.command(h, { type: "cast", spell: String(id), target: o.target?.id, x: o.x, y: o.y });
-  run(w, sec(15), () => h.order.type === "none" && h.state === "idle");
+  run(w, sec(15), () => h.order.type === "none" && h.state === "idle" && h.rec.ai.sub === 0);   // a ordem em unidade acaba quando a magia começa (0x56e906)
 }
 
 // ------------------------------------------------------------------------------------------------ corpos

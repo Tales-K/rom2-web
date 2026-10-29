@@ -392,6 +392,10 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
         if (o.state === 0x10) { u.hp = Math.min(0, o.hp); w.kill(u); }
         else { u.hp = o.hp; w.importFallen(u, o.act_cnt ?? 0); }
       } else if (o.state !== 0x10 && !u.bodyDead) { u.hp = o.hp; u.rec.f6c = (o.act_cnt ?? 0) & 0xff; }
+      // a caída segue membro do grupo no exe, com o registro inteiro (endereço, IA+0x58 de quem a golpeou, dono): sem ele o grupo
+      // apontava para um registro avulso sem dono e AI_EnemyFilter pelo 1.º membro (caído) tirava todos os candidatos (m10_start,
+      // 24593–24595 em T=609: o original atribui o herói a 24595)
+      if (o.state !== 0x10 && o.exe && (u.alive || u.state === "dying")) unitRecFromOrig(u.rec, o, addrOf);
       continue;
     }
     if (!u.alive) { dead.push(o.id); continue; }
@@ -423,6 +427,8 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     if (o.hit_clock16 !== undefined) u.hitClock16 = o.hit_clock16;   // relógio de 16/s absoluto (IA+0x98)
     const tgt = o.target > 0 ? byOrig.get(o.target) : undefined;
     // posto (+0x1c4[0]); na patrulha (tarefa 0xa, 0x569b62) o posto acompanha a unidade e o ponto A da nossa patrulha fica o do script
+    // (o posto do retrato do tique 0: `home` é vista sobre IA+0, que a linha abaixo troca pelo do traço)
+    const post0 = u.home;
     if (o.post && o.task !== 0xa) u.home = { x: o.post & 0xff, y: o.post >> 8 };
     // o posto IA+0 do traço vai direto ao registro (o pensamento portado não o relê de `home`); patrulha andando entre os pontos:
     // IA+4 = 1 (0x569b62 o põe ao mandar andar; no próximo pensamento o posto passa a ser a célula) [est: IA+4 não está no traço]
@@ -433,7 +439,7 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
       // B = o ponto do script, A = o posto inicial
       const pt = o.exe?.ai ? parseInt(o.exe.ai.slice(4, 6), 16) | (parseInt(o.exe.ai.slice(6, 8), 16) << 8) : o.dest;
       const dx = pt & 0xff, dy = pt >> 8;
-      w.command(u, { type: "patrol", ax: u.home.x, ay: u.home.y, bx: u.ai.x, by: u.ai.y, toB: dx === u.ai.x && dy === u.ai.y });
+      w.command(u, { type: "patrol", ax: post0.x, ay: post0.y, bx: u.ai.x, by: u.ai.y, toB: dx === u.ai.x && dy === u.ai.y });
     }
     // andando (tarefa 1/10, ou a guarda voltando ao posto: tarefa 0xb modo 1; na guarda da carga do mapa, modo 1 com destino ≠ posto =
     // fuga ao ponto +0x9c, que pode ser 0 — World.noteAttacked / ai.ts)

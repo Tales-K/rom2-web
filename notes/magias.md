@@ -52,7 +52,7 @@ Resíduo nomeado do tickcmp (abaixo), 9b (carregador). Depois: áreas de dano (0
 Earth (0x11), Teleport/Summon/Animate/Drain Life (`spellApply` ainda motor antigo); o mundo largar `syncCombat` pelo recálculo portado
 (despejar os atributos-base +0x84..+0x130 em dump_ticks/import_state).
 
-## Resíduo (tickcmp, 1.ª divergência; medido no lote 4, igual no lote 5 salvo `range|1`, que saiu)
+## Resíduo (tickcmp, 1.ª divergência; medido no lote 4, igual no lote 5 salvo `range|1`, que saiu) — FECHADO em 29/10: `notes/residuo.md`
 m10_start: `task|24595` T=609 + `g_assigned`/`target` (pensamento do grupo 0x57240b), `post|1` T=49, `walk_*` T=625. m10_mage: `post|1`
 T=113 ×6 (posto IA+0 do herói), `target|1` T=463 ×6, `range|1` ×5 (+0x12c do herói alterna 6/1 em T=4/232/241/749/755; nenhuma função
 sondada o escreve — escrita fora do servidor portado, a achar), `task|1` ×5 (ordem de magia do cliente 0x56d3e6: +0x50 = 0xd; o

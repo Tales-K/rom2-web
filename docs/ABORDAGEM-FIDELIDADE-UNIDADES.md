@@ -313,8 +313,14 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   0x517c1a/0x517cfe, todos a 100 %. Gancho `effectPower` removido. Estado inteiro e golden iguais (97,4 / 98,4 / 98,6 %, 76,5 %).
   Ainda no motor antigo: áreas de dano e Fireball, Wall of Earth, Teleport/Summon/Animate/Drain Life, e os atributos a cada tique
   (`syncCombat`).
-- **Próximo**: o resíduo nomeado do tickcmp (pensamento do grupo 0x57240b, `post|1`, `target|1`, `task|1`); depois 9b (carregador), o
-  resto da 8b acima e, no fim, a passada de nomes legíveis em `exe/`.
+- **Resíduo nomeado do tickcmp** (`notes/residuo.md`): nenhuma divergência era função não portada — vistas (`Unit.home` sobre IA+0),
+  integração (mensagens do cliente tratadas DEPOIS do pensamento, como Server_Tick 0x4f08c0 → Server_ClockTick 0x4f8521; reenvio da
+  mesma ordem tratado; fim da ordem de magia no começo da magia; `beginCast` sem girar a unidade), arnês (caídas sem o registro do
+  original: o grupo apontava para um registro sem dono e AI_EnemyFilter tirava os candidatos; idade da ordem de magia retomada) e o
+  comparador (alvo e classe lidos do registro). Estado inteiro → **100,0 / 99,9 / 100,0 %**; golden 76,5 → **79,4 %**, `--ci` verde.
+  Sobra 1 tique (m10_mage T=822): +0x12c do herói escrito pelo `syncCombat` (7) em vez do recálculo portado (6).
+- **Próximo**: 9b (carregador), o resto da 8b acima (com o mundo largando `syncCombat`, que fecha o último tique) e, no fim, a passada
+  de nomes legíveis em `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).

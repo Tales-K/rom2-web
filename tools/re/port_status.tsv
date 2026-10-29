@@ -198,7 +198,7 @@ addr	name	size	file	line	status	ts	note
 0x4f06ac	FUN_004f06ac	390	game/g_4f0000.c	199	pending		
 0x4f0832	FUN_004f0832	61	game/g_4f0000.c	263	pending		stub NotPorted em walk_action.ts:fn_0x5503af (exec 0; objeto de célula de tipo ≠ 0x17)
 0x4f086f	FUN_004f086f	70	game/g_4f0000.c	278	pending		
-0x4f08c0	Server_Tick	689	game/g_4f0000.c	304	pending		
+0x4f08c0	Server_Tick	689	game/g_4f0000.c	304	pending		ordem modelada em World.step: pensamento 0x56fe4d (t16≡6) → World_SecondTick (≡0xc) → Server_ClockTick; as mensagens do cliente vêm DEPOIS do pensamento (notes/residuo.md)
 0x4f0b71	FUN_004f0b71	246	game/g_4f0000.c	391	pending		
 0x4f0cbe	FUN_004f0cbe	4127	game/g_4f0000.c	450	pending		
 0x4f1cdd	FUN_004f1cdd	191	game/g_4f0000.c	917	pending		
@@ -216,8 +216,8 @@ addr	name	size	file	line	status	ts	note
 0x4f3d68	Cheat_CommandParser	4891	game/g_4f0000.c	2197	pending		
 0x4f5083	Cheat_LeadingCount	218	game/g_4f0000.c	2794	pending		
 0x4f515d	Server_PacketDispatcher	12585	game/g_4f0000.c	2842	review	orders.ts:clientOrder	só os case executados do pacote 3 (4/6/7/0xa/0xc) portados; demais NotPorted/out; sem pares diretos (provado pelos tratadores)
-0x4f84c6	Server_ClientMessages	50	game/g_4f0000.c	4174	pending		
-0x4f8521	Server_ClockTick	73	game/g_4f0000.c	4202	pending		
+0x4f84c6	Server_ClientMessages	50	game/g_4f0000.c	4174	pending		World.command(u, o, client=true): no passo com pensamento a mensagem espera em World.clientQueue; tratador 0x4f515d em exe/orders.ts (clientOrder); reenvio da mesma ordem também é tratado
+0x4f8521	Server_ClockTick	73	game/g_4f0000.c	4202	pending		World.step: relógio++, Server_ClientMessages (World.clientQueue esvaziada depois do pensamento), objetos de magia 0x52c279, unidades 0x52b459
 0x4f856a	FUN_004f856a	952	game/g_4f0000.c	4218	pending		
 0x4f8922	FUN_004f8922	69	game/g_4f0000.c	4315	pending		
 0x4f8967	FUN_004f8967	106	game/g_4f0000.c	4333	pending		

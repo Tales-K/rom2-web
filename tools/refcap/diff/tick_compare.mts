@@ -107,12 +107,14 @@ function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record
   const s = u.stats;
   // a ação é a do registro do exe (a máquina 0x50f12c portada a escreve; 0x10 na morte consumada); grupo dormindo pelo motor antigo
   const act = !w.awake(u) ? 27 : u.rec.act;
-  const o = u.order;
-  // a ordem de magia escrita da tarefa 8/9 do exe (AI_CastAtTarget, autocast) não muda a classe +0x50: o rótulo vem do registro
-  const tc = o.type === "cast" && o.exe ? TASK_CLASS[u.rec.task] ?? `#${u.rec.task}`
-    : o.type === "attack" ? "attack" : o.type === "cast" ? "cast" : o.type === "move" || o.type === "pickup" || o.type === "follow" || o.type === "retreat" || o.type === "patrol" ? "move" : "idle";
-  const armed = u.orderArmed;
-  const ot = o.type === "attack" ? o.target : o.type === "cast" ? o.target ?? 0 : 0;
+  // classe da tarefa (+0x50) do registro, com a mesma regra do lado do original (origFields) — não da ordem apresentada (`u.order`),
+  // que segue o registro um tique depois (o fim de caminho/a magia acabam a classe no despachante; a ordem acompanha no `act`)
+  const tc0 = TASK_CLASS[u.rec.task] ?? `#${u.rec.task}`;
+  const tc = tc0 === "idle" && (u.rec.ai.task === 5 || u.rec.ai.task === 6) && u.rec.ai.f0c ? "attack" : tc0;
+  // alvo: o mesmo campo do despejo do original (export_state.py: a unidade de IA+0xc, com IA+8 = 5/6/8 ou classe 8/0xd), lido do
+  // registro — não da ordem apresentada (a magia em si mesmo deixa IA+0xc no último alvo de ataque: m10_mage, T=609/749/885)
+  const tr = u.rec, targeted = tr.ai.task === 5 || tr.ai.task === 6 || tr.ai.task === 8 || tr.task === 8 || tr.task === 0xd;
+  const ot = targeted && tr.ai.f0c ? w.unitByAddr(tr.ai.f0c >>> 0)?.id ?? 0 : 0;
   const el = s.elemental ? [s.elemental.aBase, s.elemental.aRange, s.elemental.bBase, s.elemental.bRange, s.elemental.element] : [0, 0, 0, 0, 0];
   let effects = 0;
   for (const [bit, sid] of EFFECT_SPELL) if (u.buffs.some(b => Number(b.spell) === sid)) effects |= bit;
@@ -122,7 +124,7 @@ function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record
   const r = u.rec;
   return {
     type: u.typeId, player: u.player, x: u.cx, y: u.cy, fx: R256(u.x), fy: R256(u.y), hp: u.hp, hpmax: u.maxHp, mana: u.mana, manamax: u.maxMana,
-    act, task: tc, target: armed ? oid(ot) : 0, dir16: (u.dir + 8) % 16,
+    act, task: tc, target: oid(ot), dir16: (u.dir + 8) % 16,
     speed_eff: Math.round(s.speed * 16), scan: Math.floor(s.sight), toHit: s.attack, dmin: s.damage.min, dmax: s.damage.max, defense: s.defense, absorb: s.absorption + w.exeFxSum(u, "absorption"),
     range: s.range, turn: s.turnSpeed ?? Math.round(s.speed * 16), withdraw: u.withdrawHp, wimpy: u.wimpyHp, charge: s.charge ?? 0, relax: s.relax ?? 0,
     eldmg: el.join(","), hpregen: s.healthRegen ?? 0, manaregen: s.manaRegen ?? 0, effects, summoner: oid(u.summoner),
@@ -227,7 +229,7 @@ function runActions(imp: Imported, w: World, acts: Action[], sel: Unit[], heroOr
     const us = Array.isArray(a.unit) ? a.unit.map(ref) : a.unit !== undefined ? [ref(a.unit)] : sel;
     const list = us.filter((u): u is Unit => !!u && u.alive);
     if (a.do === "select") { sel = list; continue; }
-    for (const u of list) { const o = orderOf(w, a as Any, u, ref); if (o) w.command(u, o); }
+    for (const u of list) { const o = orderOf(w, a as Any, u, ref); if (o) w.command(u, o, true); }
   }
   return sel;
 }
@@ -248,7 +250,8 @@ function resumeCast(imp: Imported, w: World, st: Any, script: Action[], T: numbe
   if (!hs || !hero || !last || last.do !== "cast" || (hs.task !== 0xd && hs.task !== 0xe)) return;
   const ref = (v: number | string | undefined) => { const id = imp.idmap.get(v === "hero" ? heroOrig : Number(v)); return id !== undefined ? w.get(id) : undefined; };
   const o = orderOf(w, last as Any, hero, ref);
-  if (o) { w.command(hero, o); hero.orderArmed = hs.mode !== 0; }
+  // a ordem chegou no tique do roteiro (`last.t`), não agora: com IA+8 = 0 ela espera o pensamento, que a pega se chegou ≥ 2 tiques antes
+  if (o) { w.command(hero, o); hero.orderArmed = hs.mode !== 0; if (!hero.orderArmed) hero.orderTick = w.tick - (T - last.t); }
 }
 
 interface Agg {

@@ -83,7 +83,7 @@ export function runWindows(imp: Imported, base: OrigState, states: Map<number, O
     const lastCast = [...spec.actions].filter(a => a.t < win.start && (a.do === "cast" || a.do === "attack" || a.do === "move" || a.do === "stop")).pop();
     // 0xd = magia na unidade, 0xe = magia no PONTO (andando até o alcance, modo 9): as duas são retomadas (GRUPO-ALAVANCAS: o herói a caminho
     // de lançar Fireball/Blizzard no começo da janela ficava ocioso no nosso lado)
-    if (hs && (hs.task === 0xd || hs.task === 0xe) && lastCast?.do === "cast" && sel[0]) { const o = orderOf(w, lastCast, sel[0], ref); if (o) { w.command(sel[0], o); sel[0].orderArmed = hs.mode !== 0; } }
+    if (hs && (hs.task === 0xd || hs.task === 0xe) && lastCast?.do === "cast" && sel[0]) { const o = orderOf(w, lastCast, sel[0], ref); if (o) { w.command(sel[0], o); sel[0].orderArmed = hs.mode !== 0; if (!sel[0].orderArmed) sel[0].orderTick = w.tick - (win.start - lastCast.t); } }
     const acts = spec.actions.filter(a => a.t >= win.start && a.t < win.end).sort((a, b) => a.t - b.t);
     const frame = (step: number) => {
       const units = [];
@@ -107,7 +107,7 @@ export function runWindows(imp: Imported, base: OrigState, states: Map<number, O
         const us = Array.isArray(a.unit) ? a.unit.map(ref) : a.unit !== undefined ? [ref(a.unit)] : sel;
         const list = us.filter((u): u is Unit => !!u && u.alive);
         if (a.do === "select") { sel = list; continue; }
-        for (const u of list) { const o = orderOf(w, a, u, ref); if (o) w.command(u, o); }
+        for (const u of list) { const o = orderOf(w, a, u, ref); if (o) w.command(u, o, true); }
       }
       w.step();
       imp.r.b.runtime?.update(1 / TICKS_PER_SEC);

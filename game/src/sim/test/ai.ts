@@ -362,7 +362,8 @@ console.log("\n[magias] efeitos");
     w.command(h, { type: "cast", spell: String(id), target: target?.id, x, y });
     // até 8 s: o andar segue o passo do exe por trecho (diagonal = trunc(passo×0,707) por eixo), um pouco mais lento; a magia em
     // unidade para onde o exe para (0x56ebc0: de frente e a AI_UnitDistance ≤ alcance), então o Teleport seguinte parte de mais longe
-    run(w, sec(8), () => h.order.type === "none" && h.state === "idle");
+    // (a ordem de magia em unidade acaba quando a magia COMEÇA — 0x56e906 → Stand ground: espera também a sub-ação IA+9 acabar)
+    run(w, sec(8), () => h.order.type === "none" && h.state === "idle" && h.rec.ai.sub === 0);
   };
   const hpA = a.hp, hpB = b.hp, hpF = far.hp;
   h.x = 14.5; w.teleport(h, 14, 20);
@@ -390,7 +391,7 @@ console.log("\n[magias] efeitos");
   // a pedra pode acabar antes do fim da espera do lançamento (duração curta com este poder): vale ter petrificado durante o lançamento
   let stoned = false;
   { h.mana = h.maxMana = 5000; h.cooldown = 0; w.command(h, { type: "cast", spell: String(SPELL.StoneCurse), target: far.id });
-    run(w, sec(6), () => { if (w.exeFxHas(far, SPELL.StoneCurse)) stoned = true; return h.order.type === "none" && h.state === "idle"; }); }
+    run(w, sec(6), () => { if (w.exeFxHas(far, SPELL.StoneCurse)) stoned = true; return h.order.type === "none" && h.state === "idle" && h.rec.ai.sub === 0; }); }
   check(stoned, "Stone Curse petrifica");
   const aHp = a.hp; h.hp = 1;
   // com 1 PV a Retreat Mode (fuga do exe, LAB) faria o herói se teletransportar em vez de lançar: aqui só o Drain Life importa

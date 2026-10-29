@@ -62,3 +62,7 @@ relax, eldmg, hpregen, manaregen`), `effects` (só os bits de `EFFECT_SPELL`), `
 - `look_wait` (giro do olhar em volta) é deduzido do traço de todo tique (tiques até a ação voltar a 0, menos 1).
 - Alterações em arquivos compartilhados (sem mudar a lógica do motor): `import_state.ts` ganhou `opts.diplomacy` (copia a matriz do estado; só a
   tickcmp liga); `diff_window.ts` agora exporta `orderOf`.
+- 29/10 (`notes/residuo.md`): `task` (classe) e `target` do nosso lado vêm do REGISTRO (+0x50; unidade de IA+0xc com IA+8 = 5/6/8 ou
+  classe 8/0xd), com a mesma regra do lado do original — não da ordem apresentada (`u.order`, que segue o registro um tique depois). As
+  ordens do roteiro entram como mensagens do cliente (`w.command(u, o, true)`: reenvio tratado; antes de um passo com pensamento,
+  depois dele) e a magia retomada na importação leva a idade da ordem do roteiro.
