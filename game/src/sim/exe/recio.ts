@@ -65,6 +65,10 @@ export interface UnitRecJson {
   pt?: number[];
   /** livro+0x18: último índice consultado (0x51c391) */
   bl?: number;
+  /** +0x20: os efeitos com duração (endereços das cargas, na ordem; as cargas vão em `SpellObjsJson.p`) — ausente em saves antigos */
+  fx?: number[];
+  /** o bônus do golpe +0xe6 e da defesa +0xfe e as habilidades-base +0x116 (0x51d436/0x51366b) — ausente em saves antigos */
+  bx?: { d: Record<string, number>; ds: number[]; e: Record<string, number>; ep: number[]; er: number[]; sb: number[] };
   /** livro: a instância de cada magia [índice, +9, +0xe, +0xf, +0x10] (Spell_Instance 0x5195b1) — ausente em saves antigos */
   bi?: [number, number, number, number, number][];
   /** +0x68 item em uso: 1 = a arma equipada (+0x74, o cajado no meio da magia dele); ausente/0 = nenhum */
@@ -81,10 +85,18 @@ export function unitRecToJson(r: UnitRec): UnitRecJson {
     ps: listVals(r.pathStatic), pd: listVals(r.pathDynamic), pt: listVals(r.ai.patrol), bl: r.book.last,
     bi: r.book.spells.flatMap((s, i) => (s ? [[i, s.range, s.f0e, s.f0f, s.f10] as [number, number, number, number, number]] : [])),
     i68: r.f68 !== null && r.f68 === r.f74 ? 1 : 0,
+    fx: r.fx.values(),
+    bx: { d: scalarFields(r.bdmg), ds: [...r.bdmg.sk], e: scalarFields(r.bdef), ep: [...r.bdef.prot], er: [...r.bdef.resist], sb: [...r.skBase] },
   };
 }
 
 export function unitRecFromJson(r: UnitRec, j: UnitRecJson): void {
+  r.fx.removeAll();
+  for (const a of j.fx ?? []) r.fx.addTail(a);
+  if (j.bx) {
+    Object.assign(r.bdmg, j.bx.d); r.bdmg.sk.set(j.bx.ds); Object.assign(r.bdef, j.bx.e); r.bdef.prot.set(j.bx.ep); r.bdef.resist.set(j.bx.er);
+    r.skBase.set(j.bx.sb);
+  }
   const o = r.mapObj;
   [o.x, o.y, o.fx, o.fy] = j.m;
   o.cell = ((o.y << 8) | o.x) & 0xffff;

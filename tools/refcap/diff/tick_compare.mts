@@ -116,13 +116,14 @@ function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record
   const el = s.elemental ? [s.elemental.aBase, s.elemental.aRange, s.elemental.bBase, s.elemental.bRange, s.elemental.element] : [0, 0, 0, 0, 0];
   let effects = 0;
   for (const [bit, sid] of EFFECT_SPELL) if (u.buffs.some(b => Number(b.spell) === sid)) effects |= bit;
+  effects |= w.exeFxBits(u);   // etapa 8b, lote 4: os efeitos da lista +0x20 do exe (o Shield)
   const oid = (id: number) => (id ? rev.get(id) ?? -id : 0);
   const base = w.t16base ?? 0;
   const r = u.rec;
   return {
     type: u.typeId, player: u.player, x: u.cx, y: u.cy, fx: R256(u.x), fy: R256(u.y), hp: u.hp, hpmax: u.maxHp, mana: u.mana, manamax: u.maxMana,
     act, task: tc, target: armed ? oid(ot) : 0, dir16: (u.dir + 8) % 16,
-    speed_eff: Math.round(s.speed * 16), scan: Math.floor(s.sight), toHit: s.attack, dmin: s.damage.min, dmax: s.damage.max, defense: s.defense, absorb: s.absorption,
+    speed_eff: Math.round(s.speed * 16), scan: Math.floor(s.sight), toHit: s.attack, dmin: s.damage.min, dmax: s.damage.max, defense: s.defense, absorb: s.absorption + w.exeFxSum(u, "absorption"),
     range: s.range, turn: s.turnSpeed ?? Math.round(s.speed * 16), withdraw: u.withdrawHp, wimpy: u.wimpyHp, charge: s.charge ?? 0, relax: s.relax ?? 0,
     eldmg: el.join(","), hpregen: s.healthRegen ?? 0, manaregen: s.manaRegen ?? 0, effects, summoner: oid(u.summoner),
     post: cellCode(u.home), unreach: u.unreachSec, flee_cell: u.fleeCell, hit_clock16: u.hitClock16, look_hit: u.rec.ai.f54 ? 1 : 0,

@@ -16,6 +16,8 @@ import { NotPorted, unitRemoveFromCells } from "./walk_action";
 import { mapObjCenterFraction } from "./walk";
 import { randInclusive } from "./rand";
 import { vt4c } from "./vtables";
+import { unitEffectsOnDie } from "./effects";
+import type { CombatHooks } from "./combat";
 import { EXE_GLOBALS, type UnitRec, type WorldRec } from "./types";
 
 /** Ganchos da morte para o que vive no motor antigo (mochila, saque, loja, efeitos) e para a apresentação. Sem gancho → NotPorted. */
@@ -103,7 +105,8 @@ export function unitDie(wd: WorldRec, u: UnitRec, h: DieHooks = {}): void {
     if (!h.sackDrop) throw new NotPorted("0x5109f5");
     h.sackDrop(u, local_14, local_d0);
   }
-  h.effectsOnDie?.(u);   // laço dos efeitos +0x20: sem gancho a lista espelhada está vazia
+  unitEffectsOnDie(wd, u, h as CombatHooks);   // laço dos efeitos +0x20 (exe/effects.ts): +0x42 = 1 e um tique em cada
+  h.effectsOnDie?.(u);   // não é do exe: os `buffs` do motor antigo
   if ((u.owner.f38 >>> 0) !== 0 && (u.owner.f38 >>> 0) === (u.addr >>> 0)) {
     u.owner.fa54 = (u.owner.fa54 + 1) | 0;
     h.heroDied?.(u);   // stub: cliente (Server_Event 0x2400000) e perfil do herói em arquivo (0x4e9e97)

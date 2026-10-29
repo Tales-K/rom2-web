@@ -141,6 +141,18 @@ export interface UnitInit {
   isHero?: boolean;
 }
 
+/** Nome do tipo de efeito do exe (tabela 0x5f8f50) por efeito do motor antigo (`bookSpellRec` sem a tabela Spells). */
+const FX_NAME: Partial<Record<string, string>> = {
+  absorption: "absorbtion", defense: "defence", attack: "tohit", speed: "speed", sight: "scanrange", "resist.fire": "protectionfire",
+  "resist.water": "protectionwater", "resist.air": "protectionair", "resist.earth": "protectionearth", "resist.astral": "protectionastral",
+};
+
+/** Efeito do motor antigo por tipo de efeito do exe (+0x3c: tabela 0x5f8f50). */
+const FX_KIND: Partial<Record<number, BuffKind>> = {
+  0xc: "attack", 0xf: "defense", 0x10: "absorption", 0x11: "speed", 0x13: "sight", 0x15: "resist.fire", 0x16: "resist.water",
+  0x17: "resist.air", 0x18: "resist.earth", 0x19: "resist.astral",
+};
+
 /** Efeito temporário numa unidade (`until` em tiques). Shield antigo = `absorption`. */
 export interface Buff {
   kind: BuffKind;
@@ -923,7 +935,11 @@ export class World {
     const row = this.spellTable?.[String(id)];
     if (row) {
       r.def.set(spellDefColumns(row));
+      r.effText = String(row.effects ?? "");   // definição+0x1c: o texto do efeito (0x51caa0 → 0x51e8fa)
     } else {
+      // [est] sem a tabela: o texto do efeito montado dos efeitos da SpellDef (tipos de 0x5f8f50)
+      const fx = (s.effects ?? []).map(e => `${FX_NAME[e.kind] ?? "unused_value_0"}=${e.amount}:duration ${Math.round(s.duration)}`);
+      r.effText = fx[0] ?? "";
       const k = powerScale(s.power ?? 0);
       r.def[0] = s.level | 0; r.def[1] = Math.round(s.mana) | 0; r.def[2] = SPHERE_INDEX[s.element] ?? 0;
       r.def[4] = s.target === "point" || s.target === "self" ? 0 : 1;
@@ -1453,6 +1469,8 @@ export class World {
       for (const b of u.buffs) { const id = Number(b.spell); if (id >= 1 && id < 32) e |= 1 << id; }
       // a invisibilidade dada pelo script (missão 77, `spell: "ritual"`) também é o efeito 0xc (AI_EnemyFilter 0x567a16 testa 0x1000)
       if (u.buffs.some(b => b.kind === "invisible")) e |= 1 << SPELL.Invisibility;
+      // os efeitos da lista +0x20 do exe (0x51ce12 liga o bit, 0x51cc9f o apaga)
+      e |= this.exeFxBits(u);
       r.effects = e >>> 0;
     }
   }
@@ -1641,7 +1659,26 @@ export class World {
   private buffSum(u: Unit, kind: BuffKind): number {
     let s = 0;
     for (const b of u.buffs) if (b.kind === kind) s += b.amount;
+    return s + this.exeFxSum(u, kind);
+  }
+  /** Os efeitos com duração da lista +0x20 do exe (etapa 8b, lote 4: o Shield) no atributo `kind` do motor antigo: valor +0x40 dos que
+   *  valem (nem acabados, +0x3d & 0x80, nem com a duração acabando agora: 0x51cc9f tira o efeito com +0x42 = 0). */
+  exeFxSum(u: Unit, kind: BuffKind): number {
+    const l = u.rec.fx;
+    if (!l.count) return 0;
+    let s = 0;
+    for (const a of l.values()) {
+      const e = this.exeWorld.payloads.get(a >>> 0);
+      if (!e || (e.f3d & 0x80) || ((e.f3d & 1) && (e.f42 & 0xffff) === 0) || FX_KIND[e.f3c & 0xff] !== kind) continue;
+      s += (e.f40 << 16) >> 16;
+    }
     return s;
+  }
+  /** Os bits +0x144 (1 << id da magia) dos efeitos da lista +0x20 do exe que não acabaram. */
+  exeFxBits(u: Unit): number {
+    let e = 0;
+    for (const a of u.rec.fx.values()) { const fx = this.exeWorld.payloads.get(a >>> 0); if (fx && !(fx.f3d & 0x80)) e |= 1 << (fx.fc & 0x1f); }
+    return e >>> 0;
   }
   /** absorção/defesa/ataque efetivos (com efeitos temporários); a defesa cai pela metade enquanto a unidade morre [exe] */
   absorptionOf(u: Unit): number { return u.stats.absorption + this.buffSum(u, "absorption"); }
@@ -2043,6 +2080,15 @@ export class World {
       u.gold = 0; u.items = [];
     },
     effectsOnDie: r => { const u = this.unitByAddr(r.addr); if (u) u.buffs = []; },
+    // vtable+0x58 (0x51366b, portado e provado em exe/effects.ts): no mundo os atributos ainda são do motor antigo (`syncCombat`, que soma
+    // os efeitos da lista +0x20 em `buffSum`)
+    recompute: r => { const u = this.unitByAddr(r.addr); if (u) this.syncCombat(u); },
+    clientEffect: (r, id, type, v, on) => {
+      const u = this.unitByAddr(r.addr);
+      if (!u) return;
+      this.events.push({ type: "effect", unit: u.id, spell: String(id), kind: FX_KIND[type] ?? "absorption", on });
+      if (on && id === SPELL.Shield) this.events.push({ type: "buff", unit: u.id, spell: String(id), amount: v });
+    },
     onDieHuman: () => { /* 0x512697: o equipamento já está na mochila do motor antigo */ },
     // Unit_Die de quem ainda estava de pé (desgaste das invocações em World_SecondTick): a queda da apresentação antes da morte consumada
     died: r => { const u = this.unitByAddr(r.addr); if (u) { if (u.alive) this.fall(u); this.consumeDeath(u); } },

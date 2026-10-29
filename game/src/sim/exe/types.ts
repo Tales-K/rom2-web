@@ -205,6 +205,7 @@ export class PlayerRec {
   f38 = 0;        // +0x38 u32 unidade-herói do jogador (endereço; 0x50f12c, 0x510a70)
   f40 = 0;        // +0x40 u8  (0x510a70: id do modelo − 0x13)
   fa54 = 0;       // +0xa54 i32 contagem de mortes do herói (0x510a70)
+  fa5c = 0;       // +0xa5c i32 % da mana máxima que vira +0xa0 da unidade (0x51366b)
 }
 
 /** Colunas da definição de magia (tabela Spells de data.bin; `BookSpellRec.def`). */
@@ -229,6 +230,8 @@ export class BookSpellRec {
    *  0xd aplicação, 0xe duração, 0xf frequência, 0x10/0x11 dano mínimo/máximo (−1 = sem dano), 0x12 defensiva, 0x13 desvio de
    *  habilidade, 0x14/0x15 preços */
   def = new Int32Array(SPELL_DEF_N);
+  /** definição+0x1c CString: o texto do efeito da tabela Spells de data.bin ("absorbtion=+5:duration 30"; 0x51caa0 → 0x51e8fa) */
+  effText = "";
   get def0(): number { return this.def[0]!; }
   set def0(v: number) { this.def[0] = v; }
   get def4(): number { return this.def[4]!; }
@@ -282,6 +285,21 @@ export class DmgRec {
   elK = 0;        // +0x15 u8  elemento de B (1 fogo, 2 água, 3 ar, 4 terra, 5 astral) e do golpe (unidade+0x48 da vítima)
 }
 
+/** Bloco de defesa (unidade+0xbe próprio, +0xfe bônus; 0x16 bytes): defesa, absorção, proteções i16[6], resistências u8[6]. O da unidade
+ *  está espalhado em `UnitRec.fbe/fc0/prot/resist`; este é o do bônus (+0xfe). */
+export class DefRec {
+  def = 0;        // +0x00 i16 defesa
+  abs = 0;        // +0x02 i16 absorção
+  prot = new Int16Array(6);    // +0x04 i16[6] proteções (0 .. 5 astral)
+  resist = new Uint8Array(6);  // +0x10 u8[6] resistências físicas
+}
+
+/** Alvo do ponteiro unidade+0x7c (0x51366b só lê [+0x20], o peso carregado). [est: o inventário] */
+export class Obj7cRec {
+  addr = 0;
+  f20 = 0;        // +0x20 i32 peso
+}
+
 /** Livro de magias (alvo do ponteiro unidade+0x140): CArray<BookSpellRec*> em +4 (m_pData +8, m_nSize +0xc). */
 export class SpellBookRec {
   spells: (BookSpellRec | null)[] = []; // +0x04 CArray (ponteiro nulo = slot vazio; índice = id da magia; 28 slots nas imagens do oráculo)
@@ -302,6 +320,9 @@ export class UnitRec {
   f0e = 0;                     // +0x00e u16 id do modelo (0x510a70: ≥ 0x40 monstro com saque; 0x5110b8: 0x21..0x24 param em −60)
   mapObj: MapObjRec = new MapObjRec(); // +0x010 ptr objeto de mapa
   owner: PlayerRec = new PlayerRec();  // +0x014 ptr dono
+  /** +0x020 CList<void*> dos efeitos com duração (cargas "Effect" 0x5d1178, `SpellPayloadRec` por endereço em `WorldRec.payloads`):
+   *  0x50f12c anda vtable+0x38 (0x51cc9f) de cada um e tira o que acabou (0x542540 → 0x53af60); 0x51ce12 acrescenta/funde; Unit_Die os encerra */
+  fx = new CListPtr();
   tpl: TemplateRec | null = null;      // +0x03c ptr modelo (0x542560: nulo → sem despachante/sem marcar o agressor)
   f40 = 0;                     // +0x040 u32 quem deu o último golpe (endereço; 0x516f6f)
   f44 = 0;                     // +0x044 u32 magia do livro escolhida para a ordem de lançar do cliente (endereço do BookSpellRec; o despachante de pacotes 0x4f515d a põe, 0x5702be a usa e zera)
@@ -323,17 +344,26 @@ export class UnitRec {
   type: UnitTypeRec = new UnitTypeRec(); // +0x070 ptr tipo da unidade
   f74: ItemRec | null = null;  // +0x074 ptr arma equipada (0x50f12c, 0x516ceb)
   f78: ItemRec | null = null;  // +0x078 ptr escudo/item solto ao morrer (0x510a70)
+  /** +0x07c ptr (0x51366b: [+0x20] i32 peso carregado → +0x90; nulo = nada) */
+  f7c: Obj7cRec | null = null;
+  f84 = 0;                     // +0x084 i16 Body (0x51366b: vida máx., carga, dano; 0x51d436 tipo 2)
   f86 = 0;                     // +0x086 i16 Reaction (espera extra da arma em 0x50f12c)
   f88 = 0;                     // +0x088 i16 Mind (AI_TargetCost 0x5711ea: > 14 pesa o custo das classes 1 e 4)
+  f8a = 0;                     // +0x08a i16 Spirit (0x51366b: mana máx., proteções)
   speed = 0;                   // +0x08c i16 velocidade da unidade (0x55915a)
+  f8e = 0;                     // +0x08e i16 carga-base (0x51366b: +0x90 = +0x8e + peso ÷ 2)
+  f90 = 0;                     // +0x090 i16 carga (≥ +0x92 tira velocidade: 0x51366b)
+  f92 = 0;                     // +0x092 i16 carga máxima (Body × 10 + 1 + bônus)
   f94 = 0;                     // +0x094 i16 vida (0x516ceb subtrai o dano; < 1 → queda em 0x50f12c; 0x56fc69)
   f96 = 0;                     // +0x096 i16 vida máxima (0x57977a)
   f98 = 0;                     // +0x098 i16 período da regeneração de vida (0 = não regenera; 0x50fc5a)
   mana = 0;                    // +0x09a i16 mana (comparada ao custo da magia em 0x56ac5b; 0x50fc5a regenera)
   f9c = 0;                     // +0x09c i16 mana máxima (0x50fc5a)
   f9e = 0;                     // +0x09e i16 período da regeneração de mana (0x50fc5a divide por ele sem testar 0)
+  fa0 = 0;                     // +0x0a0 i16 mana máx. × dono+0xa5c ÷ 100 (0x51366b)
   fa2 = 0;                     // +0x0a2 u8  resto (centésimos) da regeneração de vida (0x50fc5a)
   fa3 = 0;                     // +0x0a3 u8  resto (centésimos) da regeneração de mana (0x50fc5a)
+  fa4 = 0;                     // +0x0a4 i16 visão × 256 ((Mind + Reaction) / 25 + 4) × 256 (0x51366b; Light/Darkness/scanRange ±0x100)
   fa5 = 0;                     // +0x0a5 u8  visão em células (Vision_Compute 0x552c28: orçamento (visão << 7) + 64; 0x56fa63)
   dmg: DmgRec = new DmgRec();  // +0x0a6 atributos do golpe (ponteiro passado a 0x516f6f)
   fbe = 0;                     // +0x0be i16 defesa (0x516f6f; ÷ 2 na queda, 0x50f12c)
@@ -342,8 +372,25 @@ export class UnitRec {
   prot = new Int16Array(6);
   /** +0x0ce u8[6] resistências físicas por tipo de arma (índice DmgRec.wtype; 0x516f6f) */
   resist = new Uint8Array(6);
+  /** +0x0d4..+0x115 bônus de itens e efeitos (0x51d436 soma, 0x51366b aplica pelo 0x5113e7): +0xd4..+0xd7 i8 Body/Reaction/Mind/Spirit
+   *  (teto dos atributos), +0xd8 velocidade, +0xda carga máx., +0xdc vida máx., +0xde/+0xe2 regeneração, +0xe0 mana máx., +0xe4 visão,
+   *  +0xe6 golpe (`bdmg`), +0xfe defesa (`bdef`) */
+  fd4 = 0;                     // +0x0d4 i8  Body
+  fd5 = 0;                     // +0x0d5 i8  Reaction
+  fd6 = 0;                     // +0x0d6 i8  Mind
+  fd7 = 0;                     // +0x0d7 i8  Spirit
+  fd8 = 0;                     // +0x0d8 i16 velocidade (0x51d436: > 24 → 0; 0x5113e7: velocidade < 0 → 0)
+  fda = 0;                     // +0x0da i16 carga máxima
+  fdc = 0;                     // +0x0dc i16 vida máxima
   fde = 0;                     // +0x0de i16 bônus % da regeneração de vida (0x50fc5a: × (bônus + 100))
+  fe0 = 0;                     // +0x0e0 i16 mana máxima
   fe2 = 0;                     // +0x0e2 i16 bônus % da regeneração de mana (0x50fc5a)
+  fe4 = 0;                     // +0x0e4 i16 visão × 256
+  bdmg: DmgRec = new DmgRec(); // +0x0e6 golpe (0x515a6c soma em +0xa6: ataque, dano, elementos; +0xfb atribui o elemento)
+  bdef: DefRec = new DefRec(); // +0x0fe defesa, absorção, proteções, resistências (0x515617 soma em +0xbe)
+  /** +0x116 i16[6] habilidades-base ([1..5] fogo..astral em +0x118..+0x120; 0x51366b as copia para +0xaa..) */
+  skBase = new Int16Array(6);
+  f130 = 0;                    // +0x130 i32 experiência (0x51366b: nível = log(exp/5000 + 1) / log 1,1)
   attackRange = 0;             // +0x12c u8  alcance sem magia (0x56ac5b, 0x516ceb)
   f134 = 0;                    // +0x134 u8  charge: tiques da fase 5 (0x50f12c)
   f135 = 0;                    // +0x135 u8  relax: tiques da fase 7 (0x50f12c)
@@ -411,10 +458,12 @@ export class SpellPayloadRec {
   f14 = 0;                             // +0x14 u32 0
   f18 = 0;                             // +0x18 u16 0 (0x50d6ae)
   f1c = 0;                             // +0x1c u32 0 (0x50d6ae)
-  f3c = 0;                             // +0x3c u8
-  f3d = 0;                             // +0x3d u8  bits (|= [0x5d07e0] nos efeitos com duração; 0x51cc53)
-  f40 = 0;                             // +0x40 i16 magnitude (Shield: poder/10 + 3; os construtores zeram +0x40..+0x43 de uma vez)
-  f42 = 0;                             // +0x42 i16 duração em tiques de 16/s (0x51cc9f desconta)
+  f3c = 0;                             // +0x3c u8  tipo do efeito: índice na tabela de nomes 0x5f8f50 (0x10 "absorbtion"; 0x51d436)
+  /** +0x3d u8 bits: 1 [0x5d07e0] com duração, 2 [0x5d07e4] contínuo (vtable+0x40 a cada 8 tiques), 4 [0x5d07e8] por cargas, 8 [0x5d07ec]
+   *  sem teto de atributo, 0x80 [0x5d07f0] acabou (0x542540: o laço da máquina tira da lista) */
+  f3d = 0;
+  f40 = 0;                             // +0x40 i16 magnitude (Shield: poder/10 + 3; os construtores zeram +0x40..+0x43 de uma vez; i32 sem os bits 1|2|4)
+  f42 = 0;                             // +0x42 u16 duração em tiques de 16/s (0x51cc9f desconta se < 0x2581)
   f44 = 0;                             // +0x44 u32 quem lançou (endereço; 0 se sem modelo, 0x542560)
   dmg: DmgRec = new DmgRec();          // +0x48 atributos do dano (só Effect_DirectDamage; 0x51583b zera, 0x543040.. põem +0x5b..+0x5d)
 }

@@ -39,6 +39,7 @@
  *    cliente 0x504b1d, stub `clientSpellHit`). Carga "Effect" (0x51ce12) e SpellArea (0x517cfe): NotPorted.
  */
 import { fn_0x53a5a0 } from "./action";
+import { deletePayload as deleteFx, fn_0x51ce12, spellApplyShield } from "./effects";
 import { fn_0x5106d2, fn_0x542560, fn_0x56e6b8, unitPhysicalDamage, type CombatHooks } from "./combat";
 import { CListPtrIter } from "./mfc";
 import { crtFtol, mapObjFineX, mapObjFineY, unitCenterX, unitCenterY, vtGetSize } from "./path";
@@ -68,6 +69,12 @@ export interface SpellHooks {
   clientMissile?(spell: number, u: UnitRec, t: UnitRec, ticks: number): void;
   /** Spell_CasterPower 0x519483 + Spell_PrismaticSpray 0x519c04 (exec 0 no corpus): o jato sai já no gasto (motor antigo). */
   spellPrismatic?(spell: number, u: UnitRec, t: UnitRec | null, x: number, y: number): void;
+  /** vtable+0x58 da unidade (recálculo dos atributos, 0x51366b nos humanos) depois de um efeito mudar (0x51d436): no mundo o motor antigo
+   *  ainda é dono dos atributos (`syncCombat`); sem gancho, a porta (exe/effects.ts). */
+  recompute?(u: UnitRec): void;
+  /** não é do exe: os avisos ao cliente de efeito com duração (0x5044ba novo, Server_Event na fusão, 0x504498 acabou): a apresentação.
+   *  `id` = magia (+0xc), `type` = tipo (+0x3c), `v` = valor (+0x40). */
+  clientEffect?(u: UnitRec, id: number, type: number, v: number, on: boolean): void;
   /** efeitos do tipo `type` da lista +0x20 marcados para acabar (+0x42 = 1; os efeitos ainda são os `buffs` do motor antigo). */
   effectExpire?(u: UnitRec, type: number): void;
   /** não é do exe: o pacote 0x86/0x8b ao cliente (0x5041d6/0x5042ba → 0x503bef) — a apresentação começa a magia. */
@@ -199,7 +206,7 @@ export function spellProjectileDist(a: MapObjRec, b: MapObjRec): number {
 
 /** Base dos objetos de magia 0x50d493 (fastcall): +0x14 = 0, objeto de mapa novo (0x54fa22: célula 0, +8 = o mapa [0x670e48]),
  *  0x50d6ae (+0x18 = 0, +0x1c = 0, +4 = 0). */
-function objBase(wd: WorldRec, o: SpellPayloadRec | SpellObjRec): void {
+export function objBase(wd: WorldRec, o: SpellPayloadRec | SpellObjRec): void {
   o.f14 = 0;
   o.mapObj = mapObjInitPacked16(new MapObjRec(), 0, wd.map.addr);
   o.f18 = 0; o.f1c = 0; o.f04 = 0;
@@ -292,7 +299,7 @@ export function fn_0x518d1e(wd: WorldRec, param_1: SpellObjRec, param_2: MapObjR
  *  ≠ 0) é o do exe; aqui vale o da definição ([0x10] ou [0x11] > 0 ⇒ instância ≠ 0, salvo o byte que dá a volta: NotPorted). */
 export function spellApplyPorted(s: BookSpellRec): boolean {
   const id = s.id & 0xff;
-  if (id === 0x18) return true;
+  if (id === 0x18 || id === 0x1b) return true;
   if (id === 0x1a || id === 0) return false;
   return ((s.def[0x10]! | 0) > 0 || (s.def[0x11]! | 0) > 0) && (s.def[8]! | 0) === 1;
 }
@@ -375,6 +382,9 @@ export function spellApply(wd: WorldRec, s: BookSpellRec, param_1: UnitRec, para
         }
         return;
       }
+      case 0x1b:
+        local_48 = spellApplyShield(wd, s, local_44);   // lote 4: carga "Effect" com duração (exe/effects.ts)
+        break;
       default:
         // dano da instância 0 com a definição com dano (o byte deu a volta) ou caso fora de `spellApplyPorted`: exec 0
         throw new NotPorted(`0x519db8 (magia 0x${id.toString(16)})`);
@@ -410,7 +420,7 @@ export function spellApply(wd: WorldRec, s: BookSpellRec, param_1: UnitRec, para
 /** Destruição pela vtable+4(1): 0x542e30 → 0x518e30 (projétil: destrói os filhos +0x48/+0x4c), 0x542d20 → 0x517aa0 (preso: destrói a
  *  carga +0x4c), 0x543330/0x543300 (cargas) → 0x50d6d6 (base: o objeto de mapa); 0x401860 libera. */
 function deletePayload(wd: WorldRec, a: number): void {
-  wd.payloads.delete(a >>> 0);
+  deleteFx(wd, a);
 }
 function deleteSpellObj(wd: WorldRec, o: SpellObjRec): void {
   if (o.vtbl === VT_TRANSPORT) {
@@ -437,10 +447,11 @@ export function fn_0x518efd(wd: WorldRec, o: SpellObjRec): void {
   }
 }
 
-/** vtable+0x3c da carga (aplicar no alvo): 0x51e65b no dano; 0x51ce12 no efeito (NotPorted). */
+/** vtable+0x3c da carga (aplicar no alvo): 0x51e65b no dano; 0x51ce12 no efeito com duração (exe/effects.ts). */
 function payloadApply(wd: WorldRec, p: SpellPayloadRec, t: UnitRec, h: CombatHooks): void {
   if (p.vtbl === VT_DIRECT_DAMAGE) fn_0x51e65b(wd, p, t, h);
-  else throw new NotPorted("0x51ce12");
+  else if (p.vtbl === VT_EFFECT) fn_0x51ce12(wd, p, t, h);
+  else throw new NotPorted(`carga vtable 0x${p.vtbl.toString(16)}`);
 }
 
 /** 0x51e65b (thiscall; vtable+0x3c do dano; alvo): unidade (vtable+0x2c) → dano = vtable+0x54 (Unit_PhysicalDamage 0x516f6f nas três

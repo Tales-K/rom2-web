@@ -283,8 +283,8 @@ addr	name	size	file	line	status	ts	note
 0x5041d6	FUN_005041d6	228	game/g_500000.c	3263	ported	spells.ts:clientSpellPacket	pacote ao cliente = stub; +0x138 (vtable+0x2c) provado nos pares de 0x519998 (9/9)
 0x5042ba	FUN_005042ba	215	game/g_500000.c	3299	ported	spells.ts:clientSpellPacket	pacote ao cliente = stub; +0x138 (vtable+0x2c) provado nos pares de 0x519998 (9/9)
 0x504391	FUN_00504391	263	game/g_500000.c	3331	pending		
-0x504498	FUN_00504498	34	game/g_500000.c	3372	pending		
-0x5044ba	FUN_005044ba	106	game/g_500000.c	3382	pending		
+0x504498	FUN_00504498	34	game/g_500000.c	3372	out		cliente: aviso do efeito (stub; gancho clientEffect)
+0x5044ba	FUN_005044ba	106	game/g_500000.c	3382	out		cliente: aviso do efeito (stub; gancho clientEffect)
 0x5045a5	FUN_005045a5	616	game/g_500000.c	3418	pending		
 0x50480d	FUN_0050480d	488	game/g_500000.c	3486	pending		
 0x5049f5	FUN_005049f5	195	game/g_500000.c	3549	pending		
@@ -355,7 +355,7 @@ addr	name	size	file	line	status	ts	note
 0x50d549	FUN_0050d549	179	game/g_500000.c	9591	ported	pointEffectBase	base com objeto de mapa copiado (0x518d1e 4/4)
 0x50d6ae	FUN_0050d6ae	40	game/g_500000.c	9667	ported	objBase	+4/+0x18/+0x1c = 0 (nos construtores provados)
 0x50d6d6	FUN_0050d6d6	156	game/g_500000.c	9679	ported	deleteSpellObj	destrutor-base (objeto de mapa)
-0x50d772	FUN_0050d772	263	game/g_500000.c	9712	pending		
+0x50d772	FUN_0050d772	263	game/g_500000.c	9712	review	fn_0x51cb98	efeito novo na lista (exec 0 no corpus: os 2 Shields fundem); exe/effects.ts
 0x50d884	FUN_0050d884	60	game/g_500000.c	9767	ported	path.ts:unitCenterX	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x50d8c0	FUN_0050d8c0	60	game/g_500000.c	9783	ported	path.ts:unitCenterY	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada
 0x50d8fc	FUN_0050d8fc	35	game/g_500000.c	9799	pending		
@@ -388,14 +388,14 @@ addr	name	size	file	line	status	ts	note
 0x510a70	Unit_Die	1608	game/g_510000.c	386	ported	death.ts:unitDie	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 3) (5 mortes; sorteios 0x510cbc/0x510d19); mochila/loja/saco/efeitos/equipamento = ganchos DieHooks (motor antigo); itens +0x78/+0x74 (exec 0) = NotPorted
 0x5110b8	Corpse_Decay	430	game/g_510000.c	553	ported	death.ts:corpseDecay	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 3) (99 chamadas); 0x4f8d3d (liberar id, exec 0) = NotPorted; Server_Event 1 = stub
 0x511266	FUN_00511266	52	game/g_510000.c	602	pending		
-0x5113e7	FUN_005113e7	213	game/g_510000.c	652	pending		
+0x5113e7	FUN_005113e7	213	game/g_510000.c	652	ported	fn_0x5113e7	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x5114f3	Monster_LoadTemplate	971	game/g_510000.c	690	pending		
 0x511913	FUN_00511913	70	game/g_510000.c	802	pending		
 0x511959	Human_Create	1646	game/g_510000.c	815	pending		
 0x512133	FUN_00512133	84	game/g_510000.c	1147	pending		
 0x5121e1	FUN_005121e1	271	game/g_510000.c	1193	pending		
-0x5127d2	FUN_005127d2	32	game/g_510000.c	1465	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x5127f2	FUN_005127f2	50	game/g_510000.c	1476	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x5127d2	FUN_005127d2	32	game/g_510000.c	1465	ported	fn_0x5127d2	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
+0x5127f2	FUN_005127f2	50	game/g_510000.c	1476	ported	fn_0x5127f2	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x512870	FUN_00512870	60	game/g_510000.c	1508	pending		
 0x5128ac	FUN_005128ac	31	game/g_510000.c	1526	pending		
 0x5128cb	FUN_005128cb	1657	game/g_510000.c	1538	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
@@ -406,17 +406,17 @@ addr	name	size	file	line	status	ts	note
 0x51327b	FUN_0051327b	71	game/g_510000.c	1844	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5132c2	FUN_005132c2	469	game/g_510000.c	1866	pending		
 0x513497	FUN_00513497	175	game/g_510000.c	1931	pending		
-0x51366b	FUN_0051366b	3157	game/g_510000.c	1982	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x51366b	FUN_0051366b	3157	game/g_510000.c	1982	ported	unitRecompute	vtable+0x58 humanos: x87 do assembly; no mundo gancho recompute (syncCombat); exe/effects.ts; test/exe_effects.ts 4/4
 0x5143e4	Human_CreateByName	114	game/g_510000.c	2402	pending		
 0x5145d1	FUN_005145d1	1825	game/g_510000.c	2527	pending		
 0x514cf2	FUN_00514cf2	615	game/g_510000.c	2789	pending		
 0x514f59	Hero_InitSkills	1524	game/g_510000.c	2855	pending		
 0x5155c7	FUN_005155c7	22	game/g_510000.c	3110	pending		
-0x5155dd	FUN_005155dd	27	game/g_510000.c	3120	pending		
-0x515617	FUN_00515617	168	game/g_510000.c	3140	pending		
+0x5155dd	FUN_005155dd	27	game/g_510000.c	3120	ported	fn_0x5155dd	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
+0x515617	FUN_00515617	168	game/g_510000.c	3140	ported	fn_0x515617	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x515825	FUN_00515825	22	game/g_510000.c	3220	ported	spellDamageObject	0x51583b zera o dano +0x48 (0x51e505 4/4)
 0x51583b	FUN_0051583b	155	game/g_510000.c	3230	ported	spellDamageObject	zera o dano (0x51e505 4/4)
-0x515a6c	FUN_00515a6c	151	game/g_510000.c	3311	pending		
+0x515a6c	FUN_00515a6c	151	game/g_510000.c	3311	ported	fn_0x515a6c	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x515cbc	FUN_00515cbc	28	game/g_510000.c	3430	pending		
 0x515cd8	FUN_00515cd8	686	game/g_510000.c	3443	pending		
 0x515f86	FUN_00515f86	350	game/g_510000.c	3543	pending		
@@ -458,7 +458,7 @@ addr	name	size	file	line	status	ts	note
 0x51941a	FUN_0051941a	39	game/g_510000.c	6054	pending		
 0x519441	FUN_00519441	37	game/g_510000.c	6066	ported	spells.ts:fn_0x519441	pares m10_mage 9/9
 0x519466	FUN_00519466	29	game/g_510000.c	6078	pending		
-0x519483	Spell_CasterPower	154	game/g_510000.c	6090	pending		
+0x519483	Spell_CasterPower	154	game/g_510000.c	6090	ported	spellCasterPower	folha de 0x51366b (0x51c3e4), provada pelos pares dele; exe/effects.ts
 0x5195b1	Spell_Instance	562	game/g_510000.c	6164	ported	spellInstance	exe_spells.ts: pares 100% (m10_mage) 17/17; x87 do assembly (k = p/30+1; pow(1,025,p) x [0xe] x 16)
 0x519998	Spell_SpendMana	620	game/g_510000.c	6356	ported	spells.ts:spellSpendMana	pares m10_mage 9/9 (exe_combat.ts; etapa 8b lote 2); ponto alvo/tempo de voo só no pacote (cliente); Prismatic 0xb gancho
 0x519c04	Spell_PrismaticSpray	379	game/g_510000.c	6461	pending		
@@ -466,28 +466,28 @@ addr	name	size	file	line	status	ts	note
 0x519db8	Spell_Apply	8448	game/g_510000.c	6551	ported	spellApply	exe_spells.ts: pares 100% (m10_mage) 7/7; case Heal 0x18 e dano preso ao alvo (definicao[8]=1) portados; Effect/parede/area/Animate/Teleport/Summon/Drain = gancho spellApply (motor antigo)
 0x51c29e	Unit_AddSpellToBook	150	game/g_510000.c	7617	pending		
 0x51c391	Unit_GetBookSpell	83	game/g_510000.c	7665	ported	wave.ts:unitGetBookSpell	exe_wave.ts: pares 100% (3 episódios) (EDX lixo no replay, não é retorno)
-0x51c3e4	FUN_0051c3e4	97	game/g_510000.c	7696	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x51c3e4	FUN_0051c3e4	97	game/g_510000.c	7696	ported	fn_0x51c3e4	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x51c4a4	FUN_0051c4a4	97	game/g_510000.c	7747	pending		
 0x51ca4d	Spell_WallObject	83	game/g_510000.c	8063	ported	spellWallObject	base de 0x51e505 (provada com ela); sozinha exec so no Shield (gancho)
-0x51caa0	FUN_0051caa0	248	game/g_510000.c	8082	pending		
-0x51cb98	FUN_0051cb98	99	game/g_510000.c	8123	pending		
+0x51caa0	FUN_0051caa0	248	game/g_510000.c	8082	ported	fn_0x51caa0	carga Effect; exe/effects.ts; test/exe_effects.ts 2/2
+0x51cb98	FUN_0051cb98	99	game/g_510000.c	8123	review	fn_0x51cb98	efeito novo na lista (exec 0 no corpus: os 2 Shields fundem); exe/effects.ts
 0x51cbfb	FUN_0051cbfb	88	game/g_510000.c	8139	pending		
-0x51cc53	FUN_0051cc53	76	game/g_510000.c	8158	out		gancho DieHooks.effectsOnDie (lista de efeitos = buffs do motor antigo)
-0x51cc9f	FUN_0051cc9f	371	game/g_510000.c	8176	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x51ce12	FUN_0051ce12	867	game/g_510000.c	8210	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x51d175	FUN_0051d175	450	game/g_510000.c	8324	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x51d337	FUN_0051d337	255	game/g_510000.c	8377	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x51d436	FUN_0051d436	3610	game/g_510000.c	8406	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
+0x51cc53	FUN_0051cc53	76	game/g_510000.c	8158	ported	fn_0x51cc53	com duração ou contínuo; em 0x51cc9f/0x51ce12 (pares); exe/effects.ts
+0x51cc9f	FUN_0051cc9f	371	game/g_510000.c	8176	ported	fn_0x51cc9f	tique do efeito; exe/effects.ts; test/exe_effects.ts 1920/1920
+0x51ce12	FUN_0051ce12	867	game/g_510000.c	8210	ported	fn_0x51ce12	aplicar/fundir na lista +0x20; exe/effects.ts; test/exe_effects.ts 2/2
+0x51d175	FUN_0051d175	450	game/g_510000.c	8324	ported	fn_0x51d175	vtable+0x40; veneno com proteção de água (x87) NotPorted; exe/effects.ts; test/exe_effects.ts 2/2
+0x51d337	FUN_0051d337	255	game/g_510000.c	8377	ported	fn_0x51d337	vtable+0x44; exe/effects.ts; test/exe_effects.ts 2/2
+0x51d436	FUN_0051d436	3610	game/g_510000.c	8406	ported	fn_0x51d436	vtable+0x48 modificadores ±1; teachSpell NotPorted; exe/effects.ts; test/exe_effects.ts 4/4
 0x51e318	FUN_0051e318	258	game/g_510000.c	8815	pending		
 0x51e505	Spell_DamageObject	97	game/g_510000.c	8946	ported	spellDamageObject	exe_spells.ts: pares 100% (m10_mage) 4/4
 0x51e65b	FUN_0051e65b	307	game/g_510000.c	9032	ported	fn_0x51e65b	exe_spells.ts: pares 100% (m10_mage) 4/4 (vtable+0x54 = 0x516f6f)
 0x51e78e	FUN_0051e78e	364	game/g_510000.c	9077	pending		
-0x51e8fa	FUN_0051e8fa	1912	game/g_510000.c	9139	pending		
-0x51f072	FUN_0051f072	223	game/g_510000.c	9401	pending		
-0x51f151	FUN_0051f151	114	game/g_510000.c	9444	pending		
-0x51f1c3	FUN_0051f1c3	71	game/g_510000.c	9472	pending		
-0x51f20a	FUN_0051f20a	146	game/g_510000.c	9493	pending		
-0x51f29c	FUN_0051f29c	497	game/g_510000.c	9532	pending		
+0x51e8fa	FUN_0051e8fa	1912	game/g_510000.c	9139	ported	fn_0x51e8fa	texto do efeito → carga temporária; exe/effects.ts; test/exe_effects.ts 2/2
+0x51f072	FUN_0051f072	223	game/g_510000.c	9401	review	fn_0x51f072	folha de 0x51e8fa sem execução no corpus (castSpell/teachSpell/damage*); exe/effects.ts
+0x51f151	FUN_0051f151	114	game/g_510000.c	9444	review	fn_0x51f151	folha de 0x51e8fa sem execução no corpus (castSpell/teachSpell/damage*); exe/effects.ts
+0x51f1c3	FUN_0051f1c3	71	game/g_510000.c	9472	review	fn_0x51f1c3	folha de 0x51e8fa sem execução no corpus (castSpell/teachSpell/damage*); exe/effects.ts
+0x51f20a	FUN_0051f20a	146	game/g_510000.c	9493	ported	fn_0x51f20a	folha de 0x51e8fa (pares dele 2/2); exe/effects.ts
+0x51f29c	FUN_0051f29c	497	game/g_510000.c	9532	ported	fn_0x51f29c	folha de 0x51e8fa (pares dele 2/2); exe/effects.ts
 0x51f7d3	FUN_0051f7d3	549	game/g_510000.c	9771	pending		
 0x51fa0c	FUN_0051fa0c	25	game/g_510000.c	9877	pending		
 0x51fa25	Rand_Inclusive	41	game/g_510000.c	9891	ported	rand.ts:randInclusive	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 1) (346)
@@ -673,7 +673,7 @@ addr	name	size	file	line	status	ts	note
 0x53a540	FUN_0053a540	41	game/g_530000.c	5613	pending		
 0x53a570	FUN_0053a570	39	game/g_530000.c	5630	pending		
 0x53a5a0	FUN_0053a5a0	24	game/g_530000.c	5643	ported	fn_0x53a5a0	exe/action.ts; unidade+0x4c & 4; pares 100%
-0x53a5c0	FUN_0053a5c0	60	game/g_530000.c	5652	pending		
+0x53a5c0	FUN_0053a5c0	60	game/g_530000.c	5652	ported	fn_0x53a5c0	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x53a600	FUN_0053a600	87	game/g_530000.c	5669	pending		
 0x53a660	FID_conflict:CArray<int,int_const&>	71	game/g_530000.c	5692	pending		
 0x53a720	FUN_0053a720	538	game/g_530000.c	5740	pending		
@@ -688,7 +688,7 @@ addr	name	size	file	line	status	ts	note
 0x53ae00	FUN_0053ae00	211	game/g_530000.c	6099	pending		
 0x53aee0	FUN_0053aee0	36	game/g_530000.c	6130	pending		
 0x53af10	FUN_0053af10	71	game/g_530000.c	6145	pending		
-0x53af60	FUN_0053af60	77	game/g_530000.c	6160	pending		
+0x53af60	FUN_0053af60	77	game/g_530000.c	6160	ported	fn_0x53af60	tira da lista +0x20 e destrói (exec 0 no corpus; 2 linhas); exe/effects.ts
 0x53afb0	FUN_0053afb0	50	game/g_530000.c	6173	out		MFC: exe/mfc.ts:CListPtr.remove (Find 0x53b350 + RemoveAt 0x53b2e0); pares 824/824
 0x53aff0	FUN_0053aff0	19	game/g_530000.c	6188	out		MFC: exe/mfc.ts:CListPtr.removeAll; provada por exe_walkaction.ts (0x54ec6a)
 0x53b010	FUN_0053b010	77	game/g_530000.c	6198	pending		
@@ -936,7 +936,7 @@ addr	name	size	file	line	status	ts	note
 0x542410	FUN_00542410	16	game/g_540000.c	2408	ported	vtables.ts:vt2c	slot +0x2c: 1
 0x542420	FUN_00542420	13	game/g_540000.c	2417	ported	vtables.ts:vt30	slot +0x30 (monstro): 0
 0x542430	FUN_00542430	211	game/g_540000.c	2426	out		MFC: exe/mfc.ts:CListWord.newNode; provada por exe_wave.ts (pares de 0x55f3e0/0x55f430/0x55f460/0x55f110/0x55f170/0x5421b0 e dos chamadores 100%)
-0x542540	FUN_00542540	31	game/g_540000.c	2470	pending		
+0x542540	FUN_00542540	31	game/g_540000.c	2470	ported	fn_0x542540	acabou (+0x3d & 0x80); exe/effects.ts; test/exe_effects.ts 2040/2040
 0x542560	FUN_00542560	25	game/g_540000.c	2479	ported	combat.ts:fn_0x542560	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 1) (1499 amostradas de 95858, stride 64)
 0x542580	Weapon_CastsSpell	28	game/g_540000.c	2488	ported	combat.ts:weaponCastsSpell	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (77)
 0x5425a0	FUN_005425a0	25	game/g_540000.c	2499	out		MFC: CList/CArray/CMap (0x53a000-0x544fff)

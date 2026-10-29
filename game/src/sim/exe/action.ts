@@ -34,6 +34,7 @@ import { randInclusive } from "./rand";
 import { vt30, vt74 } from "./vtables";
 import { unitDie, type DieHooks } from "./death";
 import { spellApply, spellRelease, spellSpendMana, type SpellHooks } from "./spells";
+import { unitEffectsTick } from "./effects";
 import {
   fn_0x50fc3e, fn_0x50ff2d, fn_0x510745, fn_0x53bff0, fn_0x542560, unitStrikeBegin, unitStrikeExtra, weaponCastsSpell, type CombatHooks,
 } from "./combat";
@@ -502,7 +503,7 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
 /** Ganchos da máquina de ação para o que não é portado (magia: motor antigo; cliente/HUD: pontos dos envios ao cliente do exe) e os
  *  adaptadores do pensamento. Sem gancho de magia → NotPorted. */
 export interface MachineHooks extends DispatchHooks, CombatHooks, DieHooks, SpellHooks {
-  /** laço dos efeitos da unidade (+0x20: vtable+0x38 de cada efeito; expirado (0x542540) → 0x53af60 tira da lista). Sem gancho: lista vazia. */
+  /** depois do laço portado dos efeitos +0x20 (exe/effects.ts): os `buffs` do motor antigo (efeitos de magias ainda não portadas) expiram. */
   effectsTick?(u: UnitRec): void;
   /** Server_Event 0x4001 (stub de cliente): a unidade caiu (vida < 1: +0x13c = 1, defesa ÷ 2, contador = duração da queda − 1). */
   fell?(u: UnitRec): void;
@@ -542,7 +543,8 @@ function weaponSpellInstead(u: UnitRec): boolean {
  */
 export function unitActionMachine(wd: WorldRec, u: UnitRec, h: MachineHooks = {}): void {
   if ((u.act | 0) === 0x10) return;
-  h.effectsTick?.(u);   // laço dos efeitos +0x20 (0x53b120/0x53b170; vtable+0x38 do efeito; 0x542540 → 0x53af60)
+  unitEffectsTick(wd, u, h);   // laço dos efeitos +0x20 (0x53b120/0x53b170; vtable+0x38 do efeito; 0x542540 → 0x53af60)
+  h.effectsTick?.(u);          // não é do exe: os `buffs` do motor antigo
   if (((u.f94 << 16) >> 16) < 1) {
     u.task = 0;
     u.act = 0;

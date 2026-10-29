@@ -72,6 +72,13 @@ def _spell_obj(o, a: int, depth: int = 0) -> dict:
     return r
 
 
+def _fx(o, a: int) -> dict:
+    """Carga "Effect" (0x48 bytes) da lista +0x20 da unidade e o objeto de mapa dela (+0x10)."""
+    b = bytes(o.read(a, 0x48))
+    mo = struct.unpack_from("<I", b, 0x10)[0]
+    return {"a": a, "b": b.hex(), "mo": bytes(o.read(mo, 0xC)).hex() if mo else ""}
+
+
 def _spell_objs(o) -> list:
     reg = o.u32(o.u32(GLOBAL_PTR) + 0x7C)
     cont = o.u32(reg + 4) if reg else 0
@@ -207,7 +214,10 @@ class ExeTracker:
                           # etapa 8b (magias): alvo +0x5c e magia em curso +0x64, o livro +0x140 como [id, endereço] — os ponteiros de magia do
                           # registro (IA+0x30, +0x44, +0x64) são endereços de BookSpellRec; o importador os traduz para os nossos
                           "f5c": struct.unpack_from("<I", b, 0x5C)[0], "f64": struct.unpack_from("<I", b, 0x64)[0],
-                          "book": _book(o, struct.unpack_from("<I", b, 0x140)[0])}
+                          "book": _book(o, struct.unpack_from("<I", b, 0x140)[0]),
+                          # etapa 8b, lote 4: os efeitos com duração da lista +0x20 (CList: +4 cabeça), cada um com os bytes da carga
+                          # "Effect" (0x48) e do objeto de mapa +0x10 (0xc), na ordem da lista
+                          "fx": [_fx(o, e) for e in _ptrs(o, a + 0x20)]}
         return ex, units
 
 

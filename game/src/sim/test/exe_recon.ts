@@ -8,7 +8,7 @@
  */
 import { CListEvent, CListEventNode, CListNode, CListPtr, CListPtrNode, CListWord, CMapAssoc, CMapShortOcc } from "../exe/mfc";
 import {
-  BookSpellRec, CellStructRec, DmgRec, EVENT_SIZE, EXE_GLOBALS, ItemMagicRec, ItemRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MAP_WORLD_OFF, MapObjRec,
+  BookSpellRec, CellStructRec, DefRec, DmgRec, Obj7cRec, EVENT_SIZE, EXE_GLOBALS, ItemMagicRec, ItemRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MAP_WORLD_OFF, MapObjRec,
   MapRec, OccRec, PlayerRec, SPELL_DEF_N, SpellBookRec, SpellObjRec, SpellPayloadRec, TemplateRec, UnitListsRec, UnitRec, UnitTypeRec,
   VT_DIRECT_DAMAGE, VT_TRANSPORT, WorldRec,
 } from "../exe/types";
@@ -381,9 +381,7 @@ export function bookFrom(cm: CallMem, b: number): SpellBookRec {
   for (let i = 0; i < n && i < 256; i++) {
     const p = cm.u32(data + i * 4);
     if (p === 0) { book.spells.push(null); continue; }
-    const s = new BookSpellRec();
-    s.addr = p; s.id = cm.u8(p + 8); s.range = cm.u8(p + 9); s.f0a = cm.u8(p + 0xa); s.cost = (cm.u16(p + 0xc) << 16) >> 16;
-    book.spells.push(s);
+    book.spells.push(spellFrom(cm, p));   // com a definição (o recálculo 0x51366b refaz a instância: Spell_CasterPower)
   }
   book.last = cm.u32(b + 0x18) | 0;
   return book;
@@ -421,6 +419,10 @@ export const UNIT_FIELDS: Field[] = [
   [0x6c, 1, "f6c"], [0x86, 2, "f86", true], [0x88, 2, "f88", true], [0x8c, 2, "speed", true], [0x94, 2, "f94", true], [0x96, 2, "f96", true],
   [0x98, 2, "f98", true], [0x9a, 2, "mana", true], [0x9c, 2, "f9c", true], [0x9e, 2, "f9e", true], [0xa2, 1, "fa2"], [0xa3, 1, "fa3"], [0xa5, 1, "fa5"],
   [0xbe, 2, "fbe", true], [0xc0, 2, "fc0", true], [0xde, 2, "fde", true], [0xe2, 2, "fe2", true],
+  // etapa 8b, lote 4 (efeitos e o recálculo 0x51366b): atributos-base e derivados, bônus +0xd4.. (o golpe +0xe6 e a defesa +0xfe à parte)
+  [0x84, 2, "f84", true], [0x8a, 2, "f8a", true], [0x8e, 2, "f8e", true], [0x90, 2, "f90", true], [0x92, 2, "f92", true],
+  [0xa0, 2, "fa0", true], [0xa4, 2, "fa4", true], [0xd4, 1, "fd4", true], [0xd5, 1, "fd5", true], [0xd6, 1, "fd6", true], [0xd7, 1, "fd7", true],
+  [0xd8, 2, "fd8", true], [0xda, 2, "fda", true], [0xdc, 2, "fdc", true], [0xe0, 2, "fe0", true], [0xe4, 2, "fe4", true],
   [0x12c, 1, "attackRange"], [0x134, 1, "f134"], [0x135, 1, "f135"], [0x136, 1, "ready"],
   [0x138, 4, "f138"], [0x13c, 1, "f13c"], [0x144, 4, "effects"], [0x148, 4, "f148"], [0x14c, 2, "f14c"], [0x150, 4, "f150"], [0x1a0, 4, "f1a0"], [0x1a4, 2, "f1a4"],
 ];
@@ -433,8 +435,11 @@ export const GROUP_FIELDS: Field[] = [
 const UNIT_PTRS: [off: number, key: "tpl" | "f68" | "f74" | "f78"][] = [[0x3c, "tpl"], [0x68, "f68"], [0x74, "f74"], [0x78, "f78"]];
 /** Sub-registros da unidade conferidos byte a byte: atributos do golpe +0xa6 (0x16), proteções +0xc2 (6 × i16), resistências +0xce (6). */
 const DMG_OFF = 0xa6, DMG_SIZE = 0x16, PROT_OFF = 0xc2, RESIST_OFF = 0xce;
+/** etapa 8b, lote 4: o bônus do golpe +0xe6 e da defesa +0xfe (conferidos byte a byte com o resto do bloco +0xd4..+0x113), a lista de
+ *  efeitos +0x20 (CList: cabeçalho 0x1c). */
+const BDMG_OFF = 0xe6, BDEF_OFF = 0xfe, BONUS_OFF = 0xd4, BONUS_SIZE = 0x40, FX_OFF = 0x20;
 /** Dono da unidade (+0x14): id, IA, herói, +0x40 e mortes. */
-export const PLAYER_FIELDS: Field[] = [[0x04, 2, "f04", true], [0x2c, 4, "f2c"], [0x32, 2, "f32"], [0x38, 4, "f38"], [0x40, 1, "f40"], [0xa54, 4, "fa54"]];
+export const PLAYER_FIELDS: Field[] = [[0x04, 2, "f04", true], [0x2c, 4, "f2c"], [0x32, 2, "f32"], [0x38, 4, "f38"], [0x40, 1, "f40"], [0xa54, 4, "fa54"], [0xa5c, 4, "fa5c"]];
 export const WALK_FIELDS: Field[] = [
   [0x00, 1, "dir"], [0x01, 1, "dirTarget"], [0x05, 1, "passMask"], [0x06, 2, "nextCell"], [0x08, 1, "f08"], [0x09, 1, "f09"], [0x0a, 1, "turnRate"],
   [0x6c, 4, "f6c"], [0x70, 2, "stepFrom"], [0x72, 2, "f72"], [0x74, 2, "dest"], [0x76, 2, "f76"], [0x78, 1, "f78"],
@@ -488,6 +493,12 @@ export function unitFrom(cm: CallMem, a: number, memo: Map<number, UnitRec>): Un
   u.tpl = templateFrom(cm, cm.u32(a + 0x3c));
   u.f68 = itemFrom(cm, cm.u32(a + 0x68)); u.f74 = itemFrom(cm, cm.u32(a + 0x74)); u.f78 = itemFrom(cm, cm.u32(a + 0x78));
   u.dmg = dmgFrom(cm, a + DMG_OFF);
+  u.bdmg = dmgFrom(cm, a + BDMG_OFF);
+  u.bdef = defFrom(cm, a + BDEF_OFF);
+  for (let i = 0; i < 6; i++) u.skBase[i] = (cm.u16(a + 0x116 + 2 * i) << 16) >> 16;
+  { const p7c = cm.u32(a + 0x7c); if (p7c !== 0) { u.f7c = new Obj7cRec(); u.f7c.addr = p7c; u.f7c.f20 = cm.u32(p7c + 0x20) | 0; } }
+  u.fx = ptrListFrom(cm, a + FX_OFF);
+  u.f130 = cm.u32(a + 0x130) | 0;   // experiência: só lida (a escrita é do gancho de experiência, fora da conferência)
   for (let i = 0; i < 6; i++) { u.prot[i] = cm.u16(a + PROT_OFF + 2 * i); u.resist[i] = cm.u8(a + RESIST_OFF + i); }
   u.type = groupFrom(cm, cm.u32(a + 0x70));
   u.hasBook = cm.u32(a + 0x140) !== 0;
@@ -574,6 +585,13 @@ export function spellFrom(cm: CallMem, p: number): BookSpellRec {
     const data = cm.u32(def + 0xc);
     for (let i = 0; i < SPELL_DEF_N; i++) if (cm.has(data + 4 * i)) s.def[i] = cm.u32(data + 4 * i) | 0;
   }
+  if (def !== 0 && cm.has(def + 0x1c)) {
+    // definição+0x1c CString: o texto do efeito (0x51caa0 → 0x51e8fa), os caracteres que a chamada leu
+    const t = cm.u32(def + 0x1c);
+    let txt = "";
+    for (let i = 0; i < 256 && cm.has(t + i) && cm.u8(t + i) !== 0; i++) txt += String.fromCharCode(cm.u8(t + i));
+    s.effText = txt;
+  }
   return s;
 }
 /** Atributos do golpe em `p` (unidade+0xa6 ou struct avulsa). */
@@ -584,6 +602,24 @@ export function dmgFrom(cm: CallMem, p: number): DmgRec {
   d.dmin = cm.u8(p + 0xe); d.dadd = cm.u8(p + 0xf); d.wtype = cm.u8(p + 0x10);
   d.elA0 = cm.u8(p + 0x11); d.elA1 = cm.u8(p + 0x12); d.elB0 = cm.u8(p + 0x13); d.elB1 = cm.u8(p + 0x14); d.elK = cm.u8(p + 0x15);
   return d;
+}
+/** Bloco de defesa (0x16 bytes) em `p`. */
+export function defFrom(cm: CallMem, p: number): DefRec {
+  const d = new DefRec();
+  d.def = (cm.u16(p) << 16) >> 16; d.abs = (cm.u16(p + 2) << 16) >> 16;
+  for (let i = 0; i < 6; i++) { d.prot[i] = (cm.u16(p + 4 + 2 * i) << 16) >> 16; d.resist[i] = cm.u8(p + 0x10 + i); }
+  return d;
+}
+/** O bloco de bônus +0xd4..+0x113 da unidade em bytes (o que o espelho guarda). */
+export function packBonus(u: UnitRec): Uint8Array {
+  const b = new Uint8Array(BONUS_SIZE), w16 = (o: number, v: number) => { b[o] = v & 0xff; b[o + 1] = (v >> 8) & 0xff; };
+  b[0] = u.fd4 & 0xff; b[1] = u.fd5 & 0xff; b[2] = u.fd6 & 0xff; b[3] = u.fd7 & 0xff;
+  w16(4, u.fd8); w16(6, u.fda); w16(8, u.fdc); w16(0xa, u.fde); w16(0xc, u.fe0); w16(0xe, u.fe2); w16(0x10, u.fe4);
+  b.set(packDmgFull(u.bdmg), BDMG_OFF - BONUS_OFF);
+  const o = BDEF_OFF - BONUS_OFF;
+  w16(o, u.bdef.def); w16(o + 2, u.bdef.abs);
+  for (let i = 0; i < 6; i++) { w16(o + 4 + 2 * i, u.bdef.prot[i]!); b[o + 0x10 + i] = u.bdef.resist[i]!; }
+  return b;
 }
 function packDmg(d: DmgRec): Uint8Array {
   const b = new Uint8Array(DMG_SIZE);
@@ -642,7 +678,9 @@ export function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string |
     ?? cm.checkRecord(mo, packMapObj(mapObjFrom(cm, mo)), packMapObj(u.mapObj))
     ?? checkBytes(cm, a + DMG_OFF, DMG_BYTES, packDmg(dmgFrom(cm, a + DMG_OFF)), packDmg(u.dmg), "golpe")
     ?? cm.checkRecord(a + PROT_OFF, cm.bytes(a + PROT_OFF, 12), packProt(u))
-    ?? cm.checkRecord(a + RESIST_OFF, cm.bytes(a + RESIST_OFF, 6), u.resist);
+    ?? cm.checkRecord(a + RESIST_OFF, cm.bytes(a + RESIST_OFF, 6), u.resist)
+    ?? cm.checkRecord(a + BONUS_OFF, cm.bytes(a + BONUS_OFF, BONUS_SIZE), packBonus(u))
+    ?? checkPtrList(cm, a + FX_OFF, u.fx, "unidade+0x20 (efeitos)");
   if (e) return e;
   for (const [off, key] of UNIT_PTRS) {
     const got = (u[key] as { addr: number } | null)?.addr ?? 0;
@@ -665,6 +703,7 @@ export function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string |
         if (UNIT_LISTS.some(([off]) => x >= a + off && x < a + off + 0x1c) || covered(a, UNIT_FIELDS, x)) continue;
         if (UNIT_PTRS.some(([off]) => x >= a + off && x < a + off + 4) || (x >= a + 0x70 && x < a + 0x74)) continue;
         if ((x >= a + DMG_OFF && x < a + DMG_OFF + DMG_SIZE) || (x >= a + PROT_OFF && x < a + RESIST_OFF + 6)) continue;
+        if ((x >= a + BONUS_OFF && x < a + BONUS_OFF + BONUS_SIZE) || (x >= a + FX_OFF && x < a + FX_OFF + 0x1c)) continue;
         if (x >= a + 0x114 && x < a + 0x154) continue;   // tabela por jogador do cliente (0x503672 's', 0x5039e2): fora do espelho
         // experiência do herói pelo golpe (0x513128 → 0x5128cb, motor antigo: gancho `xpOnHit`): +0x18, habilidades +0xa8.., +0x130, +0x240
         if ((x >= a + 0x18 && x < a + 0x1a) || (x >= a + 0xa8 && x < a + 0xb4) || (x >= a + 0x130 && x < a + 0x134) || (x >= a + 0x240 && x < a + 0x244)) continue;
@@ -788,10 +827,11 @@ const objFields = (o: SpellObjRec): Field[] => (o.vtbl === VT_TRANSPORT ? TRANSP
 /** O CObject 0x401900 escreve a vtable 0x5d1d74 primeiro em todo objeto novo: os endereços alocados, na ordem. O CList embutido em
  *  +0x20 (0x541de0, vtable final 0x5d0e60) também é CObject e fica de fora. */
 export function allocsOf(d: Pair): number[] {
-  const r: number[] = [], seen = new Set<number>(), last = new Map<number, number>();
-  for (const [a, s, , after] of d.writes) if (s === 4) last.set(a, after >>> 0);
+  const r: number[] = [], seen = new Set<number>(), lists = new Set<number>();
+  // a vtable do CList (0x5d0e60) em algum momento: é a lista embutida, mesmo que o destrutor a tenha devolvido a 0x5d1d74 (lote 4)
+  for (const [a, s, , after] of d.writes) if (s === 4 && (after >>> 0) === 0x5d0e60) lists.add(a);
   for (const [a, s, , after] of d.writes) {
-    if (s === 4 && (after >>> 0) === 0x5d1d74 && !seen.has(a) && last.get(a) !== 0x5d0e60) { seen.add(a); r.push(a >>> 0); }
+    if (s === 4 && (after >>> 0) === 0x5d1d74 && !seen.has(a) && !lists.has(a)) { seen.add(a); r.push(a >>> 0); }
   }
   return r;
 }

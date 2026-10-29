@@ -12,7 +12,7 @@ import { defaultHero, spawnFromTemplate, spellDef } from "../../mission/setup";
 import { snapshotMission, restoreMission, type MissionSnapshot } from "../snapshot";
 import { thinkPhaseFor, type Unit, type World } from "../world";
 import { TICKS_PER_SEC } from "../types";
-import { CellStructRec, MapObjRec, MapRec, SpellObjRec, SpellPayloadRec, UnitRec, VT_DIRECT_DAMAGE, VT_EFFECT, VT_POINT_EFFECT, VT_TRANSPORT, type WorldRec } from "../exe/types";
+import { CellStructRec, MapObjRec, MapRec, SpellObjRec, SpellPayloadRec, UnitRec, VT_DIRECT_DAMAGE, VT_POINT_EFFECT, VT_TRANSPORT, type WorldRec } from "../exe/types";
 import { CMapShortOcc } from "../exe/mfc";
 import { applyMemRuns, applyOccBuckets, listSet, recFromBytes } from "../exe/recio";
 import { unitWalkFormula } from "../exe/walk_action";
@@ -46,6 +46,8 @@ export interface OrigUnitRec {
   f98?: number; f9c?: number; f9e?: number; fa2?: number; fa3?: number; fde?: number; fe2?: number; f138?: number;
   /** etapa 8b: magia em curso +0x64 e o livro +0x140 como [id, endereço] (os ponteiros de magia do registro são do original) */
   f5c?: number; f64?: number; book?: [number, number][];
+  /** etapa 8b, lote 4: os efeitos com duração da lista +0x20 (bytes da carga "Effect" e do objeto de mapa), na ordem da lista */
+  fx?: { a: number; b: string; mo: string }[];
 }
 /** Deltas do MapRec por tique (dump_ticks.py): memória (trechos [deslocamento, hex] desde o tique anterior; o 1º é o objeto inteiro),
  *  baldes do CMap de ocupação que mudaram, estruturas novas (endereço → [x, y, largura, máscara]) e o mundo. */
@@ -83,27 +85,48 @@ export function spellObjsFromOrig(w: WorldRec, list: OrigSpellObj[]): void {
     o.f48 = v.getUint32(0x48, true); o.f4c = v.getUint32(0x4c, true); o.f50 = o.vtbl === VT_TRANSPORT ? v.getInt16(0x50, true) : 0;
     mapObjFromHex(o.mapObj, x.mo);
     w.spellObjs.set(o.addr, o);
-    if (x.p && o.vtbl === VT_POINT_EFFECT) {
-      const pv = hexBytes(x.p.b), p = new SpellPayloadRec();
-      p.addr = x.p.a >>> 0; p.vtbl = pv.getUint32(0, true); p.f04 = pv.getUint32(4, true); p.fc = pv.getUint16(0xc, true); p.fe = pv.getUint16(0xe, true);
-      p.f14 = pv.getUint32(0x14, true); p.f18 = pv.getUint16(0x18, true); p.f1c = pv.getUint32(0x1c, true); p.f3c = pv.getUint8(0x3c); p.f3d = pv.getUint8(0x3d);
-      p.f40 = pv.getInt16(0x40, true); p.f42 = pv.getInt16(0x42, true); p.f44 = pv.getUint32(0x44, true);
-      if (p.vtbl === VT_DIRECT_DAMAGE) {
-        const d = p.dmg, o2 = 0x48;
-        d.atk = pv.getInt16(o2, true); for (let i = 0; i < 6; i++) d.sk[i] = pv.getInt16(o2 + 2 + 2 * i, true);
-        d.dmin = pv.getUint8(o2 + 0xe); d.dadd = pv.getUint8(o2 + 0xf); d.wtype = pv.getUint8(o2 + 0x10); d.elA0 = pv.getUint8(o2 + 0x11);
-        d.elA1 = pv.getUint8(o2 + 0x12); d.elB0 = pv.getUint8(o2 + 0x13); d.elB1 = pv.getUint8(o2 + 0x14); d.elK = pv.getUint8(o2 + 0x15);
-      }
-      mapObjFromHex(p.mapObj, x.p.mo);
-      w.payloads.set(p.addr, p);
-    }
+    if (x.p && o.vtbl === VT_POINT_EFFECT) w.payloads.set(x.p.a >>> 0, payloadFromOrig(x.p));
     if (x.c) obj(x.c);
     return o;
   };
-  // [est: arnês] o preso ao alvo com carga "Effect" (Shield & cia., 0x51ce12) fica de fora: esses `case` de Spell_Apply ainda são o motor
-  // antigo, que aplica o efeito já no lançamento (os `buffs`)
-  const effect = (x: OrigSpellObj): boolean => !!x.p && hexBytes(x.p.b).getUint32(0, true) === VT_EFFECT;
-  for (const x of list) if (!effect(x) && !(x.c && effect(x.c))) w.lists.spellObjs.addTail(obj(x).addr);
+  for (const x of list) w.lists.spellObjs.addTail(obj(x).addr);
+}
+/** Carga de magia do despejo (`SpellPayloadRec` pelo offset; o dano +0x48 em Effect_DirectDamage). */
+export function payloadFromOrig(x: { a: number; b: string; mo: string }): SpellPayloadRec {
+  const pv = hexBytes(x.b), p = new SpellPayloadRec();
+  p.addr = x.a >>> 0; p.vtbl = pv.getUint32(0, true); p.f04 = pv.getUint32(4, true); p.fc = pv.getUint16(0xc, true); p.fe = pv.getUint16(0xe, true);
+  p.f14 = pv.getUint32(0x14, true); p.f18 = pv.getUint16(0x18, true); p.f1c = pv.getUint32(0x1c, true); p.f3c = pv.getUint8(0x3c); p.f3d = pv.getUint8(0x3d);
+  p.f40 = pv.getInt16(0x40, true); p.f42 = pv.getInt16(0x42, true); p.f44 = pv.getUint32(0x44, true);
+  if (p.vtbl === VT_DIRECT_DAMAGE) {
+    const d = p.dmg, o2 = 0x48;
+    d.atk = pv.getInt16(o2, true); for (let i = 0; i < 6; i++) d.sk[i] = pv.getInt16(o2 + 2 + 2 * i, true);
+    d.dmin = pv.getUint8(o2 + 0xe); d.dadd = pv.getUint8(o2 + 0xf); d.wtype = pv.getUint8(o2 + 0x10); d.elA0 = pv.getUint8(o2 + 0x11);
+    d.elA1 = pv.getUint8(o2 + 0x12); d.elB0 = pv.getUint8(o2 + 0x13); d.elB1 = pv.getUint8(o2 + 0x14); d.elK = pv.getUint8(o2 + 0x15);
+  }
+  mapObjFromHex(p.mapObj, x.mo);
+  return p;
+}
+/** etapa 8b, lote 4: as listas +0x20 (efeitos com duração) das unidades do despejo, com os endereços do original. */
+export function unitFxFromOrig(w: World, st: OrigState): void {
+  const byAddr = new Map<number, Unit>(); for (const u of w.units) byAddr.set(u.rec.addr >>> 0, u);
+  for (const o of st.units) {
+    const u = o.exe?.fx ? byAddr.get(o.exe.a >>> 0) : undefined;
+    if (!u) continue;
+    u.rec.fx.removeAll();
+    for (const x of o.exe!.fx!) { w.exeWorld.payloads.set(x.a >>> 0, payloadFromOrig(x)); u.rec.fx.addTail(x.a >>> 0); }
+  }
+}
+/** Ids de magia (+0xc) e soma da absorção (tipo 0x10, +0x40) dos efeitos da lista +0x20 do despejo da unidade. */
+function origFx(o: OrigUnit): { ids: Set<number>; absorb: number } {
+  const ids = new Set<number>();
+  let absorb = 0;
+  for (const x of o.exe?.fx ?? []) {
+    const v = hexBytes(x.b);
+    if (v.getUint8(0x3d) & 0x80) continue;
+    ids.add(v.getUint16(0xc, true));
+    if (v.getUint8(0x3c) === 0x10) absorb += v.getInt16(0x40, true);
+  }
+  return { ids, absorb };
 }
 /** grupo de IA do original (export_state.read_groups): raio atual `+0x2d`, base `+0x38`, em combate `+0x30`, alvo de cada unidade */
 export interface OrigGroup { player: number; cmd: number; center: number; radius: number; base?: number; combat: number; units: { id: number; assigned: number }[] }
@@ -374,7 +397,7 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     if (!u.alive) { dead.push(o.id); continue; }
     if (stats) {
       u.stats = { ...u.stats, speed: (o.speed_eff ?? o.speed) / 16, sight: o.scan, attack: o.toHit, damage: { min: o.dmin, max: o.dmin + o.damp },
-        defense: o.defense, absorption: o.absorb, range: Math.max(1, o.range & 0xff), turnSpeed: (o.turn & 0xff) || u.stats.turnSpeed,
+        defense: o.defense, absorption: o.absorb - origFx(o).absorb,   // lote 4: o Shield vem da lista +0x20 (World.exeFxSum) range: Math.max(1, o.range & 0xff), turnSpeed: (o.turn & 0xff) || u.stats.turnSpeed,
         ...(o.charge ? { charge: o.charge, relax: o.relax ?? u.stats.relax } : {}),
         ...(o.eldmg && o.eldmg.some(x => x) ? { elemental: { aBase: o.eldmg[0]!, aRange: o.eldmg[1]!, bBase: o.eldmg[2]!, bRange: o.eldmg[3]!, element: o.eldmg[4]! } } : {}) };
       u.wimpyHp = o.wimpy; u.withdrawHp = o.withdraw;
@@ -382,7 +405,7 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     u.maxHp = o.hpmax; u.hp = o.hp; u.maxMana = o.manamax; u.mana = o.mana;
     u.regenSlot = o.id;
     if (opts.spells) for (const [bit, sid] of EFFECT_SPELL) {
-      if (!(o.effects & bit)) continue;
+      if (!(o.effects & bit) || origFx(o).ids.has(sid)) continue;   // lote 4: os da lista +0x20 do exe não viram `buffs`
       const def = u.spells.find(sp => Number(sp.id) === sid) ?? (opts.spells[String(sid)] ? spellDef(sid, opts.spells[String(sid)] as never, 50) : undefined);
       if (def) (w as unknown as { applyBuffs(a: Unit, b: Unit, s: unknown): void }).applyBuffs(u, u, def);
     }
@@ -488,6 +511,7 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     // os objetos de magia em voo/presos ao alvo (etapa 8b, lote 3): os do original, com os endereços dele
     w.exeSpellObjsFromJson(undefined);
     spellObjsFromOrig(w.exeWorld, st.exe?.world?.spell_objs ?? []);
+    unitFxFromOrig(w, st);
     w.exeExact = true;
   } else {
     w.exeResync(); w.exeRebuildLists();

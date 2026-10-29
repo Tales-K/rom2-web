@@ -2574,6 +2574,54 @@
    "name": "Unit_Flag2",
    "desc": "bit 2 de +0x4c (Spell_Apply: sem experiencia pela magia)",
    "source": "notes/magias.md (etapa 8b, lote 3)"
+  },
+  {
+   "va": "0x51e8fa",
+   "name": "Effect_ParseText",
+   "desc": "Texto do efeito da definicao (nome=valor:duration n) -> carga Effect temporaria",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x51caa0",
+   "name": "Effect_Construct",
+   "desc": "Carga Effect (new 0x48) a partir do texto da definicao+0x1c",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x51ce12",
+   "name": "Effect_ApplyToUnit",
+   "desc": "vtable+0x3c da carga Effect: aplica/funde na lista +0x20 da unidade",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x51cc9f",
+   "name": "Effect_Tick",
+   "desc": "vtable+0x38: um tique do efeito (desconta a duracao, tira ao acabar)",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x51d175",
+   "name": "Effect_On",
+   "desc": "vtable+0x40: o efeito comeca a valer",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x51d337",
+   "name": "Effect_Off",
+   "desc": "vtable+0x44: o efeito deixa de valer",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x51d436",
+   "name": "Effect_Modify",
+   "desc": "vtable+0x48: soma +-valor no atributo do tipo +0x3c e recalcula",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x51366b",
+   "name": "Unit_RecomputeStats",
+   "desc": "vtable+0x58 dos humanos: atributos derivados (Body/Reaction/Mind/Spirit, nivel, bonus)",
+   "source": "notes/magias.md"
   }
  ]
 }

@@ -23,7 +23,7 @@ const MAP_PTR = 0x670e48, WORLD_PTR = 0x66832c;
 /** Experiência (0x513128/0x5131ef): motor antigo, escritas fora da conferência (exe_recon.ts checkUnit). */
 const H: CombatHooks = { xpOnHit: () => { /* nada */ }, xpOnCast: () => { /* nada */ } };
 /** NotPorted esperado: os `case` de Spell_Apply fora da porta (gancho `spellApply` do motor antigo). */
-const HOOKED = new Set(["0x519db8", "0x51ce12"]);
+const HOOKED = new Set(["0x519db8"]);
 
 /** Mundo com o mapa remontado (as unidades por endereço: quem lançou +0x44/+0x3c, o alvo +0x48). */
 const world = (c: Ctx): WorldRec => worldRec(c, c.cm.u32(WORLD_PTR), M(c, c.cm.u32(MAP_PTR)));
