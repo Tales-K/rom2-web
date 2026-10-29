@@ -5,8 +5,8 @@
  *    0x56dafe/0x56a909 still): "defend"/"follow" dos aliados do jogador (party.ts) e dos grupos do script, e as ordens defend/still/follow
  *    do herói. Aproximações nossas; a `World` os marca `legacyMode` (comando 0 no grupo, fora do despachante 0x569321).
  *  - as magias que a etapa 8b ainda não portou, chamadas pelos ganchos do pensamento portado: `pickOffensive` (AI_CasterOffensiveSpell
- *    0x57a769), `autocast` (AI_Autocast 0x56bc7b, CTRL+U), `exeFlee` (fuga por Teleport 0x56cb8c/0x56cef3) e `casterSupport`
- *    (AI_IdleCasterSupport 0x56c592 — esse já é a porta, pelo adaptador da World).
+ *    0x57a769), `exeFlee` (fuga por Teleport 0x56cb8c/0x56cef3); `casterSupport` (AI_IdleCasterSupport 0x56c592) e `World.exeAutocast`
+ *    (AI_Autocast 0x56bc7b, CTRL+U) já são a porta (sim/exe/think.ts), pelos adaptadores da World.
  *  - `guardRadius`: a regra do raio do Guard (AI_GroupCmd_Guard 0x5709d9 → 0x57026e), usada pelos testes.
  */
 import { canRevive } from "./necro";
@@ -126,60 +126,10 @@ export function exeFlee(w: World, u: Unit, foes: Unit[], tpDist: number, nearRad
 
 // ------------------------------------------------------------------------------------------------ magias de apoio
 
-function knows(u: Unit, id: number): SpellDef | undefined { return u.spells.find(s => sid(s) === id && s.mana <= u.mana); }
-
-function castOn(w: World, u: Unit, s: SpellDef, t: Unit): boolean {
-  if (u.state === "attack" || u.state === "cast") return false;   // pensamento no meio de uma ação: o apoio fica para depois
-  if (t !== u && dist(u, t) > s.range + 0.5) return false;
-  w.castNow(u, s, t);   // sub-ação 2 do exe (a máquina gasta a mana e lança depois da carga); a ordem da unidade fica
-  return true;
-}
-
 /** Conjurador de IA ocioso: a porta de AI_IdleCasterSupport 0x56c592 / AI_CasterShield 0x57a999 (sim/exe/think.ts) pelo adaptador da
  *  World; true se ficou com a tarefa 8 (magia). */
 export function casterSupport(w: World, u: Unit): boolean {
   return w.exeIdleCasterSupport(u);
-}
-
-/** Pode receber magia de apoio automática (bits de alvo do AutoCasting) [exe 0x56bb53]. */
-function canBuff(w: World, u: Unit, t: Unit, flags: number): boolean {
-  if (t === u) return true;
-  if (t.player === u.player) return (flags & 1) !== 0;
-  const d = w.dip[u.player]?.[t.player] ?? 0;
-  if (d & 2) return (flags & 2) !== 0;
-  if ((d & 3) === 0) return (flags & 4) !== 0;
-  return false;
-}
-
-/** Em combate (para Bless) [est para o 0x542c90 do exe]. */
-const inBattle = (w: World, t: Unit) => w.tick - t.lastHurtTick < 5 * TICKS_PER_SEC || t.order.type === "attack" || t.state === "attack";
-
-/** Autocast das unidades do jogador [exe 0x56bc7b; gancho `autocast` do pensamento portado]. Devolve true se começou a lançar. */
-export function autocast(w: World, u: Unit): boolean {
-  const flags = w.playerAi[u.player]?.autocast ?? 0;
-  if (!u.spells.length || u.mana < 5 || !(flags & 8) || u.cooldown > 0) return false;
-  const heal = knows(u, SPELL.Heal), shield = knows(u, SPELL.Shield);
-  if (heal && u.hp < u.maxHp) return castOn(w, u, heal, u);
-  if (shield && !u.buffs.some(b => b.spell === shield.id)) return castOn(w, u, shield, u);
-  const friends = w.unitsInRadius(u.x, u.y, w.sightOf(u), v => v !== u && canBuff(w, u, v, flags));
-  if (heal) { const t = friends.find(v => v.hp < v.maxHp && dist(u, v) <= heal.range + 0.5); if (t) return castOn(w, u, heal, t); }
-  if (!(flags & 0x10) || u.mana < 10) return false;
-  const all = [u, ...friends];
-  const bless = knows(u, SPELL.Bless), haste = knows(u, SPELL.Haste);
-  for (const v of all) {
-    if (bless && inBattle(w, v) && !v.hasBuff("bless") && castOn(w, u, bless, v)) return true;
-    if (haste && !v.buffs.some(b => b.spell === haste.id) && inBattle(w, v) && castOn(w, u, haste, v)) return true;
-  }
-  if (!(flags & 0x20) || u.mana < 40) return false;
-  for (const v of all) {
-    for (const id of [SPELL.ProtAir, SPELL.ProtEarth, SPELL.ProtFire, SPELL.ProtWater]) {
-      const s = knows(u, id);
-      if (s && !v.buffs.some(b => b.spell === s.id) && castOn(w, u, s, v)) return true;
-    }
-  }
-  const inv = knows(u, SPELL.Invisibility);
-  if (inv && !u.hasBuff("invisible")) return castOn(w, u, inv, u);
-  return false;
 }
 
 // ------------------------------------------------------------------------------------------------ modos sem tratador portado
@@ -229,7 +179,7 @@ export function legacyThink(w: World, u: Unit): void {
         const t = recentAttacker(w, lead, 10) ?? recentAttacker(w, u, 6) ?? alerted(w, u) ??
           w.nearestEnemy(u, sight, v => dist(v, lead) <= ai.range + 3);
         if (t && dist(t, lead) <= ai.range + sight) { engage(w, u, t); return; }
-        if (lead.state !== "move" && (human ? autocast(w, u) : casterSupport(w, u))) return;
+        if (lead.state !== "move" && (human ? w.exeAutocast(u) : casterSupport(w, u))) return;
       }
       if ((far || u.formationSlot >= 0) && u.order.type !== "follow") w.command(u, { type: "follow", unit: lead.id, range: Math.max(1, Math.floor(ai.range / 2)) });
       return;
@@ -253,7 +203,7 @@ function heroLegacy(w: World, u: Unit): void {
     if (resume?.type === "guard" && dist(t, { x: resume.x + 0.5, y: resume.y + 0.5 }) > guardRadius(resume.range) + 0.5) w.resumeOrNone(u);
     else if (resume?.type === "defend") { const lead = w.get(resume.unit); if (lead && dist(lead, u) > resume.range + w.sightOf(u)) w.resumeOrNone(u); }
     // ataque corpo a corpo: autocast entre golpes [exe 0x56aee2]
-    else if (w.attackRange(u) < 2 && u.cooldown <= 0 && u.mana >= 5 && u.spells.length) autocast(w, u);
+    else if (w.attackRange(u) < 2 && u.cooldown <= 0 && u.mana >= 5 && u.spells.length) w.exeAutocast(u);
     void t;
     return;
   }
@@ -269,7 +219,7 @@ function heroLegacy(w: World, u: Unit): void {
         return a && dist(a, { x: post.x + 0.5, y: post.y + 0.5 }) <= r + w.sightOf(u) ? a : undefined;
       })();
       if (e) { engage(w, u, e, { ...order }); return; }
-      if (u.cx === post.x && u.cy === post.y) autocast(w, u);
+      if (u.cx === post.x && u.cy === post.y) w.exeAutocast(u);
       return;
     }
     case "defend": {
@@ -277,7 +227,7 @@ function heroLegacy(w: World, u: Unit): void {
       if (!lead || !lead.active || lead === u) { w.command(u, { type: "guard", x: u.cx, y: u.cy }); return; }
       const t = recentAttacker(w, lead, 10) ?? recentAttacker(w, u, 6) ?? w.nearestEnemy(u, w.sightOf(u), v => dist(v, lead) <= order.range + 3);
       if (t) { engage(w, u, t, { ...order }); return; }
-      if (dist(lead, u) <= order.range + 0.5) autocast(w, u);
+      if (dist(lead, u) <= order.range + 0.5) w.exeAutocast(u);
       return;
     }
     default:

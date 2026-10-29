@@ -451,7 +451,7 @@ export const AI_FIELDS: Field[] = [
   [0x78, 1, "spellSlot"], [0x94, 4, "f94"], [0x98, 4, "f98"], [0x9c, 2, "f9c"], [0x9e, 1, "f9e"], [0xa0, 2, "fa0"], [0xa4, 4, "fa4"], [0xa8, 4, "fa8"], [0xac, 4, "fac"], [0xb0, 2, "fb0"],
 ];
 /** Mundo: lista das unidades vivas (+4), candidatos (+0xa68), caídos (+0xa88), tabela de diplomacia (+0xa8bc). */
-export const WORLD_LIVE_OFF = 0x4, WORLD_CAND_OFF = 0xa68, WORLD_DEAD_OFF = 0xa88, WORLD_DIP_OFF = 0xa8bc, WORLD_DIP_SIZE = 8 + 0x46 * 0x46;
+export const WORLD_LIVE_OFF = 0x4, WORLD_CAND_OFF = 0xa68, WORLD_DEAD_OFF = 0xa88, WORLD_FRIENDS_OFF = 0xaa8, WORLD_FOES_OFF = 0xac8, WORLD_DIP_OFF = 0xa8bc, WORLD_DIP_SIZE = 8 + 0x46 * 0x46;
 /** Mundo: lista de eventos (+0xbbec, cabeçalho 0x1c) e rascunho do evento (+0xbd98, 0x54 bytes). */
 export const WORLD_EVENTS_OFF = 0xbbec, WORLD_EVT_OFF = 0xbd98;
 
@@ -522,8 +522,8 @@ export function playerFrom(cm: CallMem, p: number): PlayerRec {
   r.addr = p >>> 0;
   fill(r as unknown as Rec, cm, p, PLAYER_FIELDS);
   r.groups = ptrListFrom(cm, cm.u32(p + 0x28));
-  // formação ([+0x34]+0x1f; 0x5703c0)
-  if (cm.has(p + 0x34)) { const o = cm.u32(p + 0x34); if (o !== 0 && cm.has(o + 0x1f)) r.formation = cm.u8(o + 0x1f); }
+  // formação ([+0x34]+0x1f; 0x5703c0) e AutoCasting ([+0x34]+0x20; 0x56bb53/0x56bc7b)
+  if (cm.has(p + 0x34)) { const o = cm.u32(p + 0x34); if (o !== 0 && cm.has(o + 0x1f)) r.formation = cm.u8(o + 0x1f); if (o !== 0 && cm.has(o + 0x20)) r.autocast = cm.u8(o + 0x20); }
   return r;
 }
 
@@ -718,6 +718,8 @@ export function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
   wr.liveUnits = ptrListFrom(c.cm, live + WORLD_LIVE_OFF);
   wr.cand = ptrListFrom(c.cm, w + WORLD_CAND_OFF);
   wr.dead = ptrListFrom(c.cm, w + WORLD_DEAD_OFF);
+  wr.friends = ptrListFrom(c.cm, w + WORLD_FRIENDS_OFF);
+  wr.foes = ptrListFrom(c.cm, w + WORLD_FOES_OFF);
   for (let i = 0; i < WORLD_DIP_SIZE; i++) if (c.cm.has(w + WORLD_DIP_OFF + i)) wr.dipTable[i] = c.cm.u8(w + WORLD_DIP_OFF + i);
   for (let i = 0; i < 16; i++) if (c.cm.has(w + 0xa54 + i)) wr.classTable[i] = (c.cm.u8(w + 0xa54 + i) << 24) >> 24;
   if (c.cm.has(w + 0xbbe8)) wr.fbbe8 = c.cm.u32(w + 0xbbe8);
@@ -761,7 +763,8 @@ export function checkWorld(c: Ctx): string | null {
     else if (cm.has(a) && got !== cm.u8(a)) return `diplomacia[${i}]: porta mudou ${cm.u8(a)}→${got}, original não escreveu`;
   }
   return checkEventList(cm, w + WORLD_EVENTS_OFF, c.world.events, "mundo+0xbbec")
-    ?? checkPtrList(cm, w + WORLD_CAND_OFF, c.world.cand, "mundo+0xa68") ?? checkPtrList(cm, w + WORLD_DEAD_OFF, c.world.dead, "mundo+0xa88");
+    ?? checkPtrList(cm, w + WORLD_CAND_OFF, c.world.cand, "mundo+0xa68") ?? checkPtrList(cm, w + WORLD_DEAD_OFF, c.world.dead, "mundo+0xa88")
+    ?? checkPtrList(cm, w + WORLD_FRIENDS_OFF, c.world.friends, "mundo+0xaa8") ?? checkPtrList(cm, w + WORLD_FOES_OFF, c.world.foes, "mundo+0xac8");
 }
 export const U = (c: Ctx, a: number): UnitRec => unitFrom(c.cm, a, c.memo);
 /** As três listas do contentor de unidades [0x68d2dc] em `base` (+4 todas, +0x24 criadas por magia, +0x44 cadáveres), pelos nós lidos. */

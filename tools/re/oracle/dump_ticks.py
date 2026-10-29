@@ -39,6 +39,16 @@ UNITS_PTR = 0x68D2DC    # [ ] = contentor das listas de unidades (0x52bbb7): +4 
 PLAYERS_PTR = 0x68D2C4  # [ ] = lista de jogadores (CList<void*>, cabeçalho no próprio objeto)
 
 
+def _book(o, book: int) -> list:
+    """Livro de magias (unidade+0x140: CArray de ponteiros em +8, tamanho +0xc) como [[id (+8 da magia), endereço], ...]."""
+    if not book:
+        return []
+    data, size = o.u32(book + 8), o.u32(book + 0xC)
+    if not data or size > 64:
+        return []
+    return [[o.read(e + 8, 1)[0], e] for e in (o.u32(data + 4 * i) for i in range(size)) if e]
+
+
 def _ptrs(o, hdr: int) -> list:
     """Dados (ponteiros) de um CList<void*> em `hdr` (+4 cabeça; nó: +0 próximo, +8 dado), na ordem da lista."""
     out, p, n = [], o.u32(hdr + 4), 0
@@ -161,7 +171,11 @@ class ExeTracker:
                           "f98": struct.unpack_from("<h", b, 0x98)[0], "f9c": struct.unpack_from("<h", b, 0x9C)[0],
                           "f9e": struct.unpack_from("<h", b, 0x9E)[0], "fa2": b[0xA2], "fa3": b[0xA3],
                           "fde": struct.unpack_from("<h", b, 0xDE)[0], "fe2": struct.unpack_from("<h", b, 0xE2)[0],
-                          "f138": struct.unpack_from("<I", b, 0x138)[0]}
+                          "f138": struct.unpack_from("<I", b, 0x138)[0],
+                          # etapa 8b (magias): alvo +0x5c e magia em curso +0x64, o livro +0x140 como [id, endereço] — os ponteiros de magia do
+                          # registro (IA+0x30, +0x44, +0x64) são endereços de BookSpellRec; o importador os traduz para os nossos
+                          "f5c": struct.unpack_from("<I", b, 0x5C)[0], "f64": struct.unpack_from("<I", b, 0x64)[0],
+                          "book": _book(o, struct.unpack_from("<I", b, 0x140)[0])}
         return ex, units
 
 

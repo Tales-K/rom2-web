@@ -2514,6 +2514,24 @@
    "name": "Traps_Think",
    "desc": "Armadilhas do script a cada pensamento (0x57a307 sorteia o alvo)",
    "source": "notes/pensamento.md"
+  },
+  {
+   "va": "0x567c56",
+   "name": "AI_SplitFriendsFoes",
+   "desc": "Reparte os candidatos mundo+0xa68 entre +0xac8 (em guerra) e +0xaa8 (os outros); mortos fora, invisivel so visto de perto",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x571e9b",
+   "name": "AI_GroupVisibleUnits",
+   "desc": "Candidatos mundo+0xa68 = unidades em celulas vistas pelo grupo (0x571c4d sem o filtro de inimigos)",
+   "source": "notes/magias.md"
+  },
+  {
+   "va": "0x56bc2e",
+   "name": "AI_SpellInRange",
+   "desc": "Chebyshev entre as celulas da unidade e do alvo <= alcance da magia (+9)",
+   "source": "notes/magias.md"
   }
  ]
 }

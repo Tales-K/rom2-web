@@ -18,12 +18,12 @@
  *    mundo+0xa54, Mind +0x88, petrificado +0x7f), 0x5725a8 (idem com 0x5713f8: só adjacentes), AI_GuardEnterCombat 0x5726f7 e
  *    AI_GuardLeaveCombat 0x57272c (raio +0x2d = base +0x38 + 4 ± 1 / base ± 1: Rand_Range 0x57aff0, sítios 0x572718/0x57274d).
  *  - Por unidade: AI_MoveTo 0x56c8af (IA+8 = 1, IA+0xa = célula), AI_Idle 0x56afac (0 → Stand ground 0x56a1fb, tasks.ts;
- *    1 → AI_IdleAlt 0x56afd9: jogador humano → 0x56b025 (livro → AI_Autocast 0x56bc7b, gancho; senão IA+8 = 0); IA → IA+8 = 0xb
+ *    1 → AI_IdleAlt 0x56afd9: jogador humano → 0x56b025 (livro → AI_Autocast 0x56bc7b; senão IA+8 = 0); IA → IA+8 = 0xb
  *    e, com livro, AI_IdleCasterSupport 0x56c592: Heal em si/no aliado mais ferido (AI_AlliesScan 0x567b2d) ou AI_CasterShield 0x57a999
  *    (Shield em si; sorteios 0x57afd0 nos sítios 0x57aad9/0x57ac98: aliado e magia de apoio) → AI_CastAtTarget 0x56c72b (tarefa 8;
  *    0x5679cf aliados em volta) — a magia em si fica na tarefa 8 do despachante e na máquina), AI_Task_Attack 0x56acc8 (alvo imune (+0x4c bit 8) → ocioso; magias de chance
  *    IA+0x7c/+0x88 com Rand_UniformObject, sítio 0x56ad33 → 0x56a981 (exec 0: NotPorted); sem alvo → AI_EnemiesAroundPost 0x567988;
- *    jogador humano: AI_CastChosenSpell 0x56b059 (gancho) senão tarefa 5 (+ AI_Autocast se corpo a corpo); IA com livro:
+ *    jogador humano: AI_CastChosenSpell 0x56b059 senão tarefa 5 (+ AI_Autocast se corpo a corpo); IA com livro:
  *    AI_CasterOffensiveSpell 0x57a769 (exec 0: gancho/NotPorted) senão tarefa 5), AI_FleePoint 0x56f765, Grid_FineCoordCentroid 0x558b92
  *    (x87: reconstruída do assembly — float32 nas divisões e no termo independente, _ftol trunca), AI_CanCastCost 0x56bb0d, 0x56cb8c
  *    (fuga por Teleport, exec 0: NotPorted).
@@ -32,7 +32,8 @@
  */
 import { CListPtrIter, type CListPtr } from "./mfc";
 import { aiTaskStandGround, fn_0x56fe34 } from "./tasks";
-import { aiAngleTiebreak, aiEnemyFilter, fn_0x53a5a0, fn_0x567ddf, fn_0x56dbc6 } from "./action";
+import { aiAngleTiebreak, aiEnemyFilter, fn_0x53a5a0, fn_0x567ddf, fn_0x56dbc6, fn_0x57994d } from "./action";
+import { aiInBattle } from "./combat";
 import { aiUnitDistance, fn_0x52b22a, fn_0x5568e4, gridUnitsInRings, NotPorted } from "./walk_action";
 import { aiAttackRange, aiTeleportTargetDist, fn_0x55cd50, unitGetBookSpell } from "./wave";
 import { fn_0x55f330, mapObjCellOf, mapObjSubCellCenter } from "./walk";
@@ -51,12 +52,8 @@ const crtAbs = (v: number): number => Math.abs(v | 0) | 0;
 
 /** Ganchos: o que ainda vive no motor antigo (8b: magias) e o que não é do exe. Sem gancho → NotPorted. */
 export interface ThinkHooks {
-  /** 0x56b059 AI_CastChosenSpell(unidade, alvo): ≠ 0 = a magia escolhida no livro foi lançada no lugar do golpe (8b). */
-  castChosenSpell?(wd: WorldRec, u: UnitRec, t: UnitRec): number;
   /** 0x57a769 AI_CasterOffensiveSpell(unidade, alvo): ≠ 0 = o conjurador de IA lançou (8b; exec 0 no corpus). */
   casterOffensiveSpell?(wd: WorldRec, u: UnitRec, t: UnitRec): number;
-  /** 0x56bc7b AI_Autocast (8b). */
-  autocast?(wd: WorldRec, u: UnitRec): void;
   /** 0x57a47d: armadilhas do script (0x57a307 sorteia o alvo; exec 0 no corpus). Sem gancho: nada. */
   traps?(wd: WorldRec): void;
   /** 0x56cb8c (Wimpy com Teleport pagável) e 0x56cef3 (Withdraw idem): fuga por magia (8b; exec 0 no corpus). Sem gancho → NotPorted. */
@@ -95,12 +92,11 @@ export function aiIdleAlt(wd: WorldRec, u: UnitRec, h: ThinkHooks): void {
   }
 }
 
-/** 0x56b025 (thiscall): sem livro (0x53a5a0 == 0) → IA+8 = 0; com livro → AI_Autocast 0x56bc7b (gancho). */
+/** 0x56b025 (thiscall): sem livro (0x53a5a0 == 0) → IA+8 = 0; com livro → AI_Autocast 0x56bc7b. */
 export function fn_0x56b025(wd: WorldRec, u: UnitRec, h: ThinkHooks): void {
   if (fn_0x53a5a0(u) === 0) u.ai.task = 0;
   else {
-    if (!h.autocast) throw new NotPorted("0x56bc7b");
-    h.autocast(wd, u);
+    aiAutocast(wd, u, h);
   }
 }
 
@@ -266,6 +262,271 @@ export function aiIdleCasterSupport(wd: WorldRec, param_1: UnitRec, h: ThinkHook
   }
 }
 
+// ---------------------------------------------------------------------------------------------------------- magos do jogador humano (8b)
+
+/** 0x57b0e0 (thiscall; lista): AddTail 0x53c5c0. */
+export function fn_0x57b0e0(l: CListPtr, p: number): void {
+  l.addTail(p);
+}
+
+/** 0x571e9b (thiscall; mundo, grupo): candidatos mundo+0xa68 = unidades em células vistas por algum membro do grupo (visão recomputada;
+ *  a célula de quem bateu num membro de IA conta 20 pensamentos), de pé (0x567ddf põe as caídas em +0xa88); sem nenhuma de pé, as
+ *  caídas. É AI_GroupVisibleEnemies 0x571c4d sem o filtro de inimigos. */
+export function fn_0x571e9b(wd: WorldRec, param_1: UnitTypeRec): void {
+  wd.cand.removeAll();
+  let local_14 = param_1.members.first();
+  if (local_14 !== 0) {
+    const m = wd.map;
+    fn_0x553681(m);
+    for (; local_14 !== 0; local_14 = param_1.members.nextAfter(local_14)) {
+      const u = m.unitAt(local_14);
+      const uVar1 = mapObjCellOf(u.mapObj) & 0xffff;
+      visionUnitMap(m, u, uVar1);
+      if ((u.owner.f2c >>> 0) !== 0 && (u.ai.f58 & 0xffff) !== 0) {
+        const off = 0x58ec0 + (u.ai.f58 & 0xffff) + 0x2a008;
+        m.mem[off] = (m.mem[off]! + 1) & 0xff;
+        u.ai.f5a = (u.ai.f5a + 1) & 0xff;
+        if (0x14 < i8(u.ai.f5a)) u.ai.f58 = 0;
+      }
+    }
+    const local_10 = new CListPtrIter();
+    local_14 = local_10.first(wd.lists.all);   // [mapa+0xa456c]+4
+    while (local_14 !== 0) {
+      const uVar2 = mapObjCellOf(m.unitAt(local_14).mapObj) & 0xffff;
+      if (visionSeen(m, uVar2) !== 0) fn_0x52b22a(wd.cand, local_14);
+      local_14 = local_10.next();
+    }
+    fn_0x567ddf(wd);
+    if (wd.cand.getCount() === 0 && wd.dead.getCount() !== 0) {
+      wd.cand.removeAll();
+      for (local_14 = wd.dead.first(); local_14 !== 0; local_14 = wd.dead.nextAfter(local_14)) fn_0x52b22a(wd.cand, local_14);
+      wd.dead.removeAll();
+    }
+  }
+}
+
+/** 0x567c56 (thiscall; mundo, unidade, candidatos mundo+0xa64): reparte os candidatos (menos os mortos, ação 0x10) entre +0xac8 (em
+ *  guerra com a unidade, 0x57994d) e +0xaa8 (os outros); o invisível (+0x144 bit 0x1000) de quem não é aliado pleno (diplomacia ≠ 2) só
+ *  entra se algum membro do grupo da unidade o vê de perto (AI_UnitDistance ≤ IA+0x71). */
+export function fn_0x567c56(wd: WorldRec, param_1: UnitRec, param_2: CListPtr): void {
+  const local_c = new CListPtrIter();
+  wd.foes.removeAll();
+  wd.friends.removeAll();
+  let local_10 = local_c.first(param_2);
+  for (;;) {
+    if (local_10 === 0) return;
+    const v = wd.map.unitAt(local_10);
+    if ((v.act >>> 0) === 0x10) { local_10 = local_c.next(); continue; }
+    if ((v.effects & 0x1000) !== 0 && wd.dipTable[i16(v.owner.f04) + i16(param_1.owner.f04) * 0x46 + 8] !== 2) {
+      let bVar1 = false;
+      const local_18 = new CListPtrIter();
+      let local_20 = local_18.first(param_1.type.members);
+      while (local_20 !== 0) {
+        const w = wd.map.unitAt(local_20);
+        const uVar2 = aiUnitDistance(wd.map, v, w);
+        if ((uVar2 & 0xff) <= (w.ai.f71 & 0xff)) bVar1 = true;
+        local_20 = local_18.next();
+      }
+      if (!bVar1) { local_10 = local_c.next(); continue; }
+    }
+    if (!fn_0x57994d(wd, param_1, v)) fn_0x57b0e0(wd.friends, local_10);
+    else fn_0x57b0e0(wd.foes, local_10);
+    local_10 = local_c.next();
+  }
+}
+
+/** 0x56bb53 AI_AutocastTargetsMask (thiscall; mundo, unidade, candidato): 1 se o AutoCasting do dono ([+0x34]+0x20) cobre o candidato —
+ *  neutro (diplomacia & 3 == 0) com o bit 4, aliado (& 2) com o bit 2, do mesmo dono com o bit 1, ou a própria unidade. */
+export function aiAutocastTargetsMask(wd: WorldRec, param_1: UnitRec, param_2: UnitRec): number {
+  const dip = wd.dipTable[i16(param_2.owner.f04) + i16(param_1.owner.f04) * 0x46 + 8]!;
+  const flags = param_1.owner.autocast & 0xff;
+  if ((dip & 3) === 0 && (flags & 4) !== 0) return 1;
+  if ((dip & 2) === 0 || (flags & 2) === 0) {
+    if ((param_1.owner.addr >>> 0) === (param_2.owner.addr >>> 0) && (flags & 1) !== 0) return 1;
+    if (param_1 === param_2) return 1;
+    return 0;
+  }
+  return 1;
+}
+
+/** 0x56bc2e (cdecl; unidade, alvo, magia do livro): AI_TeleportTargetDist (Chebyshev) entre as células ≤ alcance da magia (+9). */
+export function fn_0x56bc2e(param_1: UnitRec, param_2: UnitRec, param_3: BookSpellRec): boolean {
+  const uVar3 = mapObjCellOf(param_2.mapObj) & 0xffff;
+  const uVar2 = mapObjCellOf(param_1.mapObj) & 0xffff;
+  const bVar1 = aiTeleportTargetDist(uVar2, uVar3) & 0xff;
+  return bVar1 <= (param_3.range & 0xff);
+}
+
+/** A magia do livro do endereço que `aiCanCastCost` devolve (o exe guarda o ponteiro). */
+const bookSpell = (wd: WorldRec, a: number): BookSpellRec => wd.spellAt(a);
+/** IA+0xa4 ≠ 0x14 ou já passaram mais de 20 tiques de 16/s desde que a IA lançou nela (IA+0xa8; 0x582c40 abs). O exe compara com 0x14
+ *  (Bless) em TODAS as magias do autocast, não com o id da magia testada. */
+const notRecast = (t: UnitRec): boolean => (t.ai.fa4 | 0) !== 0x14 || 0x14 < crtAbs((t.ai.fa8 | 0) - (EXE_GLOBALS.clock16 | 0));
+
+/** 0x56bc7b AI_Autocast (thiscall; mundo, unidade do jogador humano com livro): pelo AutoCasting do dono — nível 1 (bit 8, mana ≥ 5):
+ *  Heal em si se ferida, Shield (0x1b) em si sem o efeito, senão Heal no candidato (lista +0xaa8 de 0x567c56, com 2+, pela máscara
+ *  0x56bb53 e ao alcance) de menor vida ÷ máx. (divisão INTEIRA convertida a double, < 1,0); nível 2 (bit 0x10, mana ≥ 10): Bless (0x14,
+ *  em combate) e Haste (0x15) no candidato sem o efeito; nível 3 (bit 0x20, mana ≥ 40): Protection 0xd/0x13/4/8 e Invisibility (0xc) em
+ *  outro só com diplomacia & 3; por fim Invisibility em si. Nada → IA+8 = 0. Cada lançamento: IA+0x60 = 1 e AI_CastAtTarget 0x56c72b. */
+export function aiAutocast(wd: WorldRec, param_1: UnitRec, h: ThinkHooks): void {
+  const local_10 = new CListPtrIter();
+  const cast = (t: UnitRec, s: number): void => { param_1.ai.f60 = 1; aiCastAtTarget(wd, param_1, t, bookSpell(wd, s), h); };
+  const flags = (): number => param_1.owner.autocast & 0xff;
+  let local_8: number;
+  if (i16(param_1.mana) < 5) { param_1.ai.task = 0; return; }
+  if ((flags() & 8) === 0) { param_1.ai.task = 0; return; }
+  if (i16(param_1.f94) !== i16(param_1.f96) && (local_8 = aiCanCastCost(param_1, 0x18)) !== 0) { cast(param_1, local_8); return; }
+  if ((param_1.effects & 0x8000000) === 0 && (local_8 = aiCanCastCost(param_1, 0x1b)) !== 0) { cast(param_1, local_8); return; }
+  fn_0x571e9b(wd, param_1.type);
+  fn_0x567c56(wd, param_1, wd.cand);
+  local_8 = aiCanCastCost(param_1, 0x18);
+  if (local_8 !== 0 && 1 < wd.friends.getCount()) {
+    let dVar2 = 2.0, local_28 = 0;
+    let local_14 = local_10.first(wd.friends);
+    while (local_14 !== 0) {
+      const t = wd.map.unitAt(local_14);
+      if (aiAutocastTargetsMask(wd, param_1, t) === 0 || !fn_0x56bc2e(param_1, t, bookSpell(wd, local_8))) {
+        local_14 = local_10.next();
+      } else {
+        if (i16(t.f96) === 0) throw new Error("0x56bc7b: vida máxima 0 (#DE no exe)");
+        const dVar1 = Math.trunc(i16(t.f94) / i16(t.f96));
+        if (dVar1 < dVar2) { local_28 = local_14; dVar2 = dVar1; }
+        local_14 = local_10.next();
+      }
+    }
+    if (dVar2 < 1.0) { cast(wd.map.unitAt(local_28), local_8); return; }   // _DAT_005d1b88 = 1.0
+  }
+  if ((flags() & 0x10) === 0) { param_1.ai.task = 0; return; }
+  if (i16(param_1.mana) < 10) { param_1.ai.task = 0; return; }
+  let local_14 = local_10.first(wd.friends);
+  while (local_14 !== 0) {
+    const t = wd.map.unitAt(local_14);
+    if (aiAutocastTargetsMask(wd, param_1, t) === 0) { local_14 = local_10.next(); continue; }
+    local_8 = aiCanCastCost(param_1, 0x14);
+    if (local_8 !== 0 && aiInBattle(t) && (t.effects & 0x100000) === 0 && notRecast(t) && fn_0x56bc2e(param_1, t, bookSpell(wd, local_8))) {
+      cast(t, local_8); return;
+    }
+    local_8 = aiCanCastCost(param_1, 0x15);
+    if (local_8 !== 0 && (t.effects & 0x200000) === 0 && notRecast(t) && fn_0x56bc2e(param_1, t, bookSpell(wd, local_8))) {
+      cast(t, local_8); return;
+    }
+    local_14 = local_10.next();
+  }
+  if ((flags() & 0x20) === 0) { param_1.ai.task = 0; return; }
+  if (i16(param_1.mana) < 0x28) { param_1.ai.task = 0; return; }
+  local_14 = local_10.first(wd.friends);
+  while (local_14 !== 0) {
+    const t = wd.map.unitAt(local_14);
+    if (aiAutocastTargetsMask(wd, param_1, t) === 0) { local_14 = local_10.next(); continue; }
+    local_8 = aiCanCastCost(param_1, 0xd);
+    if (local_8 !== 0 && fn_0x56bc2e(param_1, t, bookSpell(wd, local_8)) && (t.effects & 0x2000) === 0 && notRecast(t)) { cast(t, local_8); return; }
+    local_8 = aiCanCastCost(param_1, 0x13);
+    if (local_8 !== 0 && fn_0x56bc2e(param_1, t, bookSpell(wd, local_8)) && (t.effects & 0x80000) === 0 && notRecast(t)) { cast(t, local_8); return; }
+    local_8 = aiCanCastCost(param_1, 4);
+    if (local_8 !== 0 && fn_0x56bc2e(param_1, t, bookSpell(wd, local_8)) && (t.effects & 0x10) === 0 && notRecast(t)) { cast(t, local_8); return; }
+    local_8 = aiCanCastCost(param_1, 8);
+    if (local_8 !== 0 && fn_0x56bc2e(param_1, t, bookSpell(wd, local_8)) && (t.effects & 0x100) === 0 && notRecast(t)) { cast(t, local_8); return; }
+    local_8 = aiCanCastCost(param_1, 0xc);
+    if (local_8 !== 0 && fn_0x56bc2e(param_1, t, bookSpell(wd, local_8)) && (t.effects & 0x1000) === 0 && param_1 !== t
+      && (wd.dipTable[i16(t.owner.f04) + i16(param_1.owner.f04) * 0x46 + 8]! & 3) !== 0 && notRecast(t)) { cast(t, local_8); return; }
+    local_14 = local_10.next();
+  }
+  local_8 = aiCanCastCost(param_1, 0xc);
+  if (local_8 === 0 || (param_1.effects & 0x1000) !== 0) param_1.ai.task = 0;
+  else cast(param_1, local_8);
+}
+
+/** Saldo das áreas de AI_CastChosenSpell (o mesmo laço nos casos 2, 3, 6 e 7): para cada inimigo (+0xac8) a célula (adiantada um passo
+ *  pelo rumo andar+0 >> 5 fora do centro da célula, quando `ahead`), as unidades nos anéis até `rings`: em guerra +1, senão −1 (a própria
+ *  unidade −100); o melhor saldo (−1000 sem inimigos). */
+function chosenAreaScore(wd: WorldRec, param_1: UnitRec, rings: number, ahead: boolean): number {
+  const local_1c = new CListPtrIter(), local_30 = new CListPtrIter();
+  let local_38 = -1000;
+  let local_28 = local_1c.first(wd.foes);
+  while (local_28 !== 0) {
+    const e = wd.map.unitAt(local_28);
+    let local_10 = mapObjCellOf(e.mapObj) & 0xffff;
+    if (ahead && mapObjSubCellCenter(e.mapObj) === 0) {
+      const d = (e.walk.dir & 0xff) >> 5;
+      local_10 = (local_10 + wd.map.i8(MAP_DIR_DX_OFF + d) + wd.map.i8(MAP_DIR_DY_OFF + d) * 0x100) & 0xffff;
+    }
+    const local_68 = gridUnitsInRings(wd.map, local_10, rings);
+    let local_44 = 0, local_40 = 0;
+    let local_4c = local_30.first(local_68);
+    while (local_4c !== 0) {
+      if (!fn_0x57994d(wd, param_1, wd.map.unitAt(local_4c))) local_44 += local_4c === (param_1.addr >>> 0) ? 100 : 1;
+      else local_40 += 1;
+      local_4c = local_30.next();
+    }
+    if (local_38 < local_40 - local_44) local_38 = local_40 - local_44;
+    local_28 = local_1c.next();
+  }
+  return local_38;
+}
+
+/** 0x56b059 AI_CastChosenSpell (thiscall; mundo, unidade do jogador humano, alvo): a magia escolhida na interface (IA+0x78; 0 = golpe)
+ *  pagável (AI_CanCastCost) no lugar do golpe — 1, 5, 0xa, 0xb, 0x10, 0x1a no alvo; áreas (2 e 3 pelo inimigo adiantado, 6 e 7 parado;
+ *  anéis 1 só no 2) só com saldo de inimigos > 0; 0x12/0x1c no alvo que já tem o efeito, ou no que não o tem se algum inimigo também não o tem (como está no exe); Heal (0x18) no
+ *  candidato da máscara de menor vida ÷ máx. (< 1,0; senão IA+8 = 0 e devolve 1); 0x19 e Shield (0x1b, sem o efeito) em si; 0x16 e o
+ *  resto: 0. Devolve 1 se lançou (IA+0x60 = 1 e AI_CastAtTarget 0x56c72b; 0x19 sem IA+0x60). */
+export function aiCastChosenSpell(wd: WorldRec, param_1: UnitRec, param_2: UnitRec, h: ThinkHooks): number {
+  const id = param_1.ai.spellSlot & 0xff;
+  if (id === 0) return 0;
+  const local_14 = aiCanCastCost(param_1, id);
+  if (local_14 === 0) return 0;
+  const cast = (t: UnitRec): number => { param_1.ai.f60 = 1; aiCastAtTarget(wd, param_1, t, bookSpell(wd, local_14), h); return 1; };
+  switch (id) {
+    case 1: case 5: case 10: case 0xb: case 0x10: case 0x1a:
+      return cast(param_2);
+    case 2: case 3: case 6: case 7: {
+      fn_0x571e9b(wd, param_1.type);
+      fn_0x567c56(wd, param_1, wd.cand);
+      const local_38 = chosenAreaScore(wd, param_1, id === 2 ? 1 : 2, id === 2 || id === 3);
+      return local_38 < 1 ? 0 : cast(param_2);
+    }
+    case 0x12: case 0x1c: {
+      if ((param_2.effects & (1 << (id & 0x1f))) === 0) {
+        fn_0x571e9b(wd, param_1.type);
+        fn_0x567c56(wd, param_1, wd.cand);
+        const local_1c = new CListPtrIter();
+        let local_28 = local_1c.first(wd.foes);
+        while (local_28 !== 0) {
+          if ((wd.map.unitAt(local_28).effects & (1 << (id & 0x1f))) === 0) return cast(param_2);
+          local_28 = local_1c.next();
+        }
+        return 0;
+      }
+      return cast(param_2);
+    }
+    case 0x16:
+      return 0;
+    case 0x18: {
+      fn_0x571e9b(wd, param_1.type);
+      fn_0x567c56(wd, param_1, wd.cand);
+      const local_1c = new CListPtrIter();
+      let local_c = 2.0, local_34 = 0;
+      let local_28 = local_1c.first(wd.friends);
+      while (local_28 !== 0) {
+        const t = wd.map.unitAt(local_28);
+        if (aiAutocastTargetsMask(wd, param_1, t) === 0) { local_28 = local_1c.next(); continue; }
+        if (i16(t.f96) === 0) throw new Error("0x56b059: vida máxima 0 (#DE no exe)");
+        const local_24 = Math.trunc(i16(t.f94) / i16(t.f96));
+        if (local_24 < local_c) { local_34 = local_28; local_c = local_24; }
+        local_28 = local_1c.next();
+      }
+      if (1.0 <= local_c) { param_1.ai.task = 0; return 1; }   // _DAT_005d1b88 = 1.0
+      return cast(wd.map.unitAt(local_34));
+    }
+    case 0x19:
+      aiCastAtTarget(wd, param_1, param_1, bookSpell(wd, local_14), h);
+      return 1;
+    case 0x1b:
+      return (param_1.effects & 0x8000000) === 0 ? cast(param_1) : 0;
+    default:
+      return 0;
+  }
+}
+
 /** 0x56969c AI_TeleportCast (cdecl; unidade, célula, magia do livro): tarefa IA+8 = 9 (magia na célula IA+0x3c), IA+0x30 = magia,
  *  IA+0x14 = alcance da magia. */
 export function aiTeleportCast(wd: WorldRec, param_1: UnitRec, param_2: number, param_3: BookSpellRec, h: ThinkHooks): void {
@@ -364,16 +625,14 @@ export function aiTaskAttack(wd: WorldRec, u: UnitRec, param_2: UnitRec, h: Thin
   } else if ((u.owner.f2c >>> 0) === 0) {
     let cast = 0;
     if (fn_0x53a5a0(u) !== 0) {
-      if (!h.castChosenSpell) throw new NotPorted("0x56b059");
-      cast = h.castChosenSpell(wd, u, local_10);
+      cast = aiCastChosenSpell(wd, u, local_10, h);
     }
     if (cast === 0) {
       u.ai.task = 5;
       u.ai.f0c = local_10.addr >>> 0;
       u.ai.range = aiAttackRange(u) & 0xff;
       if (fn_0x53a5a0(u) !== 0 && (u.ai.range & 0xff) < 2) {
-        if (!h.autocast) throw new NotPorted("0x56bc7b");
-        h.autocast(wd, u);
+        aiAutocast(wd, u, h);
       }
     }
   } else {

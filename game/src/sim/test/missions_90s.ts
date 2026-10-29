@@ -170,7 +170,9 @@ async function m91(): Promise<void> {
   console.log("[91] Igles/Dina; variantes; falhas");
   /** cadeia curta: 1ª conversa -> ingrediente (com `who`) -> 2ª conversa (com `who`) */
   const quick = (hero: HeroState, who = 10001): Run => {
-    const q = start(hero); settle(q, 5);
+    // imortais: com o AutoCasting portado (0x56bc7b) a Dina se dá Haste fora de combate (o exe só exige combate para o Bless) e chega
+    // antes à patrulha orc em volta do saco, que a mata com 26 PV — a cadeia de falas é o que se testa aqui
+    const q = start(hero); immortal(q); settle(q, 5);
     beside(q, unit(q, who), 95); settle(q);
     q.b.world.kill(unit(q, 41), q.b.hero); settle(q, 5);
     const sk = q.b.world.loot.find(l => l.items.includes(INGR))!;

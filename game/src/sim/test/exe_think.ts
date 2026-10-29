@@ -2,12 +2,12 @@
  * Prova da porta sim/exe/think.ts (etapa 9, lote 2: o pensamento de 1×/s 0x56fe4d → AI_PlayerThink → AI_GroupThink e as suas folhas;
  * os setores 0x55b5f1) e de sim/exe/vision.ts (Vision_Compute 0x552c28) contra os pares do oráculo (tools/re/oracle/fnprobe.py), com o
  * arnês de exe_recon.ts (igualdade exata em 100 % das chamadas: sorteios, unidades, grupos, jogadores, mundo, mapa (visão, setores)).
- * Chamadas que caem num gancho (magias 8b: 0x56b059/0x56bc7b/0x57a769) ou
+ * Chamadas que caem num gancho (magia 8b: 0x57a769, exec 0) ou
  * num ramo com exec 0 (NotPorted em endereço de `HOOKED`) contam à parte. Rodar em game/:
  *   npx tsx src/sim/test/exe_think.ts            (EXE_THINK_ONLY=0x5728fa,... para só algumas)
  */
 import {
-  aiAlliesScan, aiCastAtTarget, aiCasterShield, aiEnemiesAroundPost, aiFilterByGroupRadius, aiIdleCasterSupport, aiFleeAction, aiFleePoint, aiGroupAssignTargets, aiGroupCentroid, aiGroupFlee, aiGroupMaxScanRange,
+  aiAlliesScan, aiAutocast, aiAutocastTargetsMask, aiCastAtTarget, aiCastChosenSpell, fn_0x567c56, fn_0x56bc2e, fn_0x571e9b, fn_0x57b0e0, aiCasterShield, aiEnemiesAroundPost, aiFilterByGroupRadius, aiIdleCasterSupport, aiFleeAction, aiFleePoint, aiGroupAssignTargets, aiGroupCentroid, aiGroupFlee, aiGroupMaxScanRange,
   aiGroupThink, aiGroupVisibleEnemies, aiGuardEnterCombat, aiIdle, aiIdleAlt, aiMoveTo, aiPlayerThink, aiTargetCost, aiTaskAttack, aiWimpy,
   aiWimpyOrWithdraw, aiWithdraw, fn_0x55aca2, fn_0x55b406, fn_0x55b507, fn_0x55b5f1, fn_0x55b879, fn_0x56b025, fn_0x56fe4d, fn_0x5713f8,
   fn_0x5725a8, fn_0x5728fa, fn_0x57309d, fn_0x573159, fn_0x573198, fn_0x57375a, gridFineCoordCentroid, type ThinkHooks,
@@ -21,7 +21,7 @@ import {
 
 const MAP_PTR = 0x670e48, WORLD_PTR = 0x66832c;
 /** NotPorted esperado: ganchos (8b) e ramos com exec 0. */
-const HOOKED = new Set(["0x56b059", "0x56bc7b", "0x57a769", "0x56a981", "0x56cb8c", "0x56ce0f"]);
+const HOOKED = new Set(["0x57a769", "0x56a981", "0x56cb8c", "0x56ce0f"]);
 const H: ThinkHooks = {};
 
 /** O mundo: `this` = [0x66832c] (ou o endereço dado); o mapa de [0x670e48] ou mundo+0xa50. */
@@ -38,6 +38,14 @@ function worldFromMapObj(c: Ctx, thisAddr: number, off: number) {
 const G = (c: Ctx, _w: ReturnType<typeof world>, a: number) => groupFrom(c.cm, a);
 
 const CHECKS: Record<string, Check> = {
+  // magos do jogador humano (etapa 8b, lote 1)
+  "0x56bc7b": run((c, d) => { const w = world(c, d.this); aiAutocast(w, U(c, A(d, 0)), H); return null; }),
+  "0x56b059": run((c, d) => { const w = world(c, d.this); return aiCastChosenSpell(w, U(c, A(d, 0)), U(c, A(d, 1)), H); }, EAX),
+  "0x56bb53": run((c, d) => { const w = world(c, d.this); return aiAutocastTargetsMask(w, U(c, A(d, 0)), U(c, A(d, 1))); }, EAX),
+  "0x56bc2e": run((c, d) => { world(c); return fn_0x56bc2e(U(c, A(d, 0)), U(c, A(d, 1)), spellFrom(c.cm, A(d, 2))) ? 1 : 0; }, AL),
+  "0x567c56": run((c, d) => { const w = world(c, d.this); if (A(d, 1) !== d.this + 0xa64) throw new Error("0x567c56: lista fora do mundo"); fn_0x567c56(w, U(c, A(d, 0)), w.cand); return null; }),
+  "0x571e9b": run((c, d) => { const w = world(c, d.this); fn_0x571e9b(w, G(c, w, A(d, 0))); return null; }),
+  "0x57b0e0": run((c, d) => { world(c); const l = ptrListFrom(c.cm, d.this); c.ptrList = l; c.ptrListAddr = d.this; fn_0x57b0e0(l, A(d, 0)); return null; }),
   "0x56fe4d": run((c, d) => { const w = world(c, d.this); fn_0x56fe4d(w, ptrListFrom(c.cm, A(d, 0)), H); return null; }),
   "0x570087": run((c, d) => { const w = world(c, d.this); const p = playerFrom(c.cm, A(d, 0)); for (const ga of p.groups.values()) groupFrom(c.cm, ga); aiPlayerThink(w, p, H); return null; }),
   "0x5700f3": run((c, d) => { const w = world(c, d.this); aiGroupThink(w, G(c, w, A(d, 0)), H); return null; }),

@@ -199,6 +199,9 @@ export class PlayerRec {
   /** [+0x34]+0x1f u8 formação do jogador (0x5703c0/0x57063e: 2 = os membros andam em formação, com deslocamentos IA+0x24/+0x26 em
    *  relação ao centroide, se nenhum estiver a mais de mundo+0xa724 células dele; 2 em todos os jogadores das 3 imagens do oráculo) */
   formation = 2;
+  /** [+0x34]+0x20 u8 AutoCasting do jogador (Game Options; 0x56bb53/0x56bc7b): bits 1/2/4 alvos (próprias, aliadas, neutras), 8 nível 1
+   *  (Heal/Shield), 0x10 nível 2 (Bless/Haste), 0x20 nível 3 (proteções/Invisibility) */
+  autocast = 0;
   f38 = 0;        // +0x38 u32 unidade-herói do jogador (endereço; 0x50f12c, 0x510a70)
   f40 = 0;        // +0x40 u8  (0x510a70: id do modelo − 0x13)
   fa54 = 0;       // +0xa54 i32 contagem de mortes do herói (0x510a70)
@@ -483,6 +486,11 @@ export class WorldRec {
   cand = new CListPtr();
   /** +0xa88 (objeto +0xa84) CList<void*> dos candidatos caídos (vida +0x94 < 1; 0x567ddf). */
   dead = new CListPtr();
+  /** +0xaa8 (objeto +0xaa4) CList<void*> dos candidatos SEM guerra com a unidade (0x567c56: aliados e neutros vistos; AI_Autocast
+   *  0x56bc7b e o caso Heal de AI_CastChosenSpell 0x56b059 procuram nela o alvo da magia de apoio). */
+  friends = new CListPtr();
+  /** +0xac8 (objeto +0xac4) CList<void*> dos candidatos EM guerra com a unidade (0x567c56; AI_CastChosenSpell 0x56b059: alvos das áreas). */
+  foes = new CListPtr();
   /** +0xa8bc tabela de diplomacia: byte [8 + id(a) × 0x46 + id(b)], bit 0 = guerra (0x57994d). */
   dipTable = new Uint8Array(8 + 0x46 * 0x46);
   /** não é do exe: endereços das unidades "vida 0" do mapa/script (reféns; `World.knockOut`) que a escolha de inimigos ignora [est] */

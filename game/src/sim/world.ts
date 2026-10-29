@@ -71,7 +71,7 @@ import { unitActionMachine, type MachineHooks } from "./exe/action";
 import { unitPhysicalDamage, unitStrikeBegin } from "./exe/combat";
 import { corpseDecay, unitDie } from "./exe/death";
 import { worldSecondTick } from "./exe/regen";
-import { aiCastAtTarget, aiIdleAlt, aiMoveTo, aiTeleportCast, aiIdleCasterSupport, fn_0x56fe4d, type ThinkHooks } from "./exe/think";
+import { aiAutocast, aiCastAtTarget, aiIdleAlt, aiMoveTo, aiTeleportCast, aiIdleCasterSupport, fn_0x56fe4d, type ThinkHooks } from "./exe/think";
 import { BookSpellRec, PlayerRec, UnitStatsRec, UnitTypeRec } from "./exe/types";
 import { DmgRec, ItemRec, TemplateRec } from "./exe/types";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
@@ -80,13 +80,13 @@ import { BACKTRACE_UB, fn_0x55be86 } from "./exe/wave";
 import { EXE_GLOBALS } from "./exe/types";
 import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
-import { autocast, castAt, exeFlee, legacyThink, pickOffensive } from "./ai";
+import { castAt, exeFlee, legacyThink, pickOffensive } from "./ai";
 import {
   ClientOrder, EMPTY_GROUP, aiGroupCmdGuard, aiGroupCmdMove, aiGroupCmdSwarm2, aiGuardLoad, clientOrder, fn_0x52ae43, fn_0x52af8c, fn_0x53d690,
   fn_0x5708ff, fn_0x570946, fn_0x570b8b, fn_0x570d26,
 } from "./exe/orders";
 import { canRevive, healDying, onFell, raiseDead, summonCreature, CORPSE } from "./necro";
-import { selectedSpellRange, spellAttack } from "./spellattack";
+import { selectedSpellRange } from "./spellattack";
 import {
   EXE_TPS, SPELL, isOffensive, prismaticRays, spellKey, spellLayer, stoneCurseTicksMax, type BuffKind, type SpellDef, type SpellEffect, type SpellTable,
 } from "./spells";
@@ -845,6 +845,8 @@ export class World {
       r.f88 = ((u.stats.mind ?? 0) << 16) >> 16;
       r.hasBook = u.spells.length > 0;
       if (r.book.src !== World.bookSig(u)) this.exeSyncBook(u);
+      // IA+0x78: a magia escolhida na interface (CTRL+A; mensagem 0x46 sub 4 → 0x4f69a6) pelo id do livro (0 = golpe)
+      { const s = u.selectedSpell ? u.spells.find(x => x.id === u.selectedSpell) : undefined; r.ai.spellSlot = s ? (Number(s.base ?? s.id) & 0xff) : 0; }
       void g;
     }
     this.exeWorld.players.removeAll();
@@ -865,6 +867,19 @@ export class World {
   private static bookSig(u: Unit): string {
     return World.bookSpells(u).map(s => `${s.base ?? s.id}:${s.range}:${s.mana}:${s.defensive ? 1 : 0}`).join(",");
   }
+  /** Estado exato do oráculo: os ponteiros de magia do registro (IA+0x30 escolhida pelo pensamento, +0x64 em curso) apontam para as
+   *  BookSpellRec do ORIGINAL; pelo id no livro despejado (`book` = [id, endereço]) viram as do livro espelhado (`spellAddr`). */
+  exeImportSpellPtrs(u: Unit, book: [number, number][], f64?: number): void {
+    const r = u.rec;
+    if (r.book.src !== World.bookSig(u)) this.exeSyncBook(u);
+    const ours = (a: number): number => {
+      const e = book.find(([, ad]) => (ad >>> 0) === (a >>> 0));
+      const s = e ? r.book.spells[e[0]] : null;
+      return s ? s.addr >>> 0 : a >>> 0;
+    };
+    if (r.ai.f30) r.ai.f30 = ours(r.ai.f30);
+    if (f64 !== undefined) r.f64 = f64 ? ours(f64) : 0;
+  }
   /** O livro de magias espelhado (unidade+0x140: CArray de 28 slots indexado pelo id, como nas imagens do oráculo) a partir das magias do
    *  motor antigo: id, alcance, custo, bit de apoio (+0xa) e o endereço sintético que a máquina portada resolve (`spellAddr`). */
   private exeSyncBook(u: Unit): void {
@@ -883,6 +898,20 @@ export class World {
   }
   /** AI_IdleCasterSupport 0x56c592 portado, chamado pelo pensamento do motor antigo (modos `legacyMode`): true se ficou com a tarefa 8
    *  (a ordem de magia do motor antigo é escrita a partir dela). */
+  /** AI_Autocast 0x56bc7b portado, chamado pelo pensamento do motor antigo (modos `legacyMode`: defend/follow/still do lado humano):
+   *  a tarefa 8 que ele deixa (IA+0x28 alvo, IA+0x30 magia) começa já a sub-ação 2 (o que 0x56ebc0 → 0x56e906 fariam) e a ordem do motor
+   *  antigo fica — nesses modos a World reescreve IA+8 pela ordem a cada tique. true se começou a lançar. */
+  exeAutocast(u: Unit): boolean {
+    if (!u.alive || this.stunned(u)) return false;
+    aiAutocast(this.exeWorld, u.rec, this.thinkHooks);
+    if (!u.castThisThink) return false;
+    u.castThisThink = false;
+    const r = u.rec, s = this.spellFor(u, r.ai.f30), t = this.unitByAddr(r.ai.f28);
+    if (!s) return false;
+    this.castNow(u, s, t);
+    return true;
+  }
+  /** AI_IdleCasterSupport 0x56c592 portado, chamado pelo motor antigo (idem). */
   exeIdleCasterSupport(u: Unit): boolean {
     aiIdleCasterSupport(this.exeWorld, u.rec, this.thinkHooks);
     if (!u.castThisThink) return false;
@@ -951,7 +980,6 @@ export class World {
       if (u.alive && !u.phased && !u.suspended && !u.helpless && !this.stunned(u)) legacyThink(this, u);
       return true;
     },
-    castChosenSpell: () => 0,   // a magia escolhida no livro entra no golpe (adaptador `thinkAfterDispatch`)
     // 0x57a769: a escolha é a do motor antigo (8b); o fim é o do exe — AI_CastAtTarget 0x56c72b (tarefa 8 no alvo, portada), que o
     // `applyTaskOrder` torna a ordem de lançar (sem a tarefa, a ordem dada aqui era apagada pela tarefa 0 do pensamento)
     casterOffensiveSpell: (w, r, t) => {
@@ -965,7 +993,6 @@ export class World {
       aiCastAtTarget(w, r, s.kind === "summon" ? r : t, b, this.thinkHooks);
       return 1;
     },
-    autocast: (_w, r) => { const u = this.unitByAddr(r.addr); if (u && u.alive && !this.stunned(u)) autocast(this, u); },
     traps: () => { for (let i = 0; i < this.traps.length; i++) this.rng.draw(0x57a409); },
     fleeTeleport: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) { exeFlee(this, u, this.enemiesInSquare(u, UNIT_GUARD_RADIUS + 5), Math.max(1, Math.floor(u.stats.sight)) + 1, UNIT_GUARD_RADIUS); this.fleeTask(u); } },
     withdrawTeleport: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) { exeFlee(this, u, this.enemiesInSquare(u, 2), Math.max(1, Math.max(1, Math.floor(u.stats.sight)) - 1)); this.fleeTask(u); } },
@@ -1060,6 +1087,8 @@ export class World {
     }
     const heroOf = new Map<number, number>();
     for (const u of this.units) if (u.isHero) heroOf.set(u.player, u.rec.addr);
+    // AutoCasting do jogador (Game Options, mensagem 0x46): [dono+0x34]+0x20 (0x56bb53/0x56bc7b)
+    for (const [p, r] of this.exePlayers) r.autocast = (this.playerAi[p]?.autocast ?? 0) & 0xff;
     if (this.exeExact) { for (const u of this.units) { u.rec.owner.f04 = u.player; u.rec.owner.f38 = heroOf.get(u.player) ?? 0; } return; }
     this.exeSyncGroups();
     for (const [p, r] of this.exePlayers) { r.f04 = p; r.f38 = heroOf.get(p) ?? 0; r.f2c = p === this.humanPlayer ? 0 : 1; }
@@ -2021,9 +2050,6 @@ export class World {
     if (!(r.ai.sub === 1 && r.ai.f15 === 0 && r.act === 3 && r.f58 === 0)) return;
     const u = this.unitByAddr(r.addr), t = this.unitByAddr(r.f5c);
     if (!u || !t) return;
-    const sa = t.active && u.selectedSpell ? spellAttack(this, u, t) : null;   // em quem caiu só o golpe da arma
-    if (sa === "stop") { this.command(u, { type: "none" }); r.ai.sub = 0; r.act = 0; return; }
-    if (sa && (sa.target === u || !sa.target || Math.hypot(sa.target.cx - u.cx, sa.target.cy - u.cy) <= sa.spell.range + 0.5)) { this.asCast(u, sa.spell, sa.target, sa.x, sa.y); return; }
     // magia de chance: no exe é o pensamento (AI_Task_Attack 0x56acc8, sorteio 0x56ad33 → 0x56a981, tarefa 8/9) — portado para as
     // unidades que o pensamento comanda (`exeTask`); as dos modos do motor antigo (`legacyMode`) ainda sorteiam no golpe
     const proc = t.active && !u.exeTask ? this.rollProc(u, t) : null;

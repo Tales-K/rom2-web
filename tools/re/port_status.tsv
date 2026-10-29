@@ -1530,7 +1530,7 @@ addr	name	size	file	line	status	ts	note
 0x5679cf	FUN_005679cf	71	game/g_560000.c	4727	ported	think.ts:fn_0x5679cf	tradução direta (0x54ec6a + AI_EnemyFilter 1); sem chamadas no corpus (etapa 9 lote 2)
 0x567a16	AI_EnemyFilter	279	game/g_560000.c	4742	ported	aiEnemyFilter	exe/action.ts; pares 1770/1770 (chamadas do pensamento inclusive)
 0x567b2d	AI_AlliesScan	297	game/g_560000.c	4795	ported	think.ts:aiAlliesScan	pares m10_start+m10_mage 240/240 (exe_think.ts; etapa 9 lote 2): bit 1 da diplomacia (consigo = 0x12)
-0x567c56	FUN_00567c56	393	game/g_560000.c	4847	pending		
+0x567c56	FUN_00567c56	393	game/g_560000.c	4847	ported	think.ts:fn_0x567c56	pares m10_mage 10/10; listas mundo+0xaa8/+0xac8
 0x567ddf	FUN_00567ddf	179	game/g_560000.c	4911	ported	fn_0x567ddf	exe/action.ts; caídos para a lista +0xa88; pares 1516/1516
 0x567e92	AI_FilterByGroupRadius	183	game/g_560000.c	4945	ported	think.ts:aiFilterByGroupRadius	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x567f49	FUN_00567f49	162	game/g_560000.c	4985	pending		
@@ -1568,12 +1568,12 @@ addr	name	size	file	line	status	ts	note
 0x56afac	AI_Idle	45	game/g_560000.c	6947	ported	think.ts:aiIdle	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): 0 → 0x56a1fb em gancho standGround (lote 3)
 0x56afd9	AI_IdleAlt	76	game/g_560000.c	6964	ported	think.ts:aiIdleAlt	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x56b025	FUN_0056b025	52	game/g_560000.c	6988	ported	think.ts:fn_0x56b025	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): AI_Autocast 0x56bc7b em gancho (8b)
-0x56b059	AI_CastChosenSpell	2635	game/g_560000.c	7007	pending		
+0x56b059	AI_CastChosenSpell	2635	game/g_560000.c	7007	ported	think.ts:aiCastChosenSpell	pares m10_mage 18/18 (IA+0x78 = 0 em todas); casos de magia sem prova (exec 0)
 0x56bb00	FUN_0056bb00	13	game/g_560000.c	7385	pending		
 0x56bb0d	AI_CanCastCost	70	game/g_560000.c	7394	ported	think.ts:aiCanCastCost	tradução direta; coberto pelos pares de 0x56c9bc (etapa 9 lote 2)
-0x56bb53	AI_AutocastTargetsMask	219	game/g_560000.c	7411	pending		
-0x56bc2e	FUN_0056bc2e	77	game/g_560000.c	7448	pending		
-0x56bc7b	AI_Autocast	2327	game/g_560000.c	7467	pending		
+0x56bb53	AI_AutocastTargetsMask	219	game/g_560000.c	7411	ported	think.ts:aiAutocastTargetsMask	pares m10_mage 10/10
+0x56bc2e	FUN_0056bc2e	77	game/g_560000.c	7448	ported	think.ts:fn_0x56bc2e	tradução direta; exec 0 no corpus (sem pares)
+0x56bc7b	AI_Autocast	2327	game/g_560000.c	7467	ported	think.ts:aiAutocast	pares m10_mage 10/10 (exe_think.ts; etapa 8b lote 1); nunca lança no corpus
 0x56c592	AI_IdleCasterSupport	409	game/g_560000.c	7698	ported	think.ts:aiIdleCasterSupport	pares m10_start+m10_mage 240/240 (exe_think.ts; etapa 9 lote 2)
 0x56c72b	AI_CastAtTarget	277	game/g_560000.c	7762	ported	think.ts:aiCastAtTarget	pares m10_mage 5/5 (exe_think.ts; etapa 9 lote 2): tarefa 8; o lançamento é o despachante + máquina
 0x56c840	FUN_0056c840	111	game/g_560000.c	7809	review	tasks.ts:fn_0x56c840	sem pares gravados (exec 0 nos pares); tradução direta
@@ -1656,7 +1656,7 @@ addr	name	size	file	line	status	ts	note
 0x5711ea	AI_TargetCost	526	game/g_570000.c	715	ported	think.ts:aiTargetCost	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x5713f8	FUN_005713f8	424	game/g_570000.c	785	ported	think.ts:fn_0x5713f8	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): custo só adjacentes
 0x571c4d	AI_GroupVisibleEnemies	590	game/g_570000.c	1044	ported	think.ts:aiGroupVisibleEnemies	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
-0x571e9b	FUN_00571e9b	561	game/g_570000.c	1115	pending		
+0x571e9b	FUN_00571e9b	561	game/g_570000.c	1115	ported	think.ts:fn_0x571e9b	pares m10_mage 10/10
 0x57240b	AI_GroupAssignTargets	413	game/g_570000.c	1278	ported	think.ts:aiGroupAssignTargets	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x5725a8	FUN_005725a8	335	game/g_570000.c	1360	ported	think.ts:fn_0x5725a8	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x5726f7	AI_GuardEnterCombat	53	game/g_570000.c	1422	ported	think.ts:aiGuardEnterCombat	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): sorteio 0x572718
@@ -1789,7 +1789,7 @@ addr	name	size	file	line	status	ts	note
 0x57aff0	Rand_Range	42	game/g_570000.c	6889	ported	rand.ts:randRange	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x57b020	FUN_0057b020	91	game/g_570000.c	6903	out		MFC: exe/mfc.ts:CListWord.find (lista de patrulha [IA+0xb4]); pares 6/6
 0x57b080	FUN_0057b080	91	game/g_570000.c	6930	pending		
-0x57b0e0	FUN_0057b0e0	25	game/g_570000.c	6952	pending		
+0x57b0e0	FUN_0057b0e0	25	game/g_570000.c	6952	ported	think.ts:fn_0x57b0e0	pares m10_mage 10/10 (AddTail 0x53c5c0)
 0x57b120	FUN_0057b120	19	game/g_570000.c	6972	out		MFC: exe/mfc.ts:CListPtr.first (GetHead)
 0x57b140	FUN_0057b140	19	game/g_570000.c	6982	out		MFC: exe/mfc.ts:CListPtr.first (GetHead)
 0x57b160	FUN_0057b160	78	game/g_570000.c	6992	out		MFC: exe/mfc.ts:CListPtr.nextAfter (Find + GetNext)

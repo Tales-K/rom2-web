@@ -235,9 +235,10 @@ console.log("\n[Heal] levanta quem ainda sangra (vida > −10), sem guerra [exe 
 // ------------------------------------------------------------------------------------------------ ataque com a magia escolhida
 console.log("\n[magia escolhida] o ataque do jogador lança a magia no lugar do golpe [exe 0x56b059; original: −5 de mana por Fire Arrow]");
 {
-  const mk = (sel: string | null) => {
+  const mk = (sel: string | null, range = 1) => {
     const w = makeWorld(13);
     const h = heroMage(w, 10, 10, 30);
+    h.stats = { ...h.stats, range };
     installMissionAi(w, { spells, heroSpellIds: [SPELL.FireArrow, SPELL.Heal, SPELL.Summon] });
     setAutocastLevel(w, 0);
     const e = mon(w, 608, 2, 14, 10);
@@ -251,8 +252,12 @@ console.log("\n[magia escolhida] o ataque do jogador lança a magia no lugar do 
   };
   const a = mk(String(SPELL.FireArrow));
   check(a.casts >= 3 && a.blows === 0, `Fire Arrow escolhida: ${a.casts} lançamentos, ${a.blows} golpes`);
-  const b = mk(null);
-  check(b.casts === 0 && b.blows >= 1, `sem magia escolhida: ${b.blows} golpes com a arma`);
+  // o original medido tem cajado (+0x12c = 6, m10_mage): sem magia escolhida ataca com a arma
+  const b = mk(null, 6);
+  check(b.casts === 0 && b.blows >= 1, `sem magia escolhida (alcance 6, cajado): ${b.blows} golpes com a arma`);
+  // corpo a corpo (alcance < 2): AI_Task_Attack 0x56acc8 chama AI_Autocast 0x56bc7b, que sem nada a lançar zera IA+8 — a maga para
+  const b1 = mk(null);
+  check(b1.casts === 0 && b1.blows === 0, `sem magia escolhida e corpo a corpo: o autocast zera a tarefa (${b1.blows} golpes)`);
   const c = mk(String(SPELL.Heal));
   check(c.blows === 0 && c.casts === 0, `Heal escolhida e ninguém ferido: a unidade não golpeia (${c.blows} golpes, ${c.casts} curas; o exe zera a tarefa)`);
   const d = mk(String(SPELL.Summon));

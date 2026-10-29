@@ -44,6 +44,8 @@ export interface OrigUnitRec {
   f12c: number; f20: number; f44: number; f45: number; p2c: number; mv: string; ai: string;
   /** etapa 9 (regeneração 0x50fc5a): períodos +0x98/+0x9e, mana máx. +0x9c, restos +0xa2/+0xa3, bônus +0xde/+0xe2, relógio de ocupação +0x138 */
   f98?: number; f9c?: number; f9e?: number; fa2?: number; fa3?: number; fde?: number; fe2?: number; f138?: number;
+  /** etapa 8b: magia em curso +0x64 e o livro +0x140 como [id, endereço] (os ponteiros de magia do registro são do original) */
+  f5c?: number; f64?: number; book?: [number, number][];
 }
 /** Deltas do MapRec por tique (dump_ticks.py): memória (trechos [deslocamento, hex] desde o tique anterior; o 1º é o objeto inteiro),
  *  baldes do CMap de ocupação que mudaram, estruturas novas (endereço → [x, y, largura, máscara]) e o mundo. */
@@ -111,6 +113,8 @@ export function unitRecFromOrig(r: UnitRec, o: OrigUnit, addrOf?: Map<number, nu
   const e = o.exe!;
   // alvo do golpe/da magia em curso (+0x5c, não está no despejo): o alvo da tarefa (IA+0xc → +0x5c em 0x56e8c3), pelo endereço do original
   if ((o.state === 3 || o.state === 0xd) && o.target > 0) r.f5c = addrOf?.get(o.target) ?? 0;
+  // etapa 8b: o despejo traz +0x5c (endereços de unidade são os do original) — a magia em si fica com o alvo antes da ação 0xd nascer
+  if (e.f5c !== undefined) r.f5c = e.f5c >>> 0;
   r.addr = e.a >>> 0; r.vtbl = e.vt; r.f43 = e.f43; r.size = e.size; r.kind = e.kind; r.task = e.u50; r.act = e.act;
   r.speed = e.speed; r.f94 = e.hp; r.f96 = o.hpmax; r.mana = e.mana; r.attackRange = e.f12c;
   // regeneração 0x50fc5a: períodos, mana máx., restos, bônus e o relógio de ocupação (despejos anteriores à etapa 9: do estado, restos 0)
@@ -376,7 +380,7 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     }
     else if (u.order.type === "attack" || u.order.type === "move" || u.order.type === "cast") w.command(u, { type: "none" });
     // registro do exe (fonte de verdade do andar): exato com o despejo da etapa 6, senão derivado do estado (janelas do golden)
-    if (o.exe) unitRecFromOrig(u.rec, o, addrOf);
+    if (o.exe) { unitRecFromOrig(u.rec, o, addrOf); w.exeImportSpellPtrs(u, o.exe.book ?? [], o.exe.f64); }
     else recFromState(w, u, o, byOrig);
   }
   // guarda dos grupos: raio atual, base e combate do comando do grupo; alvo atribuído a cada unidade (0x57240b)

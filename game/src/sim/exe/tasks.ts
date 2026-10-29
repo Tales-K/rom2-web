@@ -20,13 +20,13 @@
  *  - AI_Task_Patrol 0x569b62 (tarefa 0xa): IA+8 = 0; IA+4 ≠ 0 → posto = a célula e IA+4 = 0; AI_Task_Guard; se ficou sem tarefa
  *    (IA+8 = 0 ou 0xb): IA+4 = 1 e, na célula do ponto IA+2, o ponto seguinte da lista IA+0xb4 (Find 0x57b020, GetNext 0x55f1f0, GetHead
  *    0x55f0d0 no fim); AI_MoveTo(ponto).
- * Ficam em gancho (8b): AI_CastChosenSpell 0x56b059 (`castChosenSpell`), AI_Autocast 0x56bc7b, AI_CasterOffensiveSpell 0x57a769.
+ * AI_CastChosenSpell 0x56b059 e AI_Autocast 0x56bc7b estão em think.ts (8b); fica em gancho AI_CasterOffensiveSpell 0x57a769 (exec 0).
  */
 import { aiAngleTiebreak, aiEnemyFilter, fn_0x53a5a0, fn_0x567ddf, fn_0x56dbc6 } from "./action";
 import { CListPtrIter, CListWord, type ListPos } from "./mfc";
 import { bookSpellAt } from "./orders";
 import {
-  aiCastAtTarget, aiEnemiesAroundPost, aiFleeAction, aiIdle, aiIdleAlt, aiMoveTo, aiTargetCost, aiTaskAttack, aiTeleportCast, type ThinkHooks,
+  aiCastAtTarget, aiCastChosenSpell, aiEnemiesAroundPost, aiFleeAction, aiIdle, aiIdleAlt, aiMoveTo, aiTargetCost, aiTaskAttack, aiTeleportCast, type ThinkHooks,
 } from "./think";
 import { MAP_VISION_OFF, VIS_SEEN_OFF, type UnitRec, type WorldRec } from "./types";
 import { fn_0x553681, visionUnitMap } from "./vision";
@@ -128,14 +128,13 @@ export function fn_0x569fd4(wd: WorldRec, param_1: UnitRec): void {
   }
 }
 
-/** 0x56c840 (thiscall; mundo, unidade, alvo): sem livro, ou dono de IA, ou AI_CastChosenSpell (gancho) sem lançar → IA+8 = 6,
+/** 0x56c840 (thiscall; mundo, unidade, alvo): sem livro, ou dono de IA, ou AI_CastChosenSpell 0x56b059 sem lançar → IA+8 = 6,
  *  IA+0xc = alvo, IA+0x14 = alcance. */
 export function fn_0x56c840(wd: WorldRec, param_1: UnitRec, param_2: UnitRec, h: ThinkHooks): void {
   const bVar1 = fn_0x53a5a0(param_1) & 0xff;
   let cast = 0;
   if (bVar1 !== 0 && (param_1.owner.f2c >>> 0) === 0) {
-    if (!h.castChosenSpell) throw new NotPorted("0x56b059");
-    cast = h.castChosenSpell(wd, param_1, param_2);
+    cast = aiCastChosenSpell(wd, param_1, param_2, h);
   }
   if (bVar1 === 0 || (param_1.owner.f2c >>> 0) !== 0 || cast === 0) {
     param_1.ai.task = 6;

@@ -105,7 +105,7 @@ export interface WorldSnapshot {
   exe?: MapRecJson;
   /** mundo do exe: rascunho do evento (+0xbd98, hex), a lista de eventos para a IA (+0xbbec, hex por evento) e as listas de
    *  candidatos do fim de caminho (+0xa68/+0xa88, endereços) — opcional */
-  exeWorld?: { evt: string; events: string[]; cand?: number[]; dead?: number[]; dip?: string; f?: Record<string, number> };
+  exeWorld?: { evt: string; events: string[]; cand?: number[]; dead?: number[]; friends?: number[]; foes?: number[]; dip?: string; f?: Record<string, number> };
   /** jogadores e grupos do exe (unidade+0x14/+0x70, comando aplicado) — ausente em saves antigos: refeitos das unidades */
   exeGroups?: ExeGroupsJson;
   /** áreas de magia no chão (MOTOR-C) — opcional para saves antigos */
@@ -156,7 +156,7 @@ export function snapshotWorld(world: World): WorldSnapshot {
     killsByType: [...world.killsByType],
     occ,
     exe: mapRecToJson(world.exe, world.exeBase),
-    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values(), dip: hex(world.exeWorld.dipTable), f: scalarFields(world.exeWorld) },
+    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values(), friends: world.exeWorld.friends.values(), foes: world.exeWorld.foes.values(), dip: hex(world.exeWorld.dipTable), f: scalarFields(world.exeWorld) },
     exeGroups: world.exeGroupsToJson(),
     areas: world.areas.map(a => JSON.parse(JSON.stringify(a)) as SpellArea),
     traps: world.traps.map(t => JSON.parse(JSON.stringify(t)) as Trap),
@@ -229,11 +229,15 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   world.exeWorld.events.removeAll();
   world.exeWorld.cand.removeAll();
   world.exeWorld.dead.removeAll();
+  world.exeWorld.friends.removeAll();
+  world.exeWorld.foes.removeAll();
   if (s.exeWorld) {
     world.exeWorld.evt.set(unhex(s.exeWorld.evt));
     for (const e of s.exeWorld.events) world.exeWorld.events.addTail(unhex(e));
     for (const a of s.exeWorld.cand ?? []) world.exeWorld.cand.addTail(a);
     for (const a of s.exeWorld.dead ?? []) world.exeWorld.dead.addTail(a);
+    for (const a of s.exeWorld.friends ?? []) world.exeWorld.friends.addTail(a);   // +0xaa8/+0xac8 (0x567c56)
+    for (const a of s.exeWorld.foes ?? []) world.exeWorld.foes.addTail(a);
     if (s.exeWorld.f) Object.assign(world.exeWorld, s.exeWorld.f);   // campos escalares do mundo (+0xa4c pensamentos, +0xbbe8...)
   }
   if (s.exeGroups) world.exeGroupsFromJson(s.exeGroups);
