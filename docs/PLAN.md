@@ -81,3 +81,5 @@ Estado 2026-10-29 (etapa 9 completa): pensamento, tarefas, visão e ordens do cl
 golden 71,7 % limpas com --ci verde. Próximo: etapa 8b (magias).
 Estado 2026-10-28 (etapa 8b lotes 1-3): magos da IA, mana, Spell_Apply (Heal, dano preso) e objetos de magia portados; estado
 inteiro 97,4/98,2/98,6 %, golden 76,5 % com --ci verde. Próximo: 8b lote 4 (efeitos com duração).
+Estado 2026-10-28 (etapa 8b lote 4): efeitos com duração (Shield) e recálculo do humano portados; estado inteiro 97,4/98,4/98,6 %,
+golden 76,5 %. Próximo: 8b lote 5 (outros efeitos, recálculo do monstro, áreas).

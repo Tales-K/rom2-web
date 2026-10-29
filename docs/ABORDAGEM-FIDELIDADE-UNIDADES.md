@@ -303,8 +303,12 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   e impacto (o aviso ao alvo sai no impacto), todos a 100 % dos pares. Os `case` com duração (Shield & cia.), áreas e invocações ficam
   em gancho. Estado inteiro → **97,4 / 98,2 / 98,6 %** (sorteios, `hp`, `effects`, `mana` 100 % na m10_mage); golden 71,7 → **76,5 %**,
   `--ci` verde. Achado: o cajado inicial tem poder 20, não 1.
-- **Próximo**: etapa 8b lote 4 (efeitos com duração: carga "Effect" 0x51caa0, 0x51ce12, 0x51d436, recálculo 0x51366b, lista +0x20),
-  depois áreas e os outros `case`; em seguida 9b (carregador) e, no fim, a passada de nomes legíveis nos campos de `exe/`.
+- **Etapa 8b, lote 4: efeitos com duração e o recálculo do humano** (commit de675a6; `exe/effects.ts`): a lista de efeitos +0x20 da
+  unidade (0x51caa0, 0x51ce12, 0x51cc9f, 0x51d436), o `case` do Shield e `unitRecompute 0x51366b`, todos a 100 % dos pares; o motor
+  antigo ainda é dono dos atributos a cada tique (gancho `recompute`). Estado inteiro → **97,4 / 98,4 / 98,6 %** (`effects`, `absorb`
+  100 %); golden 76,5 %, sem janela pior.
+- **Próximo**: etapa 8b lote 5 (os outros `case` de efeito de `Spell_Apply`, o recálculo do monstro 0x5118be, SpellArea; tirar os
+  `buffs` do motor antigo); depois o resíduo nomeado do tickcmp, 9b (carregador) e, no fim, a passada de nomes legíveis em `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
