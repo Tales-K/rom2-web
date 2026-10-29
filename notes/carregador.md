@@ -82,9 +82,20 @@ m20_start T=740 `act`/`dir16`/`rng` (24616, 24660).
 Resíduo do lote, nomeado: `walk.f72` (3 unidades, m40/m72) = a velocidade da célula (0x55687d) com a unidade na mesma célula: o MapRec
 "passo" (lote 4). `t.f20`/`u.task` (5 missões) e `g_radius`/`g_base` (12) = grupos (lote 3). `dip` m92 = o 8.º jogador (lote 1).
 
+### Lote 2b (mesmo dia): a colocação
+O carregador chama a colocação 0x510089 com raio 0: só a célula do `.alm` (sem vizinha; se não couber, "Can't place unit" e a unidade
+não existe). Nos 46 despejos, 190 de 191 unidades que o nosso `grid.nearestFree` movia estão na célula do `.alm`; a outra (e 8 mais) é a
+última linha dos mapas de 64/128, que 0x54fca8 prende a [8, largura − 9] × [8, altura − 9]. `UnitInit.exactCell` (World.spawn) faz isso
+para as unidades do mapa (`buildMission`). loadcmp `--no-map`: **17 de 46** missões exatas, 99,96 % (com o MapRec 99,82 %); o `g_radius`/
+`g_base` dos grupos caiu junto (era a posição). tickcmp, golden (79,37 %) e test:sim iguais.
+
+Resíduo depois do 2b, nomeado: `withdraw`/`wimpy` (25 missões) = o trecho não commitado de behaviors.ts (acima); vida 0 no `.alm`
+(m30 ×2, m50, m101: `u.task`/`t.f20`/`walk.footCell`/+0x86..+0x89) = o trecho NÃO commitado de setup.ts que as derruba com
+`World.knockOut` (o original só põe a vida 0; o HEAD dava 5 % da vida); `u.task` 0xc × 0xb nas unidades do jogador 1 (m53, m73: 5) =
+o modo de grupo do lado humano (lote 3); `walk.f72` (3) = MapRec "passo" (lote 4); `g_radius`/`g_base` m30 G6 (8 × 20) = AI_GuardLoad.
+
 ## Próximo lote (3)
-Colocação 0x510089 (`x/y`, `post` = IA+0, `walk.footCell`, +0x82/+0x83: 17 missões; a célula ocupada → vizinha × o nosso
-`grid.nearestFree`) e os grupos: `AI_GuardLoad 0x570aba` (`g_radius`/`g_base`, 12), `t.f20`/`u.task` (5) e os dados de grupo do exe em
-bytes no comparador. Depois o MapRec (lote 4: mascarar ponteiros na faixa "resto" +0x5400c…, passo 6 do pé das estruturas — inclui o
+Os grupos: `AI_GuardLoad 0x570aba` (`g_radius`/`g_base` do G6 da m30), a tarefa 0xc das unidades do jogador 1 (m53, m73) e os dados de
+grupo do exe em bytes no comparador. Depois o MapRec (lote 4: mascarar ponteiros na faixa "resto" +0x5400c…, passo 6 do pé das estruturas — inclui o
 `walk.f72` acima) e o herói (lote 5). Fora do comparador ainda: o construtor dos itens (atributos de items.json) e o resto da criação
 para os companheiros/invocações (`spawnCompanions`, `summonFactoryFor` usam o `statsFor`).

@@ -273,7 +273,7 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
     const stats = applyDifficulty(created?.stats ?? base, hero.difficulty);
     if (mu.quest?.noXp) stats.noXp = true;
     // o tipo +0xe do registro criado: o modelo de herói no mapa (Dina/10230 na 40) vira o tipo de herói 0x21..0x24 (0x5145d1)
-    const u = world.spawn({ kind, typeId: tpl?.kind === "hero" && created ? created.rec.f0e : mu.kind, player: mu.player, x: mu.x, y: mu.y, stats,
+    const u = world.spawn({ kind, typeId: tpl?.kind === "hero" && created ? created.rec.f0e : mu.kind, player: mu.player, x: mu.x, y: mu.y, stats, exactCell: true,
       timing: timingFor(am, stats, (tpl?.dyingTime as number | undefined)), scriptId, npc, name: NPC_NAMES[npc] ?? stats.name });
     if (created) { applyCreatedRec(u.rec, created.rec); if (hp0 !== undefined && mu.hp !== 0) u.hp = hp0; }
     host.bindUnit(scriptId, u);

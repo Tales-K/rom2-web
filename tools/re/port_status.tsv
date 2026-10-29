@@ -373,7 +373,7 @@ addr	name	size	file	line	status	ts	note
 0x50fc3e	FUN_0050fc3e	28	game/g_500000.c	11161	ported	combat.ts:fn_0x50fc3e	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (884 amostradas, stride 8); relógio de 16/s = EXE_GLOBALS.clock16
 0x50fc5a	Unit_Regen	723	game/g_500000.c	11170	ported	unitRegen	pares 0x50fc5a.jsonl 100% - 6026 chamadas, 3 episodios; exe/regen.ts
 0x50ff2d	FUN_0050ff2d	348	game/g_500000.c	11240	ported	combat.ts:fn_0x50ff2d	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (2064 amostradas, stride 4)
-0x510089	FUN_00510089	538	game/g_510000.c	3	pending		
+0x510089	FUN_00510089	538	game/g_510000.c	3	review		carregador (raio 0): só a célula do .alm presa por 0x54fca8 (World.spawn exactCell); falta o teste 0x5563ca (não cabe = sem unidade) e o raio > 0 (invocações); loadcmp 46 despejos
 0x5102a3	FUN_005102a3	117	game/g_510000.c	60	pending		
 0x510318	FUN_00510318	150	game/g_510000.c	76	pending		
 0x5103ae	FUN_005103ae	214	game/g_510000.c	98	pending		

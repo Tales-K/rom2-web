@@ -63,7 +63,7 @@
 import { BLOCK_BORDER, BLOCK_SPELL, BLOCK_STRUCTURE, Grid, MAP_BORDER } from "./grid";
 import { skillExp, skillFromExp } from "./stats";
 import { lineOfSight } from "./los";
-import { CellStructRec, MapRec, OccRec, UnitRec, WorldRec } from "./exe/types";
+import { CellStructRec, MAP_HEIGHT_OFF, MAP_WIDTH_OFF, MapRec, OccRec, UnitRec, WorldRec } from "./exe/types";
 import { bookApplyKeep, listSet, scalarFields, type ExeGroupsJson } from "./exe/recio";
 import { CListPtr, CListWord, type ListPos } from "./exe/mfc";
 import { mapRecFromGrid, exeMaskOf } from "./exe/mapbuild";
@@ -141,6 +141,9 @@ export interface UnitInit {
   scriptId?: number;
   npc?: number;
   isHero?: boolean;
+  /** a célula dada, sem procurar vizinha livre: o carregador do mapa (0x561bf9) chama a colocação 0x510089 com raio 0 — só a célula do
+   *  .alm (os 46 despejos do tique 0: 190 de 191 unidades que o nosso `nearestFree` movia estão nela) */
+  exactCell?: boolean;
 }
 
 /** Nome do tipo de efeito do exe (tabela 0x5f8f50) por efeito do motor antigo (`bookSpellRec` sem a tabela Spells). */
@@ -627,7 +630,11 @@ export class World {
     // rumo inicial do construtor de toda unidade (0x50e173, antes da colocação): andar+0 = andar+1 = Rand_Inclusive(0x80) + 0x40
     // (sul ± 90°); o servidor não lê a direção do .alm (0x561bf9) — etapa 9b, notes/carregador.md
     u.angle = (randInclusive(this.exeWorld, 0x80, 0x50e2b6) + 0x40) & 0xff;
-    const c = this.grid.nearestFree(u.cx, u.cy, u.flying) ?? { x: u.cx, y: u.cy };
+    // carregador: 0x54fca8 prende a célula a [8, largura − 9] × [8, altura − 9] (MapRec+0x50000/+0x50004; a última linha dos mapas de 64 e
+    // de 128 vira a penúltima nos despejos)
+    const clamp = (v: number, n: number) => Math.min(Math.max(v, 8), n - 9);
+    const c = init.exactCell ? { x: clamp(u.cx, this.exe.dv.getInt32(MAP_WIDTH_OFF, true)), y: clamp(u.cy, this.exe.dv.getInt32(MAP_HEIGHT_OFF, true)) }
+      : this.grid.nearestFree(u.cx, u.cy, u.flying) ?? { x: u.cx, y: u.cy };
     u.x = c.x + 0.5; u.y = c.y + 0.5; u.home = { x: c.x, y: c.y };
     this.syncCombat(u);
     this.units.push(u);
