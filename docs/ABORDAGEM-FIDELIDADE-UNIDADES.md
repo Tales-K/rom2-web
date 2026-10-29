@@ -297,8 +297,14 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   (referência regravada com 2 assinaturas nomeadas: `target|t69` ×3 = janela sem MapRec, `target|t76` ×1 = cajado em gancho de magia).
   Lição: o golden caiu a 33 % no meio do caminho por defeitos do arnês (mundo reaproveitado entre janelas, "stop" sem Stand ground,
   grupos dormentes importados acordados, herói fora do início da lista `[0x68d2dc]+4`), não da porta.
-- **Próximo**: etapa 8b (magias: `Spell_Apply 0x519db8`, `AI_CastChosenSpell 0x56b059`, `AI_Autocast 0x56bc7b`, efeitos, invocações,
-  saque); depois 9b (carregador) e, no fim, a passada de nomes legíveis nos campos de `exe/`.
+- **Etapa 8b, lotes 1–3: magos da IA, mana, aplicação e objetos de magia** (commits d206126, 0cc65ea, 47ca6e6; `exe/spells.ts`,
+  `exe/think.ts`; `notes/magias.md`): `AI_Autocast 0x56bc7b`, `AI_CastChosenSpell 0x56b059`, `Spell_SpendMana 0x519998`,
+  `Spell_Release 0x519d7f`, `Spell_Apply 0x519db8` (Heal e dano preso ao alvo), a lista de objetos de magia andada por 0x52c279, projétil
+  e impacto (o aviso ao alvo sai no impacto), todos a 100 % dos pares. Os `case` com duração (Shield & cia.), áreas e invocações ficam
+  em gancho. Estado inteiro → **97,4 / 98,2 / 98,6 %** (sorteios, `hp`, `effects`, `mana` 100 % na m10_mage); golden 71,7 → **76,5 %**,
+  `--ci` verde. Achado: o cajado inicial tem poder 20, não 1.
+- **Próximo**: etapa 8b lote 4 (efeitos com duração: carga "Effect" 0x51caa0, 0x51ce12, 0x51d436, recálculo 0x51366b, lista +0x20),
+  depois áreas e os outros `case`; em seguida 9b (carregador) e, no fim, a passada de nomes legíveis nos campos de `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).

@@ -79,3 +79,5 @@ limpas com --ci verde. Bugs de apresentação de 28/10 (itens 1–14) corrigidos
 (`notes/pensamento.md`), lotes 3–4; magias (8b) depois.
 Estado 2026-10-29 (etapa 9 completa): pensamento, tarefas, visão e ordens do cliente portados; estado inteiro idêntico 97/97/98 %,
 golden 71,7 % limpas com --ci verde. Próximo: etapa 8b (magias).
+Estado 2026-10-28 (etapa 8b lotes 1-3): magos da IA, mana, Spell_Apply (Heal, dano preso) e objetos de magia portados; estado
+inteiro 97,4/98,2/98,6 %, golden 76,5 % com --ci verde. Próximo: 8b lote 4 (efeitos com duração).
