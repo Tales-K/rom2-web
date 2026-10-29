@@ -61,6 +61,19 @@ export function vt6c(a: UnitRec, t: UnitRec, dmg: number, p3: number, xpOnHit?: 
   noSlot(a, 0x6c);
 }
 
+/** +0x70: experiência pela magia lançada (Spell_Apply 0x519db8 sem item em uso e sem o bit 2 de +0x4c). 0x542400 (monstro): nada;
+ *  0x5131ef (humano/herói; `this`, alvo, id da magia): gancho `xpOnCast` (a experiência vive no motor antigo); sem gancho → NotPorted. */
+export function vt70(u: UnitRec, t: UnitRec | null, id: number, xpOnCast?: (u: UnitRec, t: UnitRec | null, id: number) => void): void {
+  switch (u.vtbl) {
+    case VT_MONSTER: return;
+    case VT_HUMAN: case VT_HERO:
+      if (!xpOnCast) throw new NotPorted("0x5131ef");
+      xpOnCast(u, t, id);
+      return;
+  }
+  noSlot(u, 0x70);
+}
+
 /** +0x4c: ao morrer. 0x5423a0 (monstro): nada; 0x512697 (humano/herói, exec 0): larga os 12 itens equipados na mochila (vtable+0x48 →
  *  Pack_AddItem): gancho `onDieHuman` (o equipamento vive no motor antigo); sem gancho → NotPorted. */
 export function vt4c(u: UnitRec, onDieHuman?: (u: UnitRec) => void): void {

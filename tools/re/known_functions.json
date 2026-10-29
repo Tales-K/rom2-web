@@ -2532,6 +2532,48 @@
    "name": "AI_SpellInRange",
    "desc": "Chebyshev entre as celulas da unidade e do alvo <= alcance da magia (+9)",
    "source": "notes/magias.md"
+  },
+  {
+   "va": "0x52c279",
+   "name": "SpellObjs_Tick",
+   "desc": "Tique dos objetos de magia da lista [[0x6044c4]+0x7c]+4 (vtable+0x18; +0x40 acabou -> destroi)",
+   "source": "notes/magias.md (etapa 8b, lote 3)"
+  },
+  {
+   "va": "0x518efd",
+   "name": "SpellTransport_Tick",
+   "desc": "Projetil: +0x50--, a < 1 solta o filho na lista do mundo e acaba",
+   "source": "notes/magias.md (etapa 8b, lote 3)"
+  },
+  {
+   "va": "0x517949",
+   "name": "PointEffect_Tick",
+   "desc": "Preso ao alvo: a carga age no alvo (vtable+0x3c), marca o agressor e avisa 0x56e6b8",
+   "source": "notes/magias.md (etapa 8b, lote 3)"
+  },
+  {
+   "va": "0x51e65b",
+   "name": "DirectDamage_Apply",
+   "desc": "Carga de dano: vtable+0x54 (0x516f6f) com quem lancou, vida -= dano, experiencia e 's'",
+   "source": "notes/magias.md (etapa 8b, lote 3)"
+  },
+  {
+   "va": "0x518d1e",
+   "name": "SpellTransport_Construct",
+   "desc": "Projetil: filho +0x48, voo +0x50 = Spell_ProjectileDist / definicao[7]",
+   "source": "notes/magias.md (etapa 8b, lote 3)"
+  },
+  {
+   "va": "0x5238c5",
+   "name": "Item_SpellPowerEffect",
+   "desc": "1o efeito tipo 0x29 da lista item+0x20 (poder da magia do item)",
+   "source": "notes/magias.md (etapa 8b, lote 3)"
+  },
+  {
+   "va": "0x543130",
+   "name": "Unit_Flag2",
+   "desc": "bit 2 de +0x4c (Spell_Apply: sem experiencia pela magia)",
+   "source": "notes/magias.md (etapa 8b, lote 3)"
   }
  ]
 }

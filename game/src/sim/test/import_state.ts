@@ -12,7 +12,7 @@ import { defaultHero, spawnFromTemplate, spellDef } from "../../mission/setup";
 import { snapshotMission, restoreMission, type MissionSnapshot } from "../snapshot";
 import { thinkPhaseFor, type Unit, type World } from "../world";
 import { TICKS_PER_SEC } from "../types";
-import { CellStructRec, MapRec, UnitRec } from "../exe/types";
+import { CellStructRec, MapObjRec, MapRec, SpellObjRec, SpellPayloadRec, UnitRec, VT_DIRECT_DAMAGE, VT_EFFECT, VT_POINT_EFFECT, VT_TRANSPORT, type WorldRec } from "../exe/types";
 import { CMapShortOcc } from "../exe/mfc";
 import { applyMemRuns, applyOccBuckets, listSet, recFromBytes } from "../exe/recio";
 import { unitWalkFormula } from "../exe/walk_action";
@@ -56,7 +56,54 @@ export interface OrigExeMap {
   /** etapa 9: as listas do contentor [0x68d2dc] que World_SecondTick percorre (ids na ordem da lista); lote 2: jogadores com os grupos
    *  (dados +0x3c em hex, membros por id) e a tabela de classes do mundo (+0xa54, 16 bytes em hex) */
   world?: { bbe8: number; lists?: { all: number[]; magic: number[]; corpses: number[] };
-    players?: { a: number; id: number; f2c: number; f32: number; f38: number; groups: { a: number; data: string; units: number[] }[] }[]; class_table?: string };
+    players?: { a: number; id: number; f2c: number; f32: number; f38: number; groups: { a: number; data: string; units: number[] }[] }[]; class_table?: string;
+    /** etapa 8b, lote 3: os objetos de magia no mundo ([[0x6044c4]+0x7c]+4) na ordem da lista */
+    spell_objs?: OrigSpellObj[] };
+}
+/** Objeto de magia do despejo: bytes crus (hex) do objeto, do objeto de mapa +0x10 e da carga +0x4c (preso) / do filho +0x48 (projétil). */
+export interface OrigSpellObj { a: number; b: string; mo: string; p?: { a: number; b: string; mo: string }; c?: OrigSpellObj }
+
+const hexBytes = (h: string): DataView => {
+  const b = new Uint8Array(h.length >> 1);
+  for (let i = 0; i < b.length; i++) b[i] = parseInt(h.substr(2 * i, 2), 16);
+  return new DataView(b.buffer);
+};
+function mapObjFromHex(o: MapObjRec, h: string): void {
+  if (!h) return;
+  const v = hexBytes(h);
+  o.x = v.getUint8(0); o.y = v.getUint8(1); o.cell = v.getUint16(2, true); o.fx = v.getUint8(4); o.fy = v.getUint8(5); o.owner = v.getUint32(8, true);
+}
+/** Os objetos de magia do despejo nos registros espelhados (`SpellObjRec` pelo offset; a carga `SpellPayloadRec` com o dano +0x48). */
+export function spellObjsFromOrig(w: WorldRec, list: OrigSpellObj[]): void {
+  const obj = (x: OrigSpellObj): SpellObjRec => {
+    const v = hexBytes(x.b), o = new SpellObjRec();
+    o.addr = x.a >>> 0; o.vtbl = v.getUint32(0, true); o.f04 = v.getUint32(4, true); o.fc = v.getUint16(0xc, true); o.fe = v.getUint16(0xe, true);
+    o.f14 = v.getUint32(0x14, true); o.f18 = v.getUint16(0x18, true); o.f1c = v.getUint32(0x1c, true); o.f3c = v.getUint32(0x3c, true);
+    o.f40 = v.getUint8(0x40); o.f41 = v.getUint8(0x41); o.f42 = v.getUint16(0x42, true); o.f44 = v.getUint16(0x44, true); o.f46 = v.getUint16(0x46, true);
+    o.f48 = v.getUint32(0x48, true); o.f4c = v.getUint32(0x4c, true); o.f50 = o.vtbl === VT_TRANSPORT ? v.getInt16(0x50, true) : 0;
+    mapObjFromHex(o.mapObj, x.mo);
+    w.spellObjs.set(o.addr, o);
+    if (x.p && o.vtbl === VT_POINT_EFFECT) {
+      const pv = hexBytes(x.p.b), p = new SpellPayloadRec();
+      p.addr = x.p.a >>> 0; p.vtbl = pv.getUint32(0, true); p.f04 = pv.getUint32(4, true); p.fc = pv.getUint16(0xc, true); p.fe = pv.getUint16(0xe, true);
+      p.f14 = pv.getUint32(0x14, true); p.f18 = pv.getUint16(0x18, true); p.f1c = pv.getUint32(0x1c, true); p.f3c = pv.getUint8(0x3c); p.f3d = pv.getUint8(0x3d);
+      p.f40 = pv.getInt16(0x40, true); p.f42 = pv.getInt16(0x42, true); p.f44 = pv.getUint32(0x44, true);
+      if (p.vtbl === VT_DIRECT_DAMAGE) {
+        const d = p.dmg, o2 = 0x48;
+        d.atk = pv.getInt16(o2, true); for (let i = 0; i < 6; i++) d.sk[i] = pv.getInt16(o2 + 2 + 2 * i, true);
+        d.dmin = pv.getUint8(o2 + 0xe); d.dadd = pv.getUint8(o2 + 0xf); d.wtype = pv.getUint8(o2 + 0x10); d.elA0 = pv.getUint8(o2 + 0x11);
+        d.elA1 = pv.getUint8(o2 + 0x12); d.elB0 = pv.getUint8(o2 + 0x13); d.elB1 = pv.getUint8(o2 + 0x14); d.elK = pv.getUint8(o2 + 0x15);
+      }
+      mapObjFromHex(p.mapObj, x.p.mo);
+      w.payloads.set(p.addr, p);
+    }
+    if (x.c) obj(x.c);
+    return o;
+  };
+  // [est: arnês] o preso ao alvo com carga "Effect" (Shield & cia., 0x51ce12) fica de fora: esses `case` de Spell_Apply ainda são o motor
+  // antigo, que aplica o efeito já no lançamento (os `buffs`)
+  const effect = (x: OrigSpellObj): boolean => !!x.p && hexBytes(x.p.b).getUint32(0, true) === VT_EFFECT;
+  for (const x of list) if (!effect(x) && !(x.c && effect(x.c))) w.lists.spellObjs.addTail(obj(x).addr);
 }
 /** grupo de IA do original (export_state.read_groups): raio atual `+0x2d`, base `+0x38`, em combate `+0x30`, alvo de cada unidade */
 export interface OrigGroup { player: number; cmd: number; center: number; radius: number; base?: number; combat: number; units: { id: number; assigned: number }[] }
@@ -438,6 +485,9 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
       w.exeApplyPlayers(P.map(p => ({ ...p, groups: p.groups.map(g => ({ a: g.a, data: g.data, units: toA(g.units) })) })), st.exe?.world?.class_table ?? "",
         a => { const u = unitOf.get(a >>> 0); return u ? (u.group || -u.id) : 0; });
     }
+    // os objetos de magia em voo/presos ao alvo (etapa 8b, lote 3): os do original, com os endereços dele
+    w.exeSpellObjsFromJson(undefined);
+    spellObjsFromOrig(w.exeWorld, st.exe?.world?.spell_objs ?? []);
     w.exeExact = true;
   } else {
     w.exeResync(); w.exeRebuildLists();

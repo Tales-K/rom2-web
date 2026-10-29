@@ -64,7 +64,7 @@ import { BLOCK_BORDER, BLOCK_SPELL, BLOCK_STRUCTURE, Grid, MAP_BORDER } from "./
 import { skillExp, skillFromExp } from "./stats";
 import { lineOfSight } from "./los";
 import { CellStructRec, MapRec, OccRec, UnitRec, WorldRec } from "./exe/types";
-import { listSet, scalarFields, type ExeGroupsJson } from "./exe/recio";
+import { bookApplyKeep, listSet, scalarFields, type ExeGroupsJson } from "./exe/recio";
 import { CListPtr, CListWord, type ListPos } from "./exe/mfc";
 import { mapRecFromGrid, exeMaskOf } from "./exe/mapbuild";
 import { unitActionMachine, type MachineHooks } from "./exe/action";
@@ -73,7 +73,9 @@ import { corpseDecay, unitDie } from "./exe/death";
 import { worldSecondTick } from "./exe/regen";
 import { aiAutocast, aiCastAtTarget, aiIdleAlt, aiMoveTo, aiTeleportCast, aiIdleCasterSupport, fn_0x56fe4d, type ThinkHooks } from "./exe/think";
 import { BookSpellRec, PlayerRec, UnitStatsRec, UnitTypeRec } from "./exe/types";
-import { DmgRec, ItemRec, TemplateRec } from "./exe/types";
+import { DmgRec, ItemMagicRec, ItemRec, SpellObjRec, SpellPayloadRec, TemplateRec } from "./exe/types";
+import type { SpellObjsJson } from "./exe/recio";
+import { fn_0x52c279 } from "./exe/spells";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
 import { BACKTRACE_UB, fn_0x55be86 } from "./exe/wave";
@@ -88,7 +90,8 @@ import {
 import { canRevive, healDying, onFell, raiseDead, summonCreature, CORPSE } from "./necro";
 import { selectedSpellRange } from "./spellattack";
 import {
-  EXE_TPS, SPELL, isOffensive, prismaticRays, spellKey, spellLayer, stoneCurseTicksMax, type BuffKind, type SpellDef, type SpellEffect, type SpellTable,
+  EXE_TPS, SPELL, SPHERE_INDEX, isOffensive, powerScale, prismaticRays, spellDefColumns, spellKey, spellLayer, stoneCurseTicksMax, type BuffKind,
+  type SpellDef, type SpellEffect, type SpellTable,
 } from "./spells";
 import { BLIZZARD_PULSES, PULSE_EXE_TICKS, acidSteps, areaCells, exeDir8 } from "./areas";
 import {
@@ -562,15 +565,20 @@ export class World {
     this.exe = mapRecFromGrid(grid);
     this.exeWorld = this.exe.world!;
     this.exeWorld.allocGroupAddr = () => { const a = this.nextGroupAddr; this.nextGroupAddr = (a + 0x100) >>> 0; return a; };
+    // `new` 0x401880 dos objetos de magia (Spell_Apply 0x519db8): endereços sintéticos, únicos no mundo
+    this.exeWorld.allocObj = () => { const a = this.nextObjAddr; this.nextObjAddr = (a + 0x100) >>> 0; return a; };
     // a tabela de classes do mundo (+0xa54; igual nas 3 imagens do oráculo) desde a montagem: uma ordem dada antes do 1.º tique
     // (AI_TargetCost 0x5711ea em 0x570946) via tudo "não atacável" com a tabela zerada
     this.exeWorld.classTable.set([2, 1, 2, 4, 4, 2, 1, 0, 2, 1, 4, 0, 2, 1, 2, 4]);
     this.exeWorld.fa8b8 = MINIMAL_GUARD_RANGE;
     this.exeWorld.spellAt = (a) => {
+      // [est: estado importado sem o despejo do exe] ação 0xd/0xe sem a magia em curso: uma magia sem definição (+4 = 0), que o gasto
+      // 0x519998 e a aplicação 0x519db8 tratam como o exe (nada sai)
+      if ((a >>> 0) === 0) { const r = new BookSpellRec(); r.hasDef = false; return r; }
       for (const u of this.units) for (const s of u.rec.book.spells) if (s && (s.addr >>> 0) === (a >>> 0)) return s;
       // magia de arma (o cajado: `weaponSpell`) ou de chance fora do livro: o registro da definição pelo endereço sintético
       const d = SPELL_BY_ADDR.get(a >>> 0);
-      if (d) return World.bookSpellRec(d, a >>> 0);
+      if (d) return this.bookSpellRec(d, a >>> 0);
       throw new Error(`magia 0x${(a >>> 0).toString(16)} fora dos livros espelhados`);
     };
     this.exeBase = this.exe.mem.slice();
@@ -609,6 +617,8 @@ export class World {
   readonly exeGroups = new Map<number, UnitTypeRec>();
   readonly exePlayers = new Map<number, PlayerRec>();
   private nextGroupAddr = 0x21000000;
+  /** o próximo endereço sintético de objeto de magia (`WorldRec.allocObj`) */
+  private nextObjAddr = 0x23000000;
   exePlayer(p: number): PlayerRec {
     let r = this.exePlayers.get(p);
     if (!r) {
@@ -795,6 +805,29 @@ export class World {
     this.nextGroupAddr = j.next;
   }
   /** Retrato dos jogadores e grupos do exe (o golden reaproveita o mundo entre janelas: `resetWorld` volta a ele antes do restore). */
+  /** Os objetos de magia do mundo (lista [[0x6044c4]+0x7c]+4, os registros e as cargas presas) e o próximo endereço sintético. */
+  exeSpellObjsToJson(): SpellObjsJson {
+    const w = this.exeWorld;
+    return {
+      l: w.lists.spellObjs.values(), next: this.nextObjAddr,
+      o: [...w.spellObjs.values()].map(o => ({ f: scalarFields(o), m: scalarFields(o.mapObj) })),
+      p: [...w.payloads.values()].map(o => ({ f: scalarFields(o), m: scalarFields(o.mapObj), d: scalarFields(o.dmg), sk: [...o.dmg.sk] })),
+    };
+  }
+  /** Os objetos de magia de volta (sem `j`: nenhum — save antigo, estado do tique 0). */
+  exeSpellObjsFromJson(j?: SpellObjsJson): void {
+    const w = this.exeWorld;
+    w.lists.spellObjs.removeAll(); w.spellObjs.clear(); w.payloads.clear();
+    if (!j) return;
+    for (const x of j.o) { const o = new SpellObjRec(); Object.assign(o, x.f); Object.assign(o.mapObj, x.m); w.spellObjs.set(o.addr >>> 0, o); }
+    for (const x of j.p) {
+      const o = new SpellPayloadRec(); Object.assign(o, x.f); Object.assign(o.mapObj, x.m);
+      Object.assign(o.dmg, x.d); o.dmg.sk.set(x.sk);
+      w.payloads.set(o.addr >>> 0, o);
+    }
+    for (const a of j.l) w.lists.spellObjs.addTail(a);
+    this.nextObjAddr = j.next;
+  }
   exeGroupsSave(): () => void {
     const j = JSON.parse(JSON.stringify(this.exeGroupsToJson())) as ExeGroupsJson;
     return () => this.exeGroupsFromJson(j);
@@ -856,13 +889,6 @@ export class World {
     }
     this.exeWorld.players.removeAll();
     for (const q of [...this.exePlayers.keys()].sort((a, b) => a - b)) this.exeWorld.players.addTail(this.exePlayers.get(q)!.addr);
-    // os objetos fixos do mapa ([[0x6044c4]+0x7c]+4: 0x55b507 escreve +0x42 de cada um)
-    {
-      const ls = this.exeWorld.lists.structs;
-      let stale = ls.count !== this.exe.structs.size;
-      if (!stale) for (const a of ls.values()) if (!this.exe.structs.has(a)) { stale = true; break; }
-      if (stale) { ls.removeAll(); for (const a of this.exe.structs.keys()) ls.addTail(a); }
-    }
   }
   /** as magias do livro espelhado: as do motor antigo e as de chance (IA+0x7c: 0x56a981 as busca no livro por Unit_GetBookSpell 0x51c391) */
   private static bookSpells(u: Unit): SpellDef[] {
@@ -885,20 +911,50 @@ export class World {
     };
     if (r.ai.f30) r.ai.f30 = ours(r.ai.f30);
     if (f64 !== undefined) r.f64 = f64 ? ours(f64) : 0;
+    // a magia do cajado em curso: o exe a lança com o cajado em uso (+0x68 = +0x74; o poder vem dele, 0x5238c5)
+    if (f64 && u.weaponSpell && (r.f64 >>> 0) === this.spellAddr(u.weaponSpell)) { this.syncCombat(u); r.f68 = r.f74; }
   }
-  /** BookSpellRec de uma definição do motor antigo: id, alcance, custo, bit de apoio (+0xa) e, da definição, [4] = 1 alvo unidade
-   *  (aviso 0x5041d6) e [5] = 2 projétil [est: do `kind`/`target`; no servidor só decidem o pacote ao cliente e o teste do modelo]. */
-  private static bookSpellRec(s: SpellDef, addr: number): BookSpellRec {
+  /** BookSpellRec de uma definição do motor antigo: id, alcance, custo, bit de apoio (+0xa) e a definição = as colunas da tabela Spells
+   *  de data.bin (`spellTable`, spellDefColumns). Sem a tabela (testes de unidade): [est] o nível/esfera/dano da SpellDef (dano ÷ a escala
+   *  do poder), [4] = 1 alvo unidade e [5] = 2 projétil pelo `kind`/`target`. */
+  private bookSpellRec(s: SpellDef, addr: number): BookSpellRec {
     const r = new BookSpellRec(), id = Number(s.base ?? s.id) | 0;
     r.addr = addr >>> 0; r.id = id & 0xff; r.range = Math.max(0, Math.floor(s.range)) & 0xff; r.cost = (Math.round(s.mana) << 16) >> 16; r.f0a = s.defensive ? 1 : 0;
-    r.def4 = s.target === "point" || s.target === "self" ? 0 : 1;
-    r.def5 = s.kind === "bolt" || s.kind === "ball" || s.kind === "drain" ? 2 : 0;
+    const row = this.spellTable?.[String(id)];
+    if (row) {
+      r.def.set(spellDefColumns(row));
+    } else {
+      const k = powerScale(s.power ?? 0);
+      r.def[0] = s.level | 0; r.def[1] = Math.round(s.mana) | 0; r.def[2] = SPHERE_INDEX[s.element] ?? 0;
+      r.def[4] = s.target === "point" || s.target === "self" ? 0 : 1;
+      r.def[5] = s.kind === "bolt" || s.kind === "ball" || s.kind === "drain" ? 2 : 0;
+      r.def[6] = Math.max(0, Math.floor(s.range)); r.def[7] = Math.max(1, Math.round((s.speed ?? 9) * 16));
+      r.def[8] = s.kind === "bolt" || s.kind === "heal" || s.kind === "drain" ? 1 : 3;
+      r.def[0x10] = s.max > 0 ? Math.round(s.min / k) : -1; r.def[0x11] = s.max > 0 ? Math.round(s.max / k) : -1;
+    }
     return r;
+  }
+  /** A arma equipada (+0x74) que lança magia (o cajado: `weaponSpell`): a magia (+0x84), o efeito 0x29 (poder da magia, lido por
+   *  0x5238c5) na lista +0x20 e +0x44 = 2 (o cajado da m10_mage nos pares de 0x510745: a ordem nova não cancela a magia dele). */
+  private weaponItemSync(u: Unit, it: ItemRec): void {
+    const s = u.weaponSpell;
+    if (!s) { it.spell = null; it.magic.length = 0; return; }
+    const a = this.spellAddr(s);
+    it.addr = (a ^ 0x08000000) >>> 0;
+    it.f44 = 2;
+    if (!it.spell || (it.spell.addr >>> 0) !== a) it.spell = this.exeWorld.spellAt(a);
+    const m = it.magic[0] ?? new ItemMagicRec();
+    m.f3c = 0x29; m.f42 = (Math.round(s.power ?? 0) << 16) >> 16;
+    it.magic.length = 0; it.magic.push(m);
   }
   /** O livro de magias espelhado (unidade+0x140: CArray de 28 slots indexado pelo id, como nas imagens do oráculo) a partir das magias do
    *  motor antigo: id, alcance, custo, bit de apoio (+0xa) e o endereço sintético que a máquina portada resolve (`spellAddr`). */
   private exeSyncBook(u: Unit): void {
     const b = u.rec.book;
+    // a instância (Spell_Instance 0x5195b1) das magias que continuam no livro fica (e a do save, `keep`, entra uma vez)
+    const prev = new Map(b.spells.flatMap((s, i) => (s ? [[i, [i, s.range, s.f0e, s.f0f, s.f10] as [number, number, number, number, number]] as const] : [])));
+    for (const k of b.keep ?? []) prev.set(k[0], k);
+    b.keep = [...prev.values()];
     b.src = World.bookSig(u); b.spells.length = 0;
     // 28 posições nas imagens do oráculo; quem conhece Curse (0x1c)/Slow (0x1d) tem o CArray maior (o índice é o id)
     const list = World.bookSpells(u), n = Math.max(0x1c, ...list.map(s => (Number(s.base ?? s.id) | 0) + 1).filter(k => k <= 0x1e));
@@ -906,8 +962,10 @@ export class World {
     for (const s of list) {
       const id = Number(s.base ?? s.id) | 0;
       if (id < 0 || id >= n) continue;
-      b.spells[id] = World.bookSpellRec(s, this.spellAddr(s));
+      b.spells[id] = this.bookSpellRec(s, this.spellAddr(s));
     }
+    bookApplyKeep(u.rec);
+    b.keep = null;
   }
   /** AI_IdleCasterSupport 0x56c592 portado, chamado pelo pensamento do motor antigo (modos `legacyMode`): true se ficou com a tarefa 8
    *  (a ordem de magia do motor antigo é escrita a partir dela). */
@@ -944,8 +1002,8 @@ export class World {
     if (task === 1 || walking) o = { type: "move", x: r.ai.f0a & 0xff, y: (r.ai.f0a >> 8) & 0xff };
     else if (task === 5 || task === 6) { const t = this.unitByAddr(r.ai.f0c); if (!t) return; o = { type: "attack", target: t.id }; }
     // tarefa de magia 8/9: só a nascida neste pensamento (gancho `castTask`); a que ficou de um pensamento anterior já virou ordem
-    else if (task === 8) { const t = this.unitByAddr(r.ai.f28), s = SPELL_BY_ADDR.get(r.ai.f30 >>> 0); if (!cast || !t || !s) return; o = { type: "cast", spell: s.id, target: t.id }; }
-    else if (task === 9) { const s = SPELL_BY_ADDR.get(r.ai.f30 >>> 0); if (!cast || !s) return; o = { type: "cast", spell: s.id, x: r.ai.f3c & 0xff, y: (r.ai.f3c >> 8) & 0xff }; }
+    else if (task === 8) { const t = this.unitByAddr(r.ai.f28), s = SPELL_BY_ADDR.get(r.ai.f30 >>> 0); if (!cast || !t || !s) return; o = { type: "cast", spell: s.id, target: t.id, exe: true }; }
+    else if (task === 9) { const s = SPELL_BY_ADDR.get(r.ai.f30 >>> 0); if (!cast || !s) return; o = { type: "cast", spell: s.id, x: r.ai.f3c & 0xff, y: (r.ai.f3c >> 8) & 0xff, exe: true }; }
     else if (task === 0xb || task === 0) o = { type: "none" };
     else return;
     const p = u.order;
@@ -1352,7 +1410,11 @@ export class World {
     const el = s.elemental;
     d.elA0 = (el?.aBase ?? 0) & 0xff; d.elA1 = (el?.aRange ?? 0) & 0xff; d.elB0 = (el?.bBase ?? 0) & 0xff; d.elB1 = (el?.bRange ?? 0) & 0xff;
     d.elK = (el?.element ?? 0) & 0xff;
-    r.fbe = ((this.defenseOf(u) | 0) << 16) >> 16;
+    // habilidades (+0xa8 + 2 × esfera): a base do poder da magia em Spell_Apply 0x519db8 (herói: da experiência; os outros: data.bin)
+    for (const [sch, i] of Object.entries(SPHERE_INDEX)) {
+      d.sk[i] = ((u.heroInfo ? skillFromExp(u.heroInfo.skillExp[sch] ?? 0) : (s.magicSkills?.[sch] ?? 0)) << 16) >> 16;
+    }
+    r.fbe =((this.defenseOf(u) | 0) << 16) >> 16;
     r.fc0 = ((this.absorptionOf(u) | 0) << 16) >> 16;
     r.prot[1] = this.resistOf(u, "fire"); r.prot[2] = this.resistOf(u, "water"); r.prot[3] = this.resistOf(u, "air");
     r.prot[4] = this.resistOf(u, "earth"); r.prot[5] = this.resistOf(u, "astral");
@@ -1379,8 +1441,13 @@ export class World {
     r.f86 = ((s.reaction ?? 30) << 16) >> 16;
     // charge/relax (+0x134/+0x135) do data.bin; sem eles (dados antigos/genéricos dos testes) os tempos da animação, como antes (castTiming)
     r.f134 = (s.charge ?? Math.max(1, u.timing.hitTick)) & 0xff; r.f135 = (s.relax ?? Math.max(1, u.timing.attackTicks - u.timing.hitTick)) & 0xff;
-    // arma equipada (+0x74): só o peso +0x4a conta na espera (a magia da arma, `weaponSpell`, entra pelo adaptador do pensamento)
-    if (s.weaponWeight !== undefined) { r.f74 ??= new ItemRec(); r.f74.f4a = (s.weaponWeight << 16) >> 16; } else r.f74 = null;
+    // arma equipada (+0x74): o peso +0x4a conta na espera; a arma que lança magia (`weaponSpell`, o cajado) leva a magia +0x84 e o poder
+    // (efeito 0x29 da lista +0x20): a máquina 0x50f12c troca o golpe pela magia dela (conjurador) e 0x516ceb a solta depois do golpe
+    if (s.weaponWeight !== undefined || u.weaponSpell) {
+      r.f74 ??= new ItemRec();
+      r.f74.f4a = ((s.weaponWeight ?? 0) << 16) >> 16;
+      this.weaponItemSync(u, r.f74);
+    } else r.f74 = null;
     if (!this.exeExact) {
       let e = 0;
       for (const b of u.buffs) { const id = Number(b.spell); if (id >= 1 && id < 32) e |= 1 << id; }
@@ -1487,8 +1554,10 @@ export class World {
     }
     // ordem do servidor: jogadores em ordem e, em cada um, as unidades por id (sonda rngprobe: a posição dos sorteios do olhar em volta
     // bate 9/9 com (jogador, id)); `regenSlot` = id do original nos estados importados
-    const order = this.serverOrder();
+    // Server_ClockTick 0x4f8521 → Server_WorldTick 0x4f04cf: os objetos de magia ([[0x6044c4]+0x7c]+4, 0x52c279) antes das unidades
     this.rng.shift = 0;
+    if (this.exeWorld.lists.spellObjs.count) { EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff; fn_0x52c279(this.exeWorld, this.exeHooks); }
+    const order = this.serverOrder();
     for (const u of order) {
       u.stateTime++;
       if (u.phased) continue;
@@ -1913,7 +1982,8 @@ export class World {
       // as classes com alvo (3: IA+0xc, 8: IA+0x10) só com o ponteiro escrito: o despachante portado (0x569321) o lê quando a unidade
       // volta ao pensamento do exe [est: a classe do motor antigo é só para o ramo do fim de caminho de 0x56dca2]
       case "attack": { const t = this.get(u.order.target); if (!t) break; u.rec.ai.f0c = t.rec.addr; return 3; }
-      case "cast": { const t = u.order.target ? this.get(u.order.target) : undefined; if (!t) break; u.rec.ai.f10 = t.rec.addr; return 8; }
+      // a magia da tarefa 8/9 do exe (AI_CastAtTarget 0x56c72b, o autocast): o exe não muda a classe +0x50
+      case "cast": { if (u.order.exe) return u.rec.task; const t = u.order.target ? this.get(u.order.target) : undefined; if (!t) break; u.rec.ai.f10 = t.rec.addr; return 8; }
     }
     return u.isHero ? 0xc : 0xb;
   }
@@ -1940,11 +2010,16 @@ export class World {
     // são o motor antigo
     clientCast: (sp, r, t, x, y) => this.hookCastStart(sp, r, t, x, y),
     noMana: (_sp, r) => { const u = this.unitByAddr(r.addr); if (u?.isHero && this.tick - u.noManaTick >= TICKS_PER_SEC * 2) { u.noManaTick = this.tick; this.events.push({ type: "message", text: "Not enough mana" }); } },
+    // Spell_Apply 0x519db8 portado (exe/spells.ts) na cura e no dano preso ao alvo; os outros `case` ainda são o motor antigo
     spellApply: (sp, r, t, x, y) => this.hookRelease(sp, r, t, x, y),
     spellPrismatic: (sp, r, t, x, y) => { this.hookCastStart(sp, r, t, x, y); this.hookRelease(sp, r, t, x, y); },
-    spellLevel: (r, sp) => { const u = this.unitByAddr(r.addr); return u ? (this.spellFor(u, sp)?.level ?? 0) | 0 : 0; },
+    xpOnCast: (r, _t, id) => this.hookXpOnCast(r, id),
+    revive: r => { const u = this.unitByAddr(r.addr); if (u && !u.alive) this.revive(u, u.hp); },
+    clientHeal: (t, amount) => { const u = this.unitByAddr(t.addr); if (u) this.events.push({ type: "heal", unit: u.id, amount }); },
+    clientSpellHit: (a, t, dmg, id) => this.hookSpellHit(a, t, dmg, id),
+    clientMissile: (sp, r, t, ticks) => this.hookMissile(sp, r, t, ticks),
     clientHit: (a, t, dmg) => this.hookHit(a, t, dmg),
-    xpOnHit: (a, t, dmg) => this.hookXp(a, t, dmg),
+    xpOnHit: (a, t, dmg, p3) => this.hookXp(a, t, dmg, p3),
     fell: r => this.hookFell(r),
     actionDone: r => this.hookDone(r),
     thinkAfterDispatch: r => this.hookStrikeBorn(r),
@@ -1997,6 +2072,9 @@ export class World {
       if (!u.exeTask) r.task = this.taskClass(u);   // pelo porte, a classe +0x50 vem dos tratadores das ordens (exe/orders.ts)
     }
     EXE_GLOBALS.w6044c4 = this.secClock() & 0xffff;
+    // [est: estado importado sem o despejo do exe — janelas do golden] a magia em curso (+0x64) não vem no estado exportado: a do motor
+    // antigo (no exe +0x64 nunca é 0 com a ação 0xd/0xe)
+    if ((r.act === 0xd || r.act === 0xe) && (r.f64 >>> 0) === 0 && u.castSpell) r.f64 = this.spellAddr(u.castSpell);
     try {
       unitActionMachine(this.exeWorld, r, this.exeHooks);
     } catch (e) {
@@ -2070,7 +2148,6 @@ export class World {
     // unidades que o pensamento comanda (`exeTask`); as dos modos do motor antigo (`legacyMode`) ainda sorteiam no golpe
     const proc = t.active && !u.exeTask ? this.rollProc(u, t) : null;
     if (proc) { this.asCast(u, proc, t, t.cx, t.cy); return; }
-    if (u.weaponSpell && t.active) { this.asCast(u, u.weaponSpell, t, t.cx, t.cy); return; }
     u.castSpell = null;
     this.breakInvisibility(u);
     this.events.push({ type: "attack", unit: u.id, target: t.id });
@@ -2104,15 +2181,41 @@ export class World {
     if (t.hp <= 0) t.felledBy = a.id;
     else if (a.player !== t.player && t.alive) this.alertGroup(t, a);
   }
-  /** 0x513128 Unit_XPOnHit (motor antigo): experiência do herói pelo golpe (`gainExp`); `dmg` já saiu da vida. */
-  private hookXp(ar: UnitRec, tr: UnitRec, dmg: number): void {
+  /** 0x513128 Unit_XPOnHit (motor antigo): experiência do herói pelo golpe ou pela magia `id` (`gainExp` na escola dela); `dmg` já saiu
+   *  da vida. */
+  private hookXp(ar: UnitRec, tr: UnitRec, dmg: number, id = 0): void {
     const a = this.unitByAddr(ar.addr), t = this.unitByAddr(tr.addr);
     if (!a || !t || !a.heroInfo) return;
     const hpBefore = t.hp + dmg;
     if (t.alive && !t.stats.noXp && !t.dynamic && t.player !== a.player && !t.isHero) {
-      const skill = a.heroInfo.mage ? "" : (a.stats.attackType ?? "");
+      const skill = id ? String(this.spellTable?.[String(id)]?.school ?? "").toLowerCase() : a.heroInfo.mage ? "" : (a.stats.attackType ?? "");
       if (skill) this.gainExp(a, skill, Math.floor(t.stats.exp * 0.5 * Math.min(dmg, Math.max(0, hpBefore)) / t.maxHp + 1), t.typeId);
     }
+  }
+  /** 0x5131ef (vtable+0x70 dos humanos, motor antigo [est]): a experiência de apoio da magia lançada (`supportExp`, só nas defensivas). */
+  private hookXpOnCast(r: UnitRec, id: number): void {
+    const u = this.unitByAddr(r.addr);
+    const s = u ? [...u.spells, u.castSpell, u.weaponSpell].find(x => !!x && Number(x.base ?? x.id) === id) : undefined;
+    if (u && s && s.defensive) this.supportExp(u, s);
+  }
+  /** 0x504b1d 's' ao cliente depois do dano da magia (0x51e65b portado; a vida já caiu): evento de HUD, agressor, alerta do grupo. */
+  private hookSpellHit(ar: UnitRec | null, tr: UnitRec, dmg: number, id: number): void {
+    const a = ar ? this.unitByAddr(ar.addr) : undefined, t = this.unitByAddr(tr.addr);
+    if (!t) return;
+    t.lastHurtTick = this.tick;
+    if (a) t.lastAttacker = a.id;
+    const element = String(this.spellTable?.[String(id)]?.school ?? "").toLowerCase() || undefined;
+    this.events.push({ type: "hit", unit: a?.id ?? 0, target: t.id, amount: dmg, element });
+    if (t.hp <= 0) { if (a) t.felledBy = a.id; }
+    else if (a && a.player !== t.player && t.alive) this.alertGroup(t, a);
+  }
+  /** o projétil da magia portada (0x518d1e na lista do mundo): só o desenho, com o voo do exe (`ticks` de 16/s). */
+  private hookMissile(sp: number, r: UnitRec, tr: UnitRec, ticks: number): void {
+    const u = this.unitByAddr(r.addr), t = this.unitByAddr(tr.addr);
+    if (!u || !t) return;
+    const s = this.spellFor(u, sp);
+    if (!s || t === u) return;
+    this.launch(u, t, { ...s, flightTime: Math.max(1, ticks) / SERVER_TICKS_PER_SEC }, s.element, true);
   }
   /** queda (Server_Event 0x4001): a apresentação da queda. */
   private hookFell(r: UnitRec): void {

@@ -33,7 +33,7 @@ import { mapObjFineX, mapObjFineY } from "./path";
 import { randInclusive } from "./rand";
 import { vt30, vt74 } from "./vtables";
 import { unitDie, type DieHooks } from "./death";
-import { spellRelease, spellSpendMana, type SpellHooks } from "./spells";
+import { spellApply, spellRelease, spellSpendMana, type SpellHooks } from "./spells";
 import {
   fn_0x50fc3e, fn_0x50ff2d, fn_0x510745, fn_0x53bff0, fn_0x542560, unitStrikeBegin, unitStrikeExtra, weaponCastsSpell, type CombatHooks,
 } from "./combat";
@@ -504,8 +504,6 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
 export interface MachineHooks extends DispatchHooks, CombatHooks, DieHooks, SpellHooks {
   /** laço dos efeitos da unidade (+0x20: vtable+0x38 de cada efeito; expirado (0x542540) → 0x53af60 tira da lista). Sem gancho: lista vazia. */
   effectsTick?(u: UnitRec): void;
-  /** elemento 0 da definição da magia ([[magia+4]+0xc][0], 0x41e7e0): nível somado à espera da fase 7 (byte). */
-  spellLevel?(u: UnitRec, spell: number): number;
   /** Server_Event 0x4001 (stub de cliente): a unidade caiu (vida < 1: +0x13c = 1, defesa ÷ 2, contador = duração da queda − 1). */
   fell?(u: UnitRec): void;
   /** fim da fase 7 (+0x136 = 1): não é do exe — ponto em que a World fecha a ordem de magia do motor antigo. */
@@ -515,13 +513,9 @@ export interface MachineHooks extends DispatchHooks, CombatHooks, DieHooks, Spel
   thinkAfterDispatch?(u: UnitRec): void;
 }
 
-function spellApply(h: MachineHooks, spell: number, u: UnitRec, x: number, y: number): void {
-  if (!h.spellApply) throw new NotPorted("0x519db8");
-  h.spellApply(spell, u, null, x, y);
-}
-function spellLevel(h: MachineHooks, u: UnitRec, spell: number): number {
-  if (!h.spellLevel) throw new NotPorted("0x41e7e0");
-  return h.spellLevel(u, spell) | 0;
+/** elemento 0 da definição da magia ([[magia+4]+0xc][0], 0x41e7e0): o nível (byte somado à espera da fase 7). */
+function spellLevel(wd: WorldRec, spell: number): number {
+  return wd.spellAt(spell).def[0]! | 0;
 }
 /** a unidade +0x5c (alvo do golpe/da magia) pelo endereço (0 = nenhuma). */
 function targetOf(wd: WorldRec, u: UnitRec): UnitRec | null {
@@ -626,8 +620,8 @@ export function unitActionMachine(wd: WorldRec, u: UnitRec, h: MachineHooks = {}
             }
           }
           if ((u.act | 0) === 0xd || (u.act | 0) === 0xe) {
-            if ((u.act | 0) === 0xd) spellRelease(wd.spellAt(u.f64), u, targetOf(wd, u), h);
-            else spellApply(h, u.f64, u, u.f60 & 0xff, (u.f60 >>> 8) & 0xff);
+            if ((u.act | 0) === 0xd) spellRelease(wd, wd.spellAt(u.f64), u, targetOf(wd, u), h);
+            else spellApply(wd, wd.spellAt(u.f64), u, null, u.f60 & 0xff, (u.f60 >>> 8) & 0xff, h);
             if (u.f68 !== null) {
               const uVar25 = fn_0x53bff0(u.f68);
               if ((uVar25 & 0xff) === 0xe) { /* item consumível: o item (+0x68) e a magia (+0x64) são liberados (vtable+4 → delete) */ }
@@ -653,7 +647,7 @@ export function unitActionMachine(wd: WorldRec, u: UnitRec, h: MachineHooks = {}
           local_34 = (local_34 + iVar24b) | 0;
           u.f6c = ((u.f135 & 0xff) + local_34) & 0xff;
           if (((u.act | 0) === 0xd || (u.act | 0) === 0xe) && (u.f64 >>> 0) !== 0) {
-            u.f6c = (u.f6c + (spellLevel(h, u, u.f64) & 0xff)) & 0xff;
+            u.f6c = (u.f6c + (spellLevel(wd, u.f64) & 0xff)) & 0xff;
           }
         }
       } else if (iVar24 === 7) {

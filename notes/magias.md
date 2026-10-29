@@ -1,60 +1,47 @@
 # Magias, efeitos e magos da IA (etapa 8b, 2026-10-28)
 
-Briefing: `docs/briefings/ETAPA8B-MAGIAS.md`. Regras: skill `port-exe`. Onde a magia roda no corpus (árvore dinâmica no oráculo): só
-na m10_mage — a maga (jogador humano) com autocast ×10 (nunca lança), AI_CastChosenSpell ×18 (IA+0x78 = 0: devolve 0), Heal em si
-×3/×2 pelo pensamento já portado (0x56c592/0x57a999 → AI_CastAtTarget) e o cajado ×4; 9 Spell_SpendMana/Release/Apply. m10_start e
-m20_start não executam nenhum ponto de entrada de magia: o resíduo delas é do pensamento/andar (abaixo).
+Briefing: `docs/briefings/ETAPA8B-MAGIAS.md`. Regras: skill `port-exe`. No corpus a magia só roda na m10_mage (a maga: autocast ×10,
+AI_CastChosenSpell ×18, Heal ×3 e Shield ×2 pelo pensamento, o cajado ×4; 9 Spell_SpendMana/Release/Apply).
 
-## Lote 1 — os magos do jogador humano (porta 100 % dos pares)
-`exe/think.ts`: `aiAutocast` 0x56bc7b, `aiCastChosenSpell` 0x56b059, `aiAutocastTargetsMask` 0x56bb53, `fn_0x567c56`
-(AI_SplitFriendsFoes: candidatos → mundo+0xac8 em guerra / +0xaa8 os outros), `fn_0x571e9b` (AI_GroupVisibleUnits = 0x571c4d sem o
-filtro de inimigos), `fn_0x57b0e0` (AddTail), `fn_0x56bc2e` (AI_SpellInRange; exec 0, sem pares). Prova `test/exe_think.ts`:
-0x56bc7b 10/10, 0x56b059 18/18, 0x56bb53 10/10, 0x567c56 10/10, 0x571e9b 10/10, 0x57b0e0 10/10. Registros novos: `WorldRec.friends`
-(+0xaa8) e `foes` (+0xac8) (no save e no arnês), `PlayerRec.autocast` ([+0x34]+0x20; a World o espelha de `playerAi[p].autocast`).
-Contas: vida ÷ vida máx. é divisão INTEIRA (idiv → fild; assembly 0x56be6f) comparada a 1,0 (0x5d1b88); a "não repetir em 20 tiques"
-(IA+0xa4/+0xa8) compara com 0x14 (Bless) em todas as magias do autocast, como está no exe.
-**Ganchos removidos**: `ThinkHooks.castChosenSpell` e `autocast` (tasks.ts 0x56c840 e think.ts 0x56acc8/0x56b025 chamam a porta).
-**Apagados**: `ai.ts:autocast` (+ `canBuff`, `inBattle` [est], `knows`, `castOn`), `spellattack.ts:spellAttack` e o ramo dele em
-`World.hookStrikeBorn`. IA+0x78 = id do livro da magia marcada na interface (`selectedSpell`, CTRL+A), espelhado em `exeSyncGroups`.
-O pensamento do motor antigo (`legacyThink`, modos defend/follow/still) chama a porta por `World.exeAutocast`: a tarefa 8 que ela deixa
-vira a sub-ação 2 na hora (`castNow`) e a ordem fica (nesses modos a World reescreve IA+8 pela ordem).
-Testes: missão 91 "Dina conduz a cadeia" com `immortal` — a Dina agora se dá Haste fora de combate (o exe só exige combate para o
-Bless; o autocast antigo exigia para os dois) e chega antes à patrulha orc que a matava; a cadeia de falas é o que o teste mede.
-**Achado**: AI_Task_Attack 0x56acc8 chama o autocast quando IA+0x14 (AI_AttackRange 0x56ac5b: o alcance da magia escolhida com
-mana, senão +0x12c) é < 2, e o autocast que não lança ZERA IA+8 em todos os ramos — a maga corpo a corpo com livro não golpeia. A
-maga do original tem cajado (+0x12c = 6 no oráculo; a nossa tem 1: resíduo `range|1`, derivação dos atributos do herói, fora da 8b).
-`necro.ts` e `spell_selected.ts` (este não rastreado; editado, não commitado) passaram a dar alcance 6 à maga como no original e a
-testar o caso corpo a corpo/Shield forçado pelo exe (0 golpes).
-Números: tickcmp 97,4 / 96,7 / 98,5 % (igual: no corpus o autocast não lança e a escolhida é 0); golden 71,7 % (0 piores, 1 melhor).
-**Arnês (tickcmp)**: os ponteiros de magia do registro importado (IA+0x30, +0x64) eram endereços de BookSpellRec do ORIGINAL — o
-gancho do gasto não achava a magia e desfazia a sub-ação (`act|1`/`mana|1` T=242…); e +0x5c só vinha na ação 3/0xd (a magia nasce
-com o alvo já posto: sem ele o motor antigo virava a maga para (0,0), `dir16`). `dump_ticks.py` agora despeja +0x5c, +0x64 e o
-livro ([id, endereço]); `import_state` põe +0x5c e `World.exeImportSpellPtrs` traduz IA+0x30/+0x64 pelo id. tickcmp 97,4 / **97,5** /
-**98,6** % (m10_mage: `mana` 100 %, `act` 98,9 → 99,5 %, sorteios 98,9 → 99,2 %).
+## Lotes 1–2 (no main: d206126, 0cc65ea)
+`exe/think.ts` aiAutocast 0x56bc7b, aiCastChosenSpell 0x56b059 e folhas; `exe/spells.ts` spellSpendMana 0x519998, 0x519441, o pacote
+0x5041d6/0x5042ba (+0x138), spellRelease 0x519d7f. Ganchos removidos: `castChosenSpell`, `autocast`, `spellSpendMana`, `spellRelease`.
+Arnês: ponteiros de magia do registro importado pelo id (`World.exeImportSpellPtrs`), +0x5c importado.
 
-## Lote 2 — gasto e lançamento (porta 100 % dos pares)
-`exe/spells.ts`: `spellSpendMana` 0x519998 (9/9), `fn_0x519441` (9/9), `clientSpellPacket` = 0x5041d6/0x5042ba (pacote = stub; +0x138
-pela vtable+0x2c), `spellRelease` 0x519d7f (`review`: os 9 pares caem em Spell_Apply). Prova `test/exe_combat.ts`. `this` = a magia
-(+4 definição: CArray em +8 — [4] = 1 aviso com alvo, [5] = 2 projétil; +8 id; +0xc custo): `BookSpellRec.hasDef/def4/def5` (na World
-do `kind`/`target` [est]: só escolhem o pacote e o teste do modelo). O ponto alvo e o tempo de voo (0x54f955…, 0x516aae) só vão no
-pacote. **Ganchos removidos**: `spellSpendMana`, `spellRelease` (máquina 0x50f12c e golpe 0x516ceb chamam a porta). **Novos** (SpellHooks):
-`clientCast` (apresentação: `hookCastStart` → `beginCast`, que não gasta mais mana), `noMana` (mensagem "Not enough mana", 1 a cada 2 s
-— sem mana o exe tenta de novo a cada tique; o motor antigo largava a ordem), `spellPrismatic` (0x519c04, exec 0: o jato sai já no
-gasto), `spellApply` agora com o alvo. **Apagado**: `hookSpendMana` (mana, aborto da ordem, +0x138 [est]). `World.spellAt` resolve
-também a magia do cajado/de chance (endereço sintético); a importação leva o +0x64 fora do livro para a magia do cajado [est].
+## Lote 3 — a aplicação e os objetos de magia (porta 100 % dos pares, `test/exe_spells.ts` no test:sim)
+`exe/spells.ts`: Spell_Apply 0x519db8 (7/7; cabeça: poder = habilidade da esfera unidade+0xa8+2×[2] + Mind − 30 em 0..255, ou o efeito
+0x29 do item em uso 0x5238c5; Spell_Instance 0x5195b1 17/17 com o x87 do assembly; vtable+0x70 = gancho `xpOnCast`; ponto alvo; alvo
+imune), Heal (Unit_AddHeal 0x510484 3/3; Unit_Revive = gancho `revive`, exec 0) e o objeto de dano preso ao alvo (0x51e505 + 0x543040..
+0x543100, Spell_AttachToTarget 0x5178d4, projétil 0x518d1e, Spell_ProjectileDist 0x516aae). Os outros `case` (carga "Effect" com
+duração — Shield & cia. —, paredes, áreas, Animate Dead, Teleport, Summon, Drain Life) vão INTEIROS ao gancho `spellApply` (motor
+antigo) antes de qualquer efeito (`spellApplyPorted`). A lista do mundo [[0x6044c4]+0x7c]+4 é a dos objetos de magia (os pares de
+0x52c279 a mostram vazia com as 16 estruturas do mapa: `lists.structs` virou `lists.spellObjs`, registros `SpellObjRec`/
+`SpellPayloadRec`, alocador `WorldRec.allocObj`); 0x52c279 (958/958) a anda antes das unidades (Server_WorldTick 0x4f04cf), 0x518efd
+(18/18), 0x542d00/0x517949 (4/4; o aviso 0x56e6b8 sai no IMPACTO), 0x51e65b (4/4: vtable+0x54 = 0x516f6f). Definição da magia = as 22
+colunas de data.bin (`BookSpellRec.def`, `spellDefColumns`); spellLevel lê [0] (gancho removido). Save: objetos de magia, instância do
+livro (`bi`) e o cajado em uso (+0x68 = +0x74, `i68`).
+**Ganchos removidos**: `spellLevel`; o adaptador do cajado em `hookStrikeBorn` (a arma +0x74 agora tem a magia +0x84 e o efeito 0x29: a
+máquina 0x50f12c troca o golpe pela magia como o exe). **Novos** (apresentação): `clientHeal`, `clientSpellHit`, `clientMissile`.
+**Apagado**: nada do motor antigo de magia — `releaseSpell` ainda atende os `case` não portados, o script (`castFromPoint`) e as armadilhas.
+**Achados**: o cajado inicial tem poder 20 (Hero_InitSkills 0x514f59 monta "Wood Staff {castSpell=<magia>:20}"; nossos dados diziam 1 —
+`mission/setup.ts`); Rand_One 0x51fa4e no replay confere o argumento n (não n − 1); a ordem de magia escrita da tarefa 8/9 do exe não
+muda a classe +0x50 (`exe: true`, também no rótulo do tickcmp).
+Arnês: `dump_ticks.py` despeja os objetos de magia (`spell_objs`), `import_state` os remonta (o preso com carga "Effect" fica de fora: o
+motor antigo aplica o Shield no lançamento); ação 0xd/0xe sem +0x64 (janelas sem o despejo do exe) → a magia do motor antigo ou uma
+sem definição.
+Números: tickcmp 97,4 / **98,2** / 98,6 % (m10_mage era 97,5; sorteios 100 %; `hp`, `alive`, `effects`, `mana` 100 %). Golden **76,5 %**
+(1182/1545; era 71,65 % 1135/1584; o total cai porque janela limpa não gera reancoragem).
 
-## Próximo: lote 3 (Spell_Apply 0x519db8, 8 448 B) — o que o corpus executa
-Pares m10_mage (`fnprobe.py m10_mage_s102 0x519db8 …`): Shield (27) T=250/764 (508 escritas: objetos de efeito na lista +0x20 e no
-mundo), Heal (24) T=394/634/906 (69 escritas, 1 sorteio; Unit_AddHeal 0x510484), Fire Arrow (1, o cajado) T=843/862/880/928 (228
-escritas: Spell_DamageObject 0x51e505 + Spell_FireDamageObj 0x543040, projétil; impacto 0x51d436 depois). Cabeça comum: 0x543130,
-Spell_Instance 0x5195b1 (poder = esfera [2] + Mind − 30), alvo por 0x54f955/0x54feae/0x54ff06. Antes de portar: espelhar a lista de
-efeitos +0x20 (hoje `buffs`) e o registro dos objetos de magia (`new` 0x401880, endereço sintético; a lista que os anda por tique
-ainda a achar: 0x518efd ×18, 0x518ca1 ×11 rodam sem chamador no callgraph — vtable).
+## Próximo: lote 4 — efeitos com duração (Shield 27 ×2 no corpus)
+Carga "Effect" 0x51caa0 (+ 0x51e8fa, 1 912 B: lê a definição +0x1c), aplicação 0x51ce12 (867 B; vtable+0x3c), +0x40/+0x44 = 0x51d175/
+0x51d337 → 0x51d436 (3 610 B, vtable+0x48: liga/desliga os modificadores ±1), recálculo 0x51366b (vtable+0x58, 3 157 B), a lista +0x20
+da unidade andada por 0x51cc9f (vtable+0x38; hoje `effectsTick`/`effectPower`/`effectExpire` sobre os `buffs`). Pares já gravados:
+0x542d00/0x517949 (2 do Shield). Depois: SpellArea 0x517c1a/0x517cfe e os outros `case` (exec 0 → NotPorted documentado).
 
-## Resíduo (tickcmp, 1.ª divergência, depois do lote 1 + arnês)
-m10_start: `task|24595` T=609 (o=attack n=move) + `g_assigned`/`target` (pensamento do grupo 0x57240b), `post|1` T=49 (posto IA+0 do
-herói), `walk_*` T=625. m10_mage: `task|1` T=241 ×5 (rótulo: a World escreve a ordem "cast" da tarefa 8 de AI_CastAtTarget; o
-original compara a classe +0x50, que AI_CastAtTarget não muda), `range|1` T=4 ×5 (+0x12c: 6 × 1, atributos do herói), o cajado
-(0x53a5a0 → Spell_Apply no motor antigo: `rng` T=843, `hit_clock16`/`flee_cell`/`look_hit`/`hp`/`alive` de 24611/24609 em T=843…928 —
-o aviso 0x56e6b8 sai no lançamento e não no impacto), `act|1` T=822, `post|1` T=113, `target|1` T=463. m20_start: `post|1` T=19,
-`task|24603` T=623, `target|1` T=455.
+## Resíduo (tickcmp, 1.ª divergência)
+m10_start: `task|24595` T=609 + `g_assigned`/`target` (pensamento do grupo 0x57240b), `post|1` T=49, `walk_*` T=625. m10_mage: `post|1`
+T=113 ×6 (posto IA+0 do herói), `target|1` T=463 ×6, `range|1` ×5 (+0x12c do herói alterna 6/1 em T=4/232/241/749/755; nenhuma função
+sondada o escreve — escrita fora do servidor portado, a achar), `task|1` ×5 (ordem de magia do cliente 0x56d3e6: +0x50 = 0xd; o
+original já está em 0xc no tique seguinte), `act`/`walk_*|1` T=822. m20_start: `post|1` T=19, `task|24603` T=623, `target|1` T=455.
+Golden (classificadas na regravação): m10_mage_s114@800 `hp|t75` T=876 (o impacto do cajado chega antes no nosso); m10_mage_s11@800 e
+m20_mage_s602@880 passaram a divergir mais tarde (antes: o dano baixo do cajado em 808/884).

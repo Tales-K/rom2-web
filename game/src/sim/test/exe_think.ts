@@ -16,7 +16,7 @@ import { fn_0x553681, visionCompute } from "../exe/vision";
 import { randRange } from "../exe/rand";
 import { MAP_VISION_OFF, MAP_WAKE_OFF } from "../exe/types";
 import {
-  A, AL, AX, EAX, M, U, groupFrom, playerFrom, ptrListFrom, run, runPairs, spellFrom, worldRec, type Check, type Ctx,
+  A, AL, AX, EAX, M, U, groupFrom, playerFrom, ptrListFrom, run, runS, runPairs, spellFrom, worldRec, type Check, type Ctx,
 } from "./exe_recon";
 
 const MAP_PTR = 0x670e48, WORLD_PTR = 0x66832c;
@@ -83,11 +83,11 @@ const CHECKS: Record<string, Check> = {
   "0x552c28": run((c, d) => { const w = worldFromMapObj(c, d.this, MAP_VISION_OFF); visionCompute(w.map, U(c, A(d, 0)), A(d, 1)); return null; }),
   "0x553681": run((c, d) => { const w = worldFromMapObj(c, d.this, MAP_VISION_OFF); fn_0x553681(w.map); return null; }),
   "0x567988": run((c, d) => { const w = world(c, d.this); const l = aiEnemiesAroundPost(w, U(c, A(d, 0)), A(d, 1)); c.ptrList = l; c.ptrListAddr = d.eax + 4; return null; }),
-  "0x55b5f1": run((c, d) => { const w = worldFromMapObj(c, d.this, MAP_WAKE_OFF); fn_0x55b5f1(w); return null; }),
+  "0x55b5f1": runS((c, d) => { const w = worldFromMapObj(c, d.this, MAP_WAKE_OFF); fn_0x55b5f1(w); return null; }),
   "0x55b879": run((c, d) => { const w = worldFromMapObj(c, d.this, MAP_WAKE_OFF); fn_0x55b879(w); return null; }),
   "0x55aca2": run((c, d) => { const w = worldFromMapObj(c, d.this, MAP_WAKE_OFF); fn_0x55aca2(w, U(c, A(d, 0))); return null; }),
   "0x55b406": run((c, d) => { const w = worldFromMapObj(c, d.this, MAP_WAKE_OFF); fn_0x55b406(w, U(c, A(d, 0))); return null; }),
-  "0x55b507": run((c, d) => { const w = worldFromMapObj(c, d.this, MAP_WAKE_OFF); fn_0x55b507(w, w.map.structAt(A(d, 0))); return null; }),
+  "0x55b507": runS((c, d) => { const w = worldFromMapObj(c, d.this, MAP_WAKE_OFF); fn_0x55b507(w, w.spellObjAt(A(d, 0))); return null; }),
 };
 void AL;
 

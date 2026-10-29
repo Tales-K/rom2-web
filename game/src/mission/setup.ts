@@ -196,14 +196,17 @@ export function heroSpells(h: HeroState, data: MissionData): { spells: SpellDef[
     // poder da magia lançada pelo herói: habilidadeDaEscola + Mind − 30 (mín. 0) [UA]
     return spellDef(n, s, Math.max(0, schoolSkill(String(s?.school ?? "").toLowerCase()) + mind - 30));
   });
-  // cajado com castSpell (Wood Staff: Fire Arrow, poder 1): o ataque normal dispara a magia, sem gastar mana
+  // cajado com castSpell (Wood Staff: Fire Arrow): o ataque normal dispara a magia, sem gastar mana. O cajado inicial da classe tem
+  // poder 20: Hero_InitSkills 0x514f59 o cria como "Wood Staff {castSpell=<magia>:20}" (textos 0x5fe444/0x5fe468; efeito 0x29 +0x42 = 20
+  // no par de Spell_Apply 0x519db8 da m10_mage) — o ":1" dos nossos dados da classe não é o do exe
   let weaponSpell: SpellDef | null = null;
   const wid = h.equipment?.weapon;
   const w = wid ? data.items?.[wid] : undefined;
-  const mods = cls?.startItems?.find(si => String(si.id) === String(wid))?.mods ?? (w?.mods as Record<string, number> | undefined);
+  const start = cls?.startItems?.find(si => String(si.id) === String(wid));
+  const mods = start?.mods ?? (w?.mods as Record<string, number> | undefined);
   const castSpell = mods?.castSpell ?? (w?.casterWeapon ? cls?.weaponSpell ?? 1 : undefined);
   if (castSpell) {
-    const power = mods?.spellPower ?? 1;
+    const power = start?.mods?.castSpell ? 20 : mods?.spellPower ?? 1;
     weaponSpell = { ...spellDef(castSpell, data.spells?.[String(castSpell)], power), mana: 0 };
   }
   return { spells, weaponSpell };

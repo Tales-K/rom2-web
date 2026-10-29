@@ -207,6 +207,9 @@ export class PlayerRec {
   fa54 = 0;       // +0xa54 i32 contagem de mortes do herói (0x510a70)
 }
 
+/** Colunas da definição de magia (tabela Spells de data.bin; `BookSpellRec.def`). */
+export const SPELL_DEF_N = 0x16;
+
 /** Magia do livro (elemento do CArray do livro). */
 export class BookSpellRec {
   addr = 0;       // endereço no exe (identidade do ponteiro devolvido por 0x51c391)
@@ -214,14 +217,30 @@ export class BookSpellRec {
   range = 0;      // +0x09 u8  alcance (0x56ac5b)
   f0a = 0;        // +0x0a u8  ≠ 0 = magia de apoio (alvo aliado: 0x57a999 só sorteia estas; 0x56c72b procura aliados em vez de inimigos)
   cost = 0;       // +0x0c i16 custo de mana
-  /** +0x04 ptr definição da magia → CArray<int> em +8: elemento 0 = nível ("Complication Level"; byte baixo somado à espera em 0x50f12c) */
-  def0 = 0;
+  f0e = 0;        // +0x0e u8  dano mínimo da instância (Spell_Instance 0x5195b1: [0x10] × (poder/30 + 1))
+  f0f = 0;        // +0x0f u8  faixa do dano da instância ([0x11] × (poder/30 + 1) − mínimo)
+  f10 = 0;        // +0x10 i16 duração da instância em tiques de 16/s (0x5195b1)
   /** +0x04 ≠ 0 (Spell_SpendMana 0x519998: sem definição → 0) */
   hasDef = true;
-  /** elementos 4 (1 → aviso ao cliente 0x5041d6 com o alvo, 0x519441; senão 0x5042ba com a célula) e 5 (2 = projétil: o gasto não
-   *  olha o modelo da unidade) da definição (0x41e7e0) */
-  def4 = 0;
-  def5 = 0;
+  /** +0x04 ptr definição da magia → CArray<int> em +8 = as colunas da tabela Spells de data.bin (0x41e7e0; tools/data/derive.py):
+   *  0 nível ("Complication Level": byte baixo somado à espera em 0x50f12c), 1 mana, 2 esfera (1 fogo .. 5 astral), 3 item, 4 alvo
+   *  (1 → aviso 0x5041d6 com o alvo, 0x519441), 5 entrega (1 direta, 2 projétil), 6 alcance, 7 velocidade do efeito (0x518d1e: voo =
+   *  distância fina ÷ [7]), 8 distribuição (1 preso ao alvo, senão área), 9 raio, 0xa área, 0xb duração da área, 0xc frequência,
+   *  0xd aplicação, 0xe duração, 0xf frequência, 0x10/0x11 dano mínimo/máximo (−1 = sem dano), 0x12 defensiva, 0x13 desvio de
+   *  habilidade, 0x14/0x15 preços */
+  def = new Int32Array(SPELL_DEF_N);
+  get def0(): number { return this.def[0]!; }
+  set def0(v: number) { this.def[0] = v; }
+  get def4(): number { return this.def[4]!; }
+  set def4(v: number) { this.def[4] = v; }
+  get def5(): number { return this.def[5]!; }
+  set def5(v: number) { this.def[5] = v; }
+}
+
+/** Entrada da lista de efeitos mágicos do item (item+0x20; 0x5238c5 procura o tipo 0x29 = poder da magia que o item lança). */
+export class ItemMagicRec {
+  f3c = 0;        // +0x3c u8  tipo do efeito (0x29 = poder da magia)
+  f42 = 0;        // +0x42 i16 valor
 }
 
 /** Item (alvo dos ponteiros unidade+0x68 em uso / +0x74 arma / +0x78). */
@@ -233,6 +252,8 @@ export class ItemRec {
   f4a = 0;        // +0x4a i16 peso (espera extra da arma em 0x50f12c)
   tplF0f = 0;     // [+0x3c modelo do item → CArray +8][0xf]: ≠ 0 → a arma vai para a mochila na morte (0x510a70; exec 0)
   spell: BookSpellRec | null = null; // +0x84 ptr magia que a arma lança (0x542580 Weapon_CastsSpell)
+  /** +0x20 CList dos efeitos mágicos do item, na ordem da lista (0x5238c5: o poder da magia lançada pelo item, Spell_Apply 0x519db8) */
+  magic: ItemMagicRec[] = [];
 }
 
 /** Modelo da unidade (alvo do ponteiro unidade+0x3c): nome em +4 e CArray<int> dos parâmetros em +8 (dados em [+0xc]). */
@@ -248,6 +269,9 @@ export class TemplateRec {
 /** Atributos de dano do golpe (unidade+0xa6; 0x516f6f recebe o ponteiro: também structs avulsas das magias). */
 export class DmgRec {
   atk = 0;        // +0x00 i16 ataque (toHit)
+  /** +0x02 i16[6]: na unidade (+0xa8) as habilidades, [esfera] (1 fogo .. 5 astral) = base do poder da magia (Spell_Apply 0x519db8);
+   *  zeradas na struct das magias (0x51583b) */
+  sk = new Int16Array(6);
   dmin = 0;       // +0x0e u8  dano mínimo (bit 0x80: ×15 contra quem não tem equipamento, vtable+0x30 = 0)
   dadd = 0;       // +0x0f u8  faixa do dano (rand(0..dadd))
   wtype = 0;      // +0x10 u8  tipo de arma: índice na tabela de resistências +0xce
@@ -264,6 +288,9 @@ export class SpellBookRec {
   /** não é do exe: assinatura das magias do motor antigo de que o espelho foi feito (World.exeSyncGroups só o refaz quando ela muda) */
   src: unknown = null;
   last = 0;       // +0x18 i32 último índice consultado (escrito por 0x51c391)
+  /** não é do exe: campos da instância (+9, +0xe, +0xf, +0x10; Spell_Instance 0x5195b1) por índice, vindos do save, para quando o livro
+   *  for refeito das magias do motor antigo (World.exeSyncBook) */
+  keep: [number, number, number, number, number][] | null = null;
 }
 
 /** Unidade do servidor (0x1d0 bytes no registro de objs da sonda; as listas de caminho vão até +0x200). */
@@ -328,6 +355,7 @@ export class UnitRec {
   effects = 0;                 // +0x144 u32 bits de efeito = 1 << id da magia (0x40000 → IA+9 = 4; 0x100000 Bless, 0x10000000 Curse, 0x1000 Invisibility)
   f148 = 0;                    // +0x148 u32 id de quem invocou (0x510a70: vida −10000)
   f14c = 0;                    // +0x14c u16 (0x510a70: dono+0x40 = valor − 0x13 no jogo não local)
+  f150 = 0;                    // +0x150 u32 bits do que mudou para o aviso ao cliente (Server_Event; Unit_AddHeal 0x510484: |= 1)
   f1a0 = 0;                    // +0x1a0 u32 levantada/invocada: sem saque (0x510a70)
   f1a4 = 0;                    // +0x1a4 u16 máscara dos jogadores humanos perto (setor de 8×8; 0x55b5f1/0x55b406; 0 = longe)
   walk: WalkRec = new WalkRec();           // +0x1c0 ptr andar
@@ -364,6 +392,54 @@ export class CellStructRec {
   f42 = 0;                             // +0x42 u16 máscara dos jogadores humanos nos blocos em volta (0x55b507, a cada pensamento)
   width = 0;                           // +0x60 u8  largura em células
   cellMask = 0;                        // +0x64 u32 bit (dy*largura+dx): célula ocupada pela estrutura
+}
+
+/** vtables dos objetos de magia (GetRuntimeClass no slot 0): carga "Effect" (0x51ca4d/0x51caa0) e "Effect_DirectDamage" (0x51e505);
+ *  da lista do mundo, "PointEffect" preso ao alvo (Spell_AttachToTarget 0x5178d4), "SpellTransport" projétil (0x518d1e) e SpellArea
+ *  (0x517c1a; IsKindOf 0x5f8340). */
+export const VT_EFFECT = 0x5d1178, VT_DIRECT_DAMAGE = 0x5d11d0, VT_POINT_EFFECT = 0x5d10a0, VT_TRANSPORT = 0x5d1120, VT_SPELL_AREA = 0x5d10e0;
+
+/** Carga de uma magia (0x48 bytes "Effect", 0x60 "Effect_DirectDamage"; base 0x50d493). Fica presa a um objeto da lista do mundo
+ *  (`SpellObjRec.f4c`) até ele a aplicar no alvo (vtable+0x3c: 0x51e65b no dano, 0x51ce12 no efeito) e a destruir. */
+export class SpellPayloadRec {
+  addr = 0;                            // endereço (new 0x401880; sintético na World)
+  vtbl = 0;                            // +0x00 u32 vtable (VT_EFFECT / VT_DIRECT_DAMAGE)
+  f04 = 0;                             // +0x04 u32 0 (0x50d6ae)
+  fc = 0;                              // +0x0c u16 id da magia (vtable+0x6c do conjurador: experiência pela magia)
+  fe = 0;                              // +0x0e u16 desenho no cliente (id × 2 + 8 / + 9)
+  mapObj: MapObjRec = new MapObjRec(); // +0x10 ptr objeto de mapa (0x54fa22: célula 0, dono = o mapa)
+  f14 = 0;                             // +0x14 u32 0
+  f18 = 0;                             // +0x18 u16 0 (0x50d6ae)
+  f1c = 0;                             // +0x1c u32 0 (0x50d6ae)
+  f3c = 0;                             // +0x3c u8
+  f3d = 0;                             // +0x3d u8  bits (|= [0x5d07e0] nos efeitos com duração; 0x51cc53)
+  f40 = 0;                             // +0x40 i16 magnitude (Shield: poder/10 + 3; os construtores zeram +0x40..+0x43 de uma vez)
+  f42 = 0;                             // +0x42 i16 duração em tiques de 16/s (0x51cc9f desconta)
+  f44 = 0;                             // +0x44 u32 quem lançou (endereço; 0 se sem modelo, 0x542560)
+  dmg: DmgRec = new DmgRec();          // +0x48 atributos do dano (só Effect_DirectDamage; 0x51583b zera, 0x543040.. põem +0x5b..+0x5d)
+}
+
+/** Objeto de magia da lista do mundo [[0x6044c4]+0x7c]+4 (0x52c279 chama vtable+0x18 a cada tique e destrói quem tem +0x40 ≠ 0).
+ *  "PointEffect" (0x50 bytes; base 0x517719) preso ao alvo e "SpellTransport" (0x54; base 0x517774) que voa até soltar o filho. */
+export class SpellObjRec {
+  addr = 0;                            // endereço (new 0x401880; sintético na World)
+  vtbl = 0;                            // +0x00 u32 vtable (VT_POINT_EFFECT / VT_TRANSPORT / VT_SPELL_AREA)
+  f04 = 0;                             // +0x04 u32 0 (0x50d6ae)
+  fc = 0;                              // +0x0c u16 id da magia
+  fe = 0;                              // +0x0e u16 desenho no cliente (id × 2 + 9)
+  mapObj: MapObjRec = new MapObjRec(); // +0x10 ptr objeto de mapa (o do alvo copiado, 0x54ff06; o do conjurador no projétil, 0x54feae)
+  f14 = 0;                             // +0x14 u32 0
+  f18 = 0;                             // +0x18 u16 0 (0x50d6ae)
+  f1c = 0;                             // +0x1c u32 0 (0x50d6ae)
+  f3c = 0;                             // +0x3c u32 quem lançou (endereço; 0 se sem modelo; 0x52c279 zera se ele perdeu o dono)
+  f40 = 0;                             // +0x40 u8  acabou: 0x52c279 tira da lista e destrói
+  f41 = 0;                             // +0x41 u8  marca o agressor na vítima (1 − (magia+0xa ≠ 0): não nas de apoio)
+  f42 = 0;                             // +0x42 u16 máscara dos jogadores humanos perto (0x55b507)
+  f44 = 0;                             // +0x44 u16 máscara já avisada ao cliente (só SpellArea a atualiza)
+  f46 = 0;                             // +0x46 u16 0
+  f48 = 0;                             // +0x48 u32 preso: o alvo (unidade); projétil: o objeto que ele solta ao chegar
+  f4c = 0;                             // +0x4c u32 preso: a carga (SpellPayloadRec); projétil: 0
+  f50 = 0;                             // +0x50 i16 projétil: tiques até chegar (Spell_ProjectileDist ÷ definição[7]; 10 em 0xa/0xb)
 }
 
 export const MAP_MASK_OFF = 0x10000;
@@ -420,6 +496,8 @@ export const WAKE_TABLE_OFF = 0x404, WAKE_F1614_OFF = 0x1614, WAKE_F1618_OFF = 0
  */
 export class MapRec implements PathRec, FlagGridRec, ByteGridRec {
   static readonly SIZE = 0xa4570;
+  /** endereço do objeto ([0x670e48]): só guardado em objeto de mapa +8 (0x54f9b9/0x54fa22 dos objetos de magia) */
+  addr = 0;
   readonly mem = new Uint8Array(MapRec.SIZE);
   readonly dv = new DataView(this.mem.buffer);
   /** +0x00000 u8[0x10000] custo de passo por célula. */
@@ -475,8 +553,11 @@ export class UnitListsRec {
   magic = new CListPtr();
   /** +0x44 cadáveres ([[0x6044c4]+0x7c]+0xc+4), na ordem da morte (0x52bbb7: Corpse_Decay 0x5110b8 em cada um). */
   corpses = new CListPtr();
-  /** [[0x6044c4]+0x7c]+4 (+4): objetos fixos do mapa (CellStructRec; 0x55b5f1 → 0x55b507 escreve +0x42). Não é do contentor [0x68d2dc]. */
-  structs = new CListPtr();
+  /** [[0x6044c4]+0x7c]+4 (lista em +4; contentor vtable 0x5d15cc): os objetos de magia no mundo (`SpellObjRec`: preso ao alvo,
+   *  projétil, área). 0x52c279 os anda a cada tique (Server_WorldTick 0x4f04cf, antes das unidades); 0x55b5f1 → 0x55b507 escreve +0x42.
+   *  Não é do contentor [0x68d2dc]. (Até a etapa 8b era tida como a das estruturas fixas: nos pares de 0x52c279 da m10_mage ela fica
+   *  vazia com as 16 estruturas do mapa e só recebe os objetos de Spell_Apply 0x519db8.) */
+  spellObjs = new CListPtr();
 }
 
 /** Mundo/servidor (o `this` de 0x56dca2, 0x56e4ac, 0x56fc69 e dos sorteios 0x57afc0/0x57afd0). */
@@ -525,6 +606,22 @@ export class WorldRec {
   /** não é do exe: o endereço do próximo grupo que 0x52b06f aloca (o exe: `new` de 0x50 bytes); a World dá endereços sintéticos, o arnês
    *  de remontagem o do par */
   allocGroupAddr: () => number = () => { throw new Error("WorldRec.allocGroupAddr não definido (0x52b06f)"); };
+  /** os objetos de magia pelo endereço: os da lista `lists.spellObjs` e as cargas presas a eles (`SpellObjRec.f4c`) */
+  readonly spellObjs = new Map<number, SpellObjRec>();
+  readonly payloads = new Map<number, SpellPayloadRec>();
+  spellObjAt(addr: number): SpellObjRec {
+    const o = this.spellObjs.get(addr >>> 0);
+    if (!o) throw new Error(`objeto de magia 0x${(addr >>> 0).toString(16)} sem registro espelhado`);
+    return o;
+  }
+  payloadAt(addr: number): SpellPayloadRec {
+    const o = this.payloads.get(addr >>> 0);
+    if (!o) throw new Error(`carga de magia 0x${(addr >>> 0).toString(16)} sem registro espelhado`);
+    return o;
+  }
+  /** não é do exe: o endereço do objeto que `new` 0x401880 aloca (Spell_Apply 0x519db8: carga, preso ao alvo, projétil); a World dá
+   *  endereços sintéticos, o arnês de remontagem os do par */
+  allocObj: (size: number) => number = () => { throw new Error("WorldRec.allocObj não definido (0x401880)"); };
   /** não é do exe: a magia do livro pelo endereço que o exe guarda como ponteiro (IA+0x30, unidade+0x44); a World procura nos livros
    *  espelhados, o arnês de remontagem lê o registro da memória do par */
   spellAt: (addr: number) => BookSpellRec = (addr) => { throw new Error(`WorldRec.spellAt não definido (magia 0x${(addr >>> 0).toString(16)})`); };

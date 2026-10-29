@@ -15,12 +15,12 @@ import {
 import { unitActionMachine, type MachineHooks } from "../exe/action";
 import { corpseDecay, unitDie } from "../exe/death";
 import { randInclusive } from "../exe/rand";
-import { fn_0x519441, spellRelease, spellSpendMana } from "../exe/spells";
+import { fn_0x519441, spellSpendMana } from "../exe/spells";
 import { NotPorted } from "../exe/walk_action";
 import { UnitRec, type DmgRec } from "../exe/types";
 import {
   A, AL, CallMem, EAX, M, PAIRS, U, WALK_FIELDS, WORLD_DIP_OFF, WR, dmgFrom, existsSync, fill, itemFrom, join, proc, readFileSync, readdirSync,
-  run, spellFrom, worldRec, type Check, type Ctx, type Pair,
+  run, runS, spellFrom, worldRec, type Check, type Ctx, type Pair,
 } from "./exe_recon";
 
 /** Ganchos para o replay: magia/experiência/morte → NotPorted (gancho esperado); o laço dos efeitos (+0x20) com lista não vazia
@@ -28,9 +28,9 @@ import {
 function hooksFor(c: Ctx): MachineHooks {
   return {
     effectsTick: r => { if (c.cm.u32(r.addr + 0x24) !== 0) throw new NotPorted("0x50ee14"); },
-    spellLevel: (_r, sp) => spellFrom(c.cm, sp).def0,
     // experiência do herói (0x513128 → 0x5128cb): motor antigo; as escritas dela ficam fora da conferência (exe_recon.ts checkUnit)
     xpOnHit: () => { /* nada */ },
+    xpOnCast: () => { /* nada: 0x5131ef, experiência pela magia (motor antigo; escritas fora da conferência como as de 0x513128) */ },
     // Unit_Die: a mochila (+0x7c: CList, contagem em +0xc) lida da memória; os efeitos (+0x20) com lista não vazia = gancho (NotPorted)
     packCount: r => c.cm.u32(c.cm.u32(r.addr + 0x7c) + 0xc) | 0,
     effectsOnDie: r => { if (c.cm.u32(r.addr + 0x24) !== 0) throw new NotPorted("0x51cc53"); },
@@ -78,9 +78,9 @@ const CHECKS: Record<string, Check> = {
   "0x50ff2d": run((c, d) => { WR(c, 0); fn_0x50ff2d(U(c, d.this), A(d, 0), A(d, 1), A(d, 2), A(d, 3)); return null; }),
   "0x510745": run((c, d) => { fn_0x510745(U(c, d.this)); return null; }),
   "0x516b2f": run((c, d) => { WR(c, 0); unitStrikeExtra(U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), { v: 0 }, hooksFor(c)); return null; }),
-  "0x516ceb": run((c, d) => { const w = WR(c, c.cm.u32(WORLD_PTR)); unitStrikeHit(w, U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), hooksFor(c)); return null; }),
+  "0x516ceb": runS((c, d) => { const w = worldRec(c, c.cm.u32(WORLD_PTR), M(c, c.cm.u32(MAP_PTR))); unitStrikeHit(w, U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), hooksFor(c)); return null; }),
   "0x516c1f": run((c, d) => { const w = WR(c, c.cm.u32(WORLD_PTR)); unitStrikeBegin(w, U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), hooksFor(c)); return null; }),
-  "0x50f12c": run((c, d) => {
+  "0x50f12c": runS((c, d) => {
     // o mapa: [0x670e48] (Unit_Die, lido mesmo sem o despachante) ou mundo+0xa50 (despachante)
     const wa = c.cm.u32(WORLD_PTR);
     const m = M(c, c.cm.has(MAP_PTR) ? c.cm.u32(MAP_PTR) : c.cm.u32(wa + 0xa50));
@@ -92,7 +92,6 @@ const CHECKS: Record<string, Check> = {
   // etapa 8b, lote 2: o gasto e o lançamento (exe/spells.ts); Spell_Apply 0x519db8 dentro de 0x519d7f fica em gancho
   "0x519998": run((c, d) => { WR(c, 0); return spellSpendMana(WR(c, 0), spellFrom(c.cm, d.this), U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), A(d, 2) & 0xff, A(d, 3) & 0xff, hooksFor(c)); }, EAX),
   "0x519441": run((c, d) => (fn_0x519441(spellFrom(c.cm, d.this)) ? 1 : 0), AL),
-  "0x519d7f": run((c, d) => { spellRelease(spellFrom(c.cm, d.this), U(c, A(d, 0)), A(d, 1) === 0 ? null : U(c, A(d, 1)), hooksFor(c)); return null; }),
   "0x5110b8": run((c, d) => { WR(c, 0); corpseDecay(U(c, d.this)); return null; }),
   "0x510a70": run((c, d) => {
     // o mapa vem do global [0x670e48] (Unit_RemoveFromCells) e o mundo de [0x66832c] (sorteios)

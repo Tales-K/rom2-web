@@ -108,7 +108,9 @@ function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record
   // a ação é a do registro do exe (a máquina 0x50f12c portada a escreve; 0x10 na morte consumada); grupo dormindo pelo motor antigo
   const act = !w.awake(u) ? 27 : u.rec.act;
   const o = u.order;
-  const tc = o.type === "attack" ? "attack" : o.type === "cast" ? "cast" : o.type === "move" || o.type === "pickup" || o.type === "follow" || o.type === "retreat" || o.type === "patrol" ? "move" : "idle";
+  // a ordem de magia escrita da tarefa 8/9 do exe (AI_CastAtTarget, autocast) não muda a classe +0x50: o rótulo vem do registro
+  const tc = o.type === "cast" && o.exe ? TASK_CLASS[u.rec.task] ?? `#${u.rec.task}`
+    : o.type === "attack" ? "attack" : o.type === "cast" ? "cast" : o.type === "move" || o.type === "pickup" || o.type === "follow" || o.type === "retreat" || o.type === "patrol" ? "move" : "idle";
   const armed = u.orderArmed;
   const ot = o.type === "attack" ? o.target : o.type === "cast" ? o.target ?? 0 : 0;
   const el = s.elemental ? [s.elemental.aBase, s.elemental.aRange, s.elemental.bBase, s.elemental.bRange, s.elemental.element] : [0, 0, 0, 0, 0];

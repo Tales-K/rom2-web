@@ -21,17 +21,18 @@ export function fn_0x57afd0(wd: WorldRec, n: number, site: RandSite): number {
 
 /** 0x51fa25 Rand_Inclusive (cdecl): rand(n) = (rand() × (n+1)) >> 15, 0..n; n = 0 → 0 SEM sorteio. O rand() do CRT (0x583290) é o
  *  `Rng` do mundo; `site` = endereço de retorno no chamador (rotulagem). Produto em 32 bits com sinal (imul) e o ajuste de sinal do `>>`. */
-export function randInclusive(wd: WorldRec, n: number, site: RandSite): number {
+export function randInclusive(wd: WorldRec, n: number, site: RandSite, arg = n): number {
   if ((n | 0) === 0) return 0;
-  const uVar2 = wd.rng.draw(site, n);
+  const uVar2 = wd.rng.draw(site, arg);
   let iVar1 = Math.imul(uVar2, (n + 1) | 0);
   iVar1 = (iVar1 + ((iVar1 >> 31) & 0x7fff)) >> 15;
   return iVar1;
 }
 
-/** 0x51fa4e Rand_One (cdecl): 1 + Rand_Inclusive(n − 1), ou seja, 1..n (n = 1 → 1 sem sorteio). */
+/** 0x51fa4e Rand_One (cdecl): 1 + Rand_Inclusive(n − 1), ou seja, 1..n (n = 1 → 1 sem sorteio). O replay (sim/rng.ts) confere o
+ *  argumento do sítio de Rand_One (n, como `Rng.one`), não o de Rand_Inclusive. */
 export function randOne(wd: WorldRec, n: number, site: RandSite): number {
-  const iVar1 = randInclusive(wd, (n - 1) | 0, site);
+  const iVar1 = randInclusive(wd, (n - 1) | 0, site, n);
   return (iVar1 + 1) | 0;
 }
 

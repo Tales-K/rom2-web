@@ -103,7 +103,7 @@ export type Order =
   | { type: "none" }
   | { type: "move"; x: number; y: number; attackMove?: boolean; near?: number; arrived?: boolean }
   | { type: "attack"; target: number; forced?: boolean }
-  | { type: "cast"; spell: string; target?: number; x?: number; y?: number }
+  | { type: "cast"; spell: string; target?: number; x?: number; y?: number; /** escrita da tarefa 8/9 do exe (World.applyTaskOrder): a classe +0x50 fica a do exe */ exe?: true }
   | { type: "hold" }
   /** parar sem atacar ninguém (tecla L; tarefa 0x17 do exe, medida no original) */
   | { type: "still" }

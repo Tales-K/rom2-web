@@ -104,6 +104,21 @@ export function spellLayer(id: number): number {
   }
 }
 
+/** Esfera da magia como o exe a guarda (definição[2]; unidade+0xa8 + 2 × esfera): 1 fogo, 2 água, 3 ar, 4 terra, 5 astral. */
+export const SPHERE_INDEX: Record<string, number> = { fire: 1, water: 2, air: 3, earth: 4, astral: 5 };
+
+/** As 22 colunas da tabela Spells de data.bin (a definição que o exe lê por 0x41e7e0: `BookSpellRec.def`) a partir da linha de
+ *  spells.json (tools/data/derive.py: alcance < 0 → null, dano < 0 → sem `damage`, a coluna "item" não exportada → 0). */
+export function spellDefColumns(j: SpellJsonLike): number[] {
+  const n = (v: unknown, d = 0) => (typeof v === "number" ? v | 0 : d);
+  const dmg = j.damage;
+  return [
+    n(j.level), n(j.manaCost), SPHERE_INDEX[String(j.school ?? "").toLowerCase()] ?? 0, 0, n(j.target), n(j.delivery), j.range == null ? -1 : n(j.range),
+    n(j.effectSpeed), n(j.distribution), n(j.radius), n(j.areaAffect), n(j.areaDuration), n(j.areaFrequency), n(j.applyMethod), n(j.duration),
+    n(j.frequency), dmg ? n(dmg.min) : -1, dmg ? n(dmg.max) : -1, j.defensive ? 1 : 0, n(j.skillOffset), n(j.scrollCost), n(j.bookCost),
+  ];
+}
+
 /** Escala do poder [UA]: k = poder/30 + 1. */
 export function powerScale(power: number): number { return Math.max(0, power) / 30 + 1; }
 

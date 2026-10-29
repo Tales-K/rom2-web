@@ -49,6 +49,35 @@ def _book(o, book: int) -> list:
     return [[o.read(e + 8, 1)[0], e] for e in (o.u32(data + 4 * i) for i in range(size)) if e]
 
 
+GLOBAL_PTR = 0x6044C4   # [ ] = objeto global (+0x7c registro dos objetos: [+4] = contentor dos objetos de magia, lista em +4)
+VT_POINT_EFFECT, VT_TRANSPORT = 0x5D10A0, 0x5D1120
+
+
+def _spell_obj(o, a: int, depth: int = 0) -> dict:
+    """Objeto de magia em `a`: bytes (0x54), objeto de mapa (+0x10, 0xc) e os filhos (preso: carga +0x4c; projétil: +0x48)."""
+    b = bytes(o.read(a, 0x54))
+    mo = struct.unpack_from("<I", b, 0x10)[0]
+    r = {"a": a, "b": b.hex(), "mo": bytes(o.read(mo, 0xC)).hex() if mo else ""}
+    vt = struct.unpack_from("<I", b, 0)[0]
+    if vt == VT_POINT_EFFECT:
+        p = struct.unpack_from("<I", b, 0x4C)[0]
+        if p:
+            pb = bytes(o.read(p, 0x60))
+            pm = struct.unpack_from("<I", pb, 0x10)[0]
+            r["p"] = {"a": p, "b": pb.hex(), "mo": bytes(o.read(pm, 0xC)).hex() if pm else ""}
+    elif vt == VT_TRANSPORT and depth < 2:
+        c = struct.unpack_from("<I", b, 0x48)[0]
+        if c:
+            r["c"] = _spell_obj(o, c, depth + 1)
+    return r
+
+
+def _spell_objs(o) -> list:
+    reg = o.u32(o.u32(GLOBAL_PTR) + 0x7C)
+    cont = o.u32(reg + 4) if reg else 0
+    return [_spell_obj(o, a) for a in _ptrs(o, cont + 4)] if cont else []
+
+
 def _ptrs(o, hdr: int) -> list:
     """Dados (ponteiros) de um CList<void*> em `hdr` (+4 cabeça; nó: +0 próximo, +8 dado), na ordem da lista."""
     out, p, n = [], o.u32(hdr + 4), 0
@@ -150,7 +179,10 @@ class ExeTracker:
                        "lists": {"all": _ids(o, ul + 4), "magic": _ids(o, ul + 0x24), "corpses": _ids(o, ul + 0x44)},
                        # etapa 9, lote 2: jogadores na ordem da lista [0x68d2c4] (+4), cada um com os grupos na ordem da lista +0x28
                        # (dados do comando [grupo+0x3c], 0x4c bytes; membros na ordem da lista do grupo) e a tabela de classes +0xa54
-                       "players": _players(o), "class_table": bytes(o.read(wd + 0xA54, 16)).hex()}
+                       "players": _players(o), "class_table": bytes(o.read(wd + 0xA54, 16)).hex(),
+                       # etapa 8b, lote 3: os objetos de magia no mundo ([[0x6044c4]+0x7c]+4, lista em +4; 0x52c279 os anda antes das
+                       # unidades) — bytes crus do objeto (0x54), do objeto de mapa +0x10 (0xc) e, no preso ao alvo, da carga +0x4c (0x60)
+                       "spell_objs": _spell_objs(o)}
         units = {}
         for a in addrs:
             b = bytes(o.read(a, 0x1D0))

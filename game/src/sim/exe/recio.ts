@@ -3,6 +3,7 @@
  * campo `exe` do estado por tique) e o formato compacto dos registros no save (sim/snapshot.ts). Os campos vão pelo offset e
  * tamanho do original, como em types.ts.
  */
+import { ItemRec } from "./types";
 import { CListWord, type CMapAssoc, CMapShortOcc } from "./mfc";
 import type { MapRec, UnitRec } from "./types";
 
@@ -64,6 +65,10 @@ export interface UnitRecJson {
   pt?: number[];
   /** livro+0x18: último índice consultado (0x51c391) */
   bl?: number;
+  /** livro: a instância de cada magia [índice, +9, +0xe, +0xf, +0x10] (Spell_Instance 0x5195b1) — ausente em saves antigos */
+  bi?: [number, number, number, number, number][];
+  /** +0x68 item em uso: 1 = a arma equipada (+0x74, o cajado no meio da magia dele); ausente/0 = nenhum */
+  i68?: number;
 }
 
 export function unitRecToJson(r: UnitRec): UnitRecJson {
@@ -74,6 +79,8 @@ export function unitRecToJson(r: UnitRec): UnitRecJson {
     // andar e IA: todos os campos escalares (os de WALK_FIELDS/AI_FIELDS e os que só a porta escreve: IA+0x10, +0xa4, +0xa8...)
     w: scalarFields(w), a: scalarFields(a),
     ps: listVals(r.pathStatic), pd: listVals(r.pathDynamic), pt: listVals(r.ai.patrol), bl: r.book.last,
+    bi: r.book.spells.flatMap((s, i) => (s ? [[i, s.range, s.f0e, s.f0f, s.f10] as [number, number, number, number, number]] : [])),
+    i68: r.f68 !== null && r.f68 === r.f74 ? 1 : 0,
   };
 }
 
@@ -88,6 +95,18 @@ export function unitRecFromJson(r: UnitRec, j: UnitRecJson): void {
   Object.assign(r.walk, j.w); Object.assign(r.ai, j.a);
   listSet(r.pathStatic, j.ps); listSet(r.pathDynamic, j.pd); listSet(r.ai.patrol, j.pt ?? []);
   r.book.last = j.bl ?? 0;
+  r.book.keep = j.bi ?? null;
+  // +0x68: a arma em uso volta como o mesmo objeto de +0x74 (a World o preenche em syncCombat); outro item em uso não é salvo [est]
+  r.f68 = j.i68 === 1 ? (r.f74 ??= new ItemRec()) : null;
+  bookApplyKeep(r);
+}
+
+/** Os campos da instância salvos (`SpellBookRec.keep`) nas magias do livro de mesmo índice. */
+export function bookApplyKeep(r: UnitRec): void {
+  for (const [i, range, f0e, f0f, f10] of r.book.keep ?? []) {
+    const s = r.book.spells[i];
+    if (s) { s.range = range; s.f0e = f0e; s.f0f = f0f; s.f10 = f10; }
+  }
 }
 
 /** Estado do MapRec: trechos [deslocamento, hex] que diferem de `base` e a ocupação (baldes na ordem das cadeias). */
@@ -177,6 +196,14 @@ export interface ExeGroupsJson {
   ap: [number, string][]; next: number;
   /** Guard do script já aplicado ao grupo de cada unidade do lado humano (por id; ausente nos saves antigos) */
   hs?: [number, string][];
+}
+
+/** Objetos de magia do mundo (etapa 8b, lote 3): a lista [[0x6044c4]+0x7c]+4 (endereços na ordem), os registros `SpellObjRec` e as
+ *  cargas `SpellPayloadRec` (campos escalares, objeto de mapa, dano) e o próximo endereço sintético. */
+export interface SpellObjsJson {
+  l: number[]; next: number;
+  o: { f: Record<string, number>; m: Record<string, number> }[];
+  p: { f: Record<string, number>; m: Record<string, number>; d: Record<string, number>; sk: number[] }[];
 }
 
 /** Os campos numéricos próprios de um registro (dados do grupo, jogador). */

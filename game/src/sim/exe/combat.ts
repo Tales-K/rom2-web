@@ -356,7 +356,7 @@ export function unitStrikeHit(wd: WorldRec, a: UnitRec | null, t: UnitRec | null
         && ((0 < HVar8 && 0 < ((t.f94 << 16) >> 16)) || (a.f74.spell!.id & 0xff) === 2)) {
         a.f64 = a.f74.spell!.addr >>> 0;
         a.f68 = a.f74;
-        spellRelease(a.f74.spell!, a, t, h);
+        spellRelease(wd, a.f74.spell!, a, t, h);
         a.f64 = 0;
         a.f68 = null;
       }

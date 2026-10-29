@@ -42,7 +42,7 @@ import { fn_0x57afd0, randRange, randUniformObject } from "./rand";
 import { fn_0x553681, visionSeen, visionUnitMap } from "./vision";
 import {
   EXE_GLOBALS, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_HEIGHT_OFF, MAP_RECT_OFF, MAP_WAKE_OFF, MAP_WIDTH_OFF, WAKE_F1614_OFF, WAKE_F1618_OFF,
-  WAKE_F1624_OFF, WAKE_TABLE_OFF, type BookSpellRec, type CellStructRec, type MapRec, type PlayerRec, type UnitRec, type UnitTypeRec, type WorldRec,
+  WAKE_F1624_OFF, WAKE_TABLE_OFF, type BookSpellRec, type MapRec, type PlayerRec, type SpellObjRec, type UnitRec, type UnitTypeRec, type WorldRec,
 } from "./types";
 
 const i16 = (v: number): number => (v << 16) >> 16;
@@ -1395,8 +1395,9 @@ export function fn_0x55b406(wd: WorldRec, param_1: UnitRec): void {
   }
 }
 
-/** 0x55b507 (thiscall; setores, objeto fixo): +0x42 = OR das máscaras dos blocos (x+2, y+1), (x+2, y−1), (x, y+1), (x, y−1) em volta do objeto. */
-export function fn_0x55b507(wd: WorldRec, param_1: CellStructRec): void {
+/** 0x55b507 (thiscall; setores, objeto de magia da lista [[0x6044c4]+0x7c]+4): +0x42 = OR das máscaras dos blocos (x+2, y+1), (x+2, y−1),
+ *  (x, y+1), (x, y−1) em volta do objeto. */
+export function fn_0x55b507(wd: WorldRec, param_1: SpellObjRec): void {
   const m = wd.map;
   const iVar2 = (mapObjCellX(param_1.mapObj) & 0xff) >> 3;
   const iVar3 = ((mapObjCellY(param_1.mapObj) & 0xff) >> 3) + 1;
@@ -1437,8 +1438,8 @@ export function fn_0x55b5f1(wd: WorldRec): void {
     }
     local_20 = local_1c.next();
   }
-  for (let local_14 = wd.lists.structs.first(); local_14 !== 0; local_14 = wd.lists.structs.nextAfter(local_14)) {   // [[0x6044c4]+0x7c]+4
-    fn_0x55b507(wd, m.structAt(local_14));
+  for (let local_14 = wd.lists.spellObjs.first(); local_14 !== 0; local_14 = wd.lists.spellObjs.nextAfter(local_14)) {   // [[0x6044c4]+0x7c]+4
+    fn_0x55b507(wd, wd.spellObjAt(local_14));
   }
   m.dv.setInt32(MAP_WAKE_OFF + WAKE_F1618_OFF, (wd.lists.all.getCount() - m.i32(MAP_WAKE_OFF + WAKE_F1614_OFF)) | 0, true);
 }

@@ -10,18 +10,62 @@
  *  - 0x5041d6 / 0x5042ba: o pacote 0x86/0x8b ao cliente (stub; 0x503bef envia) e, se vtable+0x2c da unidade ≠ 0, +0x138 = relógio de
  *    16/s ("ocupada agora": 0x50fc3e não triplica a regeneração de quem lança sem parar).
  *  - 0x519441 (fastcall): definição[4] == 1.
- *  - Spell_Release 0x519d7f (thiscall): id ≠ 0xb → Spell_Apply 0x519db8 (ainda gancho `spellApply`: o motor antigo, lote 3).
+ *  - Spell_Release 0x519d7f (thiscall): id ≠ 0xb → Spell_Apply 0x519db8.
+ * Lote 3 (a aplicação e os objetos de magia):
+ *  - Spell_Apply 0x519db8 (thiscall; magia, unidade, alvo ou 0, x, y): poder = habilidade da esfera (definição[2]; unidade+0xa8 +
+ *    2 × esfera) + Mind (+0x88) − 30 em 0..255, ou o do item em uso (0x5238c5: efeito 0x29 da lista item+0x20, +0x42); Spell_Instance;
+ *    experiência pela magia (vtable+0x70, sem item e sem o bit 2 de +0x4c, 0x543130); o ponto alvo (0x54f955/0x54f9b9 ou 0x54feae +
+ *    0x54ff06 e, lado > 1, o centro − 1 por 0x54fc41); alvo imune (vtable+0x2c e bit 8 de +0x4c) → nada. Portados: o objeto de dano
+ *    (dano da instância ≠ 0 e id ≠ 0x18/0x1a: Spell_DamageObject 0x51e505 + 0x543040/0x543070/0x5430a0/0x5430d0/0x543100 pela esfera),
+ *    preso ao alvo (definição[8] = 1: Spell_AttachToTarget 0x5178d4) e entregue já (definição[5] = 1) ou por projétil (2: 0x518d1e; voo
+ *    10 em Lightning/Prismatic Spray) na lista do mundo (0x542e60); Heal (0x18): sem guerra (0x57994d inline), vida > −10 e período da
+ *    regeneração +0x98 ≠ 0 → instância + Rand_One(faixa) até a vida máxima, +0x150 = 0, Unit_AddHeal 0x510484. Os outros `case`
+ *    (efeitos com duração "Effect" 0x51caa0 + 0x51e8fa, paredes 0x51ca4d, áreas SpellArea_Construct 0x517c1a, Animate Dead, Teleport,
+ *    Summon, Drain Life) ficam no gancho `spellApply` (motor antigo) ANTES de qualquer efeito da porta (`spellApplyPorted`).
+ *  - Spell_Instance 0x5195b1 (thiscall; poder em byte): alcance +9 = [6] + poder ÷ 30 (só se [6] ≠ 0; Teleport + poder ÷ 3); +0xe =
+ *    ftol([0x10] × k), +0xf = ftol([0x11] × k − +0xe) com k = poder/30 + 1 (double); +0x10 = duração: [0xe] < 1 → [0xb] × 16 + poder ×
+ *    16 ÷ 10 (ou 0), Invisibility poder × 16, Stone Curse poder × 0x1e0 ÷ 100, senão ftol(pow(1,025, poder) × [0xe] × 16) (assembly).
+ *  - Unit_AddHeal 0x510484 (+0x150 |= 1, vida até a máxima; de < 1 a > 0 → Unit_Revive 0x510534, exec 0: gancho `revive`), 0x543130,
+ *    0x5238c5, Spell_ProjectileDist 0x516aae (ftol(√(dx² + dy²)) dos finos 0x54ff5b/0x54ff7c), 0x54feae/0x54ff06 (cópia do objeto de mapa).
+ *  - Construtores (registros `SpellPayloadRec`/`SpellObjRec`): 0x50d493/0x50d549 (base: +4/+0x14/+0x18/+0x1c = 0, objeto de mapa novo
+ *    na célula 0 do mapa / cópia do dado), Spell_WallObject 0x51ca4d, Spell_DamageObject 0x51e505 (0x515825/0x51583b zeram o dano),
+ *    0x517719/0x517774 (+0x41 = 1), Spell_AttachToTarget 0x5178d4 (alvo +0x48, carga +0x4c, objeto de mapa = o do alvo), 0x518d1e (filho
+ *    +0x48; +0x50 = Spell_ProjectileDist(conjurador, filho) ÷ definição[7]).
+ *  - A lista do mundo: 0x52c279 (Server_WorldTick 0x4f04cf, antes das unidades; quem lançou sem dono → +0x3c = 0; máscara +0x42 ≠ +0x44:
+ *    pacote ao cliente só de SpellArea, stub; vtable+0x18; +0x40 ≠ 0 → 0x53cc70 tira e destrói: 0x542e30/0x518e30, 0x542d20/0x517aa0,
+ *    0x543330/0x543300 → 0x50d6d6), 0x518efd (projétil: +0x50−−, a < 1 solta o filho na lista e acaba), 0x542d00 → 0x517949 (preso
+ *    ao alvo: a carga age no alvo — vtable+0x3c — e, com +0x41, marca o agressor +0x40/+0x48 e avisa 0x56e6b8; acaba), 0x51e65b (dano:
+ *    vtable+0x54 = Unit_PhysicalDamage 0x516f6f com quem lançou; vida −= dano; > 0 → experiência vtable+0x6c com o id e 's' ao
+ *    cliente 0x504b1d, stub `clientSpellHit`). Carga "Effect" (0x51ce12) e SpellArea (0x517cfe): NotPorted.
  */
 import { fn_0x53a5a0 } from "./action";
-import { fn_0x5106d2, fn_0x542560 } from "./combat";
+import { fn_0x5106d2, fn_0x542560, fn_0x56e6b8, unitPhysicalDamage, type CombatHooks } from "./combat";
+import { CListPtrIter } from "./mfc";
+import { crtFtol, mapObjFineX, mapObjFineY, unitCenterX, unitCenterY, vtGetSize } from "./path";
+import { randOne } from "./rand";
+import { mapObjInit, mapObjInitPacked16, mapObjSetFine } from "./walk";
 import { NotPorted } from "./walk_action";
-import { vt2c } from "./vtables";
-import { EXE_GLOBALS, type BookSpellRec, type UnitRec, type WorldRec } from "./types";
+import { vt2c, vt34, vt6c, vt70 } from "./vtables";
+import {
+  DmgRec, EXE_GLOBALS, MapObjRec, SpellObjRec, SpellPayloadRec, VT_DIRECT_DAMAGE, VT_EFFECT, VT_POINT_EFFECT, VT_TRANSPORT,
+  type BookSpellRec, type ItemMagicRec, type ItemRec, type UnitRec, type WorldRec,
+} from "./types";
 
-/** O que a magia ainda não portou (lote 3+) e a apresentação. Sem gancho de Spell_Apply/Prismatic → NotPorted. */
+/** O que a magia ainda não portou e a apresentação. Sem gancho do ramo não portado → NotPorted. */
 export interface SpellHooks {
-  /** 0x519db8 Spell_Apply(magia, unidade, alvo ou null, x, y): a magia sai (motor antigo). */
+  /** 0x519db8 Spell_Apply(magia, unidade, alvo ou null, x, y) nos `case` ainda não portados (`spellApplyPorted` falso): o motor antigo. */
   spellApply?(spell: number, u: UnitRec, t: UnitRec | null, x: number, y: number): void;
+  /** 0x5131ef (vtable+0x70 dos humanos): experiência pela magia lançada (motor antigo). */
+  xpOnCast?(u: UnitRec, t: UnitRec | null, id: number): void;
+  /** 0x510534 Unit_Revive (exec 0 no corpus): a cura levantou quem estava caído (a apresentação e a ocupação vivem no motor antigo). */
+  revive?(u: UnitRec): void;
+  /** não é do exe: Server_Event da cura (+0x150) ao cliente. */
+  clientHeal?(t: UnitRec, amount: number): void;
+  /** não é do exe: 0x504b1d 's' ao cliente depois do dano da magia (HUD); `a` = quem lançou (null se ele perdeu o dono). */
+  clientSpellHit?(a: UnitRec | null, t: UnitRec, dmg: number, id: number): void;
+  /** não é do exe: o cliente desenha o projétil/efeito que sai (o pacote do gasto 0x5041d6 já levou o tempo de voo) — `ticks` de 16/s
+   *  até chegar (0 = já no tique seguinte). */
+  clientMissile?(spell: number, u: UnitRec, t: UnitRec, ticks: number): void;
   /** Spell_CasterPower 0x519483 + Spell_PrismaticSpray 0x519c04 (exec 0 no corpus): o jato sai já no gasto (motor antigo). */
   spellPrismatic?(spell: number, u: UnitRec, t: UnitRec | null, x: number, y: number): void;
   /** efeitos do tipo `type` da lista +0x20 marcados para acabar (+0x42 = 1; os efeitos ainda são os `buffs` do motor antigo). */
@@ -73,11 +117,403 @@ export function spellSpendMana(wd: WorldRec, s: BookSpellRec, u: UnitRec, t: Uni
   return 1;
 }
 
-/** 0x519d7f Spell_Release (thiscall; magia, unidade, alvo): a magia sai — Spell_Apply 0x519db8 (gancho), salvo Prismatic Spray (0xb),
- *  que saiu no gasto. */
-export function spellRelease(s: BookSpellRec, u: UnitRec, t: UnitRec | null, h: SpellHooks): void {
-  if ((s.id & 0xff) !== 0xb) {
+/** 0x519d7f Spell_Release (thiscall; magia, unidade, alvo): a magia sai — Spell_Apply 0x519db8, salvo Prismatic Spray (0xb), que saiu
+ *  no gasto. */
+export function spellRelease(wd: WorldRec, s: BookSpellRec, u: UnitRec, t: UnitRec | null, h: CombatHooks): void {
+  if ((s.id & 0xff) !== 0xb) spellApply(wd, s, u, t, 0, 0, h);
+}
+
+// ------------------------------------------------------------------------------------- lote 3: a aplicação (Spell_Apply 0x519db8)
+
+/** 0x543130 (fastcall): bit 2 de +0x4c da unidade. */
+export function fn_0x543130(u: UnitRec): number {
+  return u.f4c & 2;
+}
+
+/** 0x5238c5 (fastcall; item): o 1.º efeito da lista item+0x20 (0x53b110/0x53b120/0x53b170) com tipo +0x3c == 0x29 (')'), ou null. */
+export function fn_0x5238c5(it: ItemRec): ItemMagicRec | null {
+  for (const local_8 of it.magic) {
+    if ((local_8.f3c & 0xff) === 0x29) return local_8;
+  }
+  return null;
+}
+
+/** 0x5195b1 Spell_Instance (thiscall; magia, poder em byte): alcance +9, dano +0xe/+0xf e duração +0x10 da instância (ver o cabeçalho;
+ *  as contas em x87 do assembly, FPCW de 53 bits = o double do JS). */
+export function spellInstance(s: BookSpellRec, param_1: number): void {
+  const p = param_1 & 0xff;
+  s.range = s.def[6]! & 0xff;
+  if ((s.id & 0xff) === 0x17) {
+    s.range = (s.range + Math.trunc(p / 3)) & 0xff;
+  } else if ((s.range & 0xff) !== 0) {
+    s.range = (s.range + Math.trunc(p / 0x1e)) & 0xff;
+  }
+  const k = p / 30 + 1;                                  // fild; fdiv 30.0 [0x5d0868]; fadd 1.0 [0x5d0858]
+  if ((s.def[0x10]! | 0) < 1) s.f0e = 0;
+  else s.f0e = crtFtol(s.def[0x10]! * k) & 0xff;
+  if ((s.def[0x11]! | 0) < 1) s.f0f = 0;
+  else s.f0f = crtFtol(s.def[0x11]! * k - (s.f0e & 0xff)) & 0xff;
+  if ((s.def[0xe]! | 0) < 1) {
+    if ((s.def[0xb]! | 0) < 1) s.f10 = 0;
+    else s.f10 = (((s.def[0xb]! << 4) + Math.trunc((p << 4) / 10)) << 16) >> 16;
+  } else if ((s.id & 0xff) === 0xc) {
+    s.f10 = ((p << 4) << 16) >> 16;
+  } else if ((s.id & 0xff) === 0x12) {
+    s.f10 = (Math.trunc((((p * 0xf) << 4) << 1) / 100) << 16) >> 16;
+  } else {
+    // pow 0x5845c9(1,025 = 0x3ff0666666666666, poder) × [0xe] × 16.0 [0x5d08a8]
+    s.f10 = (crtFtol(Math.pow(1.025, p) * s.def[0xe]! * 16) << 16) >> 16;
+  }
+}
+
+/** 0x510484 Unit_AddHeal (thiscall; unidade, short): +0x150 |= 1; vida += n até a máxima; de < 1 a > 0 → Unit_Revive 0x510534. */
+export function unitAddHeal(u: UnitRec, param_1: number, h: SpellHooks): void {
+  u.f150 = (u.f150 | 1) >>> 0;
+  const sVar1 = (u.f94 << 16) >> 16;
+  u.f94 = ((sVar1 + param_1) << 16) >> 16;
+  const local_e = ((u.f94 << 16) >> 16) < ((u.f96 << 16) >> 16) ? u.f94 : u.f96;
+  u.f94 = (local_e << 16) >> 16;
+  if (sVar1 < 1 && 0 < ((u.f94 << 16) >> 16)) {
+    if (!h.revive) throw new NotPorted("0x510534");
+    h.revive(u);
+  }
+}
+
+/** 0x54feae (thiscall): cópia do objeto de mapa `p1` em `this` (x, y, célula, frações, +8); devolve `this`. */
+export function fn_0x54feae(o: MapObjRec, p1: MapObjRec): MapObjRec {
+  o.x = p1.x; o.y = p1.y; o.cell = p1.cell; o.fx = p1.fx; o.fy = p1.fy; o.owner = p1.owner;
+  return o;
+}
+/** 0x54ff06 (thiscall): a mesma cópia, sem retorno. */
+export function fn_0x54ff06(o: MapObjRec, p1: MapObjRec): void {
+  fn_0x54feae(o, p1);
+}
+
+/** 0x516aae Spell_ProjectileDist (cdecl): ftol(√(dx² + dy²)) entre as posições finas (0x54ff5b/0x54ff7c) dos dois objetos de mapa. */
+export function spellProjectileDist(a: MapObjRec, b: MapObjRec): number {
+  const uVar2 = mapObjFineX(a), uVar3 = mapObjFineX(b), uVar4 = mapObjFineY(a), uVar5 = mapObjFineY(b);
+  const dy = (uVar4 - uVar5) | 0, dx = (uVar2 - uVar3) | 0;
+  const sq = (Math.imul(dx, dx) + Math.imul(dy, dy)) | 0;   // (double)(int)(dx² + dy²)
+  return crtFtol(Math.sqrt(sq));                           // 0x582b64 sqrt
+}
+
+/** Base dos objetos de magia 0x50d493 (fastcall): +0x14 = 0, objeto de mapa novo (0x54fa22: célula 0, +8 = o mapa [0x670e48]),
+ *  0x50d6ae (+0x18 = 0, +0x1c = 0, +4 = 0). */
+function objBase(wd: WorldRec, o: SpellPayloadRec | SpellObjRec): void {
+  o.f14 = 0;
+  o.mapObj = mapObjInitPacked16(new MapObjRec(), 0, wd.map.addr);
+  o.f18 = 0; o.f1c = 0; o.f04 = 0;
+}
+
+/** 0x401880 (new 0x48) + Spell_WallObject 0x51ca4d (fastcall): carga "Effect" zerada. */
+export function spellWallObject(wd: WorldRec): SpellPayloadRec {
+  const o = new SpellPayloadRec();
+  o.addr = wd.allocObj(0x48) >>> 0;
+  objBase(wd, o);
+  o.vtbl = VT_EFFECT;
+  o.fe = 0; o.f3c = 0; o.f3d = 0; o.f40 = 0; o.fc = 0; o.f44 = 0;
+  wd.payloads.set(o.addr, o);
+  return o;
+}
+
+/** 0x401880 (new 0x60) + Spell_DamageObject 0x51e505 (fastcall): Spell_WallObject, o dano +0x48 zerado (0x515825 → 0x51583b),
+ *  vtable "Effect_DirectDamage", +0x44 = 0. */
+export function spellDamageObject(wd: WorldRec): SpellPayloadRec {
+  const o = new SpellPayloadRec();
+  o.addr = wd.allocObj(0x60) >>> 0;
+  objBase(wd, o);
+  o.vtbl = VT_EFFECT;
+  o.fe = 0; o.f3c = 0; o.f3d = 0; o.f40 = 0; o.fc = 0; o.f44 = 0;
+  o.dmg = new DmgRec();
+  o.vtbl = VT_DIRECT_DAMAGE;
+  o.f44 = 0;
+  wd.payloads.set(o.addr, o);
+  return o;
+}
+
+/** 0x543040 Spell_FireDamageObj (thiscall; carga, mínimo, faixa): dano elemental B +0x5b/+0x5c, elemento +0x5d = 1. */
+export function spellFireDamageObj(o: SpellPayloadRec, param_1: number, param_2: number): void {
+  o.dmg.elB0 = param_1 & 0xff; o.dmg.elB1 = param_2 & 0xff; o.dmg.elK = 1;
+}
+/** 0x543070 Spell_WaterDamageObj: o mesmo com o elemento 2. */
+export function spellWaterDamageObj(o: SpellPayloadRec, param_1: number, param_2: number): void {
+  o.dmg.elB0 = param_1 & 0xff; o.dmg.elB1 = param_2 & 0xff; o.dmg.elK = 2;
+}
+/** 0x5430a0 Spell_AirDamageObj: elemento 3. */
+export function spellAirDamageObj(o: SpellPayloadRec, param_1: number, param_2: number): void {
+  o.dmg.elB0 = param_1 & 0xff; o.dmg.elB1 = param_2 & 0xff; o.dmg.elK = 3;
+}
+/** 0x5430d0 Spell_EarthDamageObj: elemento 4. */
+export function spellEarthDamageObj(o: SpellPayloadRec, param_1: number, param_2: number): void {
+  o.dmg.elB0 = param_1 & 0xff; o.dmg.elB1 = param_2 & 0xff; o.dmg.elK = 4;
+}
+/** 0x543100 (astral): elemento 5. */
+export function fn_0x543100(o: SpellPayloadRec, param_1: number, param_2: number): void {
+  o.dmg.elB0 = param_1 & 0xff; o.dmg.elB1 = param_2 & 0xff; o.dmg.elK = 5;
+}
+
+/** Base dos objetos da lista 0x517719 (fastcall; 0x50d493) / 0x517774 (thiscall; 0x50d549: o objeto de mapa é cópia do dado): +0xe = 0,
+ *  +0x3c = 0, +0x40 = 0, +0x41 = 1, +0x42/+0x44/+0x46 = 0. */
+function pointEffectBase(wd: WorldRec, size: number, pos: MapObjRec | null): SpellObjRec {
+  const o = new SpellObjRec();
+  o.addr = wd.allocObj(size) >>> 0;
+  if (pos === null) objBase(wd, o);
+  else { o.f14 = 0; o.mapObj = fn_0x54feae(new MapObjRec(), pos); o.f18 = 0; o.f1c = 0; o.f04 = 0; }
+  o.fe = 0; o.f3c = 0; o.f40 = 0; o.f41 = 1; o.f42 = 0; o.f44 = 0; o.f46 = 0;
+  wd.spellObjs.set(o.addr, o);
+  return o;
+}
+
+/** 0x401880 (new 0x50) + Spell_AttachToTarget 0x5178d4 (thiscall; carga, alvo): "PointEffect" com a carga em +0x4c, o alvo em +0x48 e o
+ *  objeto de mapa copiado do alvo (0x54ff06). */
+export function spellAttachToTarget(wd: WorldRec, param_1: SpellPayloadRec, param_2: UnitRec): SpellObjRec {
+  const o = pointEffectBase(wd, 0x50, null);
+  o.vtbl = VT_POINT_EFFECT;
+  o.f4c = param_1.addr >>> 0;
+  o.f48 = param_2.addr >>> 0;
+  fn_0x54ff06(o.mapObj, param_2.mapObj);
+  return o;
+}
+
+/** 0x401880 (new 0x54) + 0x518d1e (thiscall; filho, objeto de mapa de quem lança, velocidade = definição[7] em short): "SpellTransport"
+ *  com o filho em +0x48, +0x4c = 0 e +0x50 = Spell_ProjectileDist(origem, filho) ÷ velocidade (divisão de 64 bits com sinal). */
+export function fn_0x518d1e(wd: WorldRec, param_1: SpellObjRec, param_2: MapObjRec, param_3: number): SpellObjRec {
+  const o = pointEffectBase(wd, 0x54, param_2);
+  o.vtbl = VT_TRANSPORT;
+  o.f48 = param_1.addr >>> 0;
+  o.f4c = 0;
+  const uVar1 = spellProjectileDist(param_2, param_1.mapObj);
+  o.f50 = (Math.trunc(uVar1 / ((param_3 << 16) >> 16)) << 16) >> 16;
+  return o;
+}
+
+/** Os `case` de Spell_Apply que a porta cobre (o resto vai inteiro para o gancho `spellApply` antes de qualquer efeito): Heal (0x18) e o
+ *  objeto de dano (dano na definição; não Heal/Drain Life) preso ao alvo (definição[8] = 1). O teste do dano da instância (+0xe + +0xf
+ *  ≠ 0) é o do exe; aqui vale o da definição ([0x10] ou [0x11] > 0 ⇒ instância ≠ 0, salvo o byte que dá a volta: NotPorted). */
+export function spellApplyPorted(s: BookSpellRec): boolean {
+  const id = s.id & 0xff;
+  if (id === 0x18) return true;
+  if (id === 0x1a || id === 0) return false;
+  return ((s.def[0x10]! | 0) > 0 || (s.def[0x11]! | 0) > 0) && (s.def[8]! | 0) === 1;
+}
+
+/** `[unidade]+0x14` (dono) ≠ 0: todo registro espelhado tem dono; o endereço que saiu do espelho (objeto do exe destruído) conta como
+ *  sem dono [est]. */
+function hasOwner(wd: WorldRec, addr: number): boolean {
+  try { wd.map.unitAt(addr); return true; } catch { return false; }
+}
+
+/** 0x519db8 Spell_Apply (thiscall; magia, unidade, alvo ou null, x, y): ver o cabeçalho. */
+export function spellApply(wd: WorldRec, s: BookSpellRec, param_1: UnitRec, param_2: UnitRec | null, param_3: number, param_4: number, h: CombatHooks): void {
+  const bVar1 = fn_0x543130(param_1);
+  const local_14 = bVar1 === 0 ? 1 : 0;
+  if (!s.hasDef) return;
+  if (!spellApplyPorted(s)) {
     if (!h.spellApply) throw new NotPorted("0x519db8");
-    h.spellApply(s.addr, u, t, 0, 0);
+    h.spellApply(s.addr, param_1, param_2, param_3, param_4);
+    return;
+  }
+  let local_44: number;
+  const local_18 = s.def[2]! | 0;
+  if (param_1.f68 === null) {
+    const iVar15 = (param_1.f88 << 16) >> 16;
+    const iVar10 = ((((param_1.dmg.sk[local_18] ?? 0) << 16) >> 16) - 0x1e + iVar15) | 0;
+    local_44 = iVar10 < 0 ? 0 : 0xff < iVar10 ? 0xff : iVar10;
+  } else {
+    const local_4c = fn_0x5238c5(param_1.f68);
+    local_44 = local_4c === null ? 0 : (local_4c.f42 << 16) >> 16;
+  }
+  spellInstance(s, local_44 & 0xff);
+  // local_40 = poder/30 + 1 e local_30 = poder/45 + 1 (double): só os `case` não portados os usam
+  if (local_14 === 0 && param_1.f68 === null) vt70(param_1, param_2, s.id & 0xff, h.xpOnCast);
+  let local_48: SpellPayloadRec | null = null;
+  let local_34: SpellPayloadRec | null = null;
+  let local_28: SpellObjRec | null = null;
+  const local_24 = new MapObjRec();
+  mapObjInit(local_24, 0, 0, 0);                             // 0x54f955
+  if (param_2 === null) {
+    mapObjInit(local_24, param_3 & 0xff, param_4 & 0xff, wd.map.addr);   // 0x54f9b9(x, y, [0x670e48])
+  } else {
+    const local_b8 = fn_0x54feae(new MapObjRec(), param_2.mapObj);
+    fn_0x54ff06(local_24, local_b8);
+    if (1 < (vtGetSize(param_2) & 0xff)) {
+      const iVar10 = (unitCenterY(param_2) & 0xffff) - 1;
+      mapObjSetFine(local_24, (unitCenterX(param_2) & 0xffff) - 1, iVar10);
+    }
+    if (vt2c(param_2) !== 0 && (param_2.f4c & 8) !== 0) return;
+  }
+  const id = s.id & 0xff;
+  if (((s.f0e & 0xff) + (s.f0f & 0xff)) !== 0 && id !== 0x18 && id !== 0x1a) {
+    const local_190 = spellDamageObject(wd);
+    local_34 = local_190;
+    local_190.fc = id;
+    local_34.f44 = fn_0x542560(param_1) ? 0 : param_1.addr >>> 0;
+    switch (local_18) {
+      case 1: spellFireDamageObj(local_34, s.f0e, s.f0f); break;
+      case 2: spellWaterDamageObj(local_34, s.f0e, s.f0f); break;
+      case 3: spellAirDamageObj(local_34, s.f0e, s.f0f); break;
+      case 4: spellEarthDamageObj(local_34, s.f0e, s.f0f); break;
+      case 5: fn_0x543100(local_34, s.f0e, s.f0f); break;
+    }
+    local_34.fe = (id * 2 + 9) & 0xffff;
+  } else {
+    switch (id) {
+      case 0x18: {
+        const t = param_2!;
+        let local_50 = 1;
+        // mundo [0x66832c] ≠ 0, os dois com dono (sempre no espelho) e guerra na tabela mundo+0xa8c4 [id(dono do alvo) + id(dono) × 0x46]
+        if ((wd.dipTable[((t.owner.f04 << 16) >> 16) + ((param_1.owner.f04 << 16) >> 16) * 0x46 + 8]! & 1) !== 0) local_50 = 0;
+        if (local_50 !== 0 && -10 < ((t.f94 << 16) >> 16) && ((t.f98 << 16) >> 16) !== 0) {
+          const bVar = s.f0e & 0xff;
+          let local_1a8 = randOne(wd, s.f0f & 0xff, 0x51a35f);
+          local_1a8 = (bVar + local_1a8) | 0;
+          const room = (((t.f96 << 16) >> 16) - ((t.f94 << 16) >> 16)) | 0;
+          if (room <= local_1a8) local_1a8 = room;
+          t.f150 = 0;
+          unitAddHeal(t, (local_1a8 << 16) >> 16, h);
+          h.clientHeal?.(t, local_1a8);   // stub: cliente (Server_Event com +0x150)
+        }
+        return;
+      }
+      default:
+        // dano da instância 0 com a definição com dano (o byte deu a volta) ou caso fora de `spellApplyPorted`: exec 0
+        throw new NotPorted(`0x519db8 (magia 0x${id.toString(16)})`);
+    }
+  }
+  // Spell_Distribute
+  if (local_48 === null) local_48 = local_34;
+  if ((s.def[8]! | 0) === 1) {
+    if (param_2 === null) return;   // stub: log "Spell: oops, can't cast point effect..." (Server_Log 0x43a0a8)
+    local_28 = spellAttachToTarget(wd, local_48!, param_2);
+    local_28.f3c = fn_0x542560(param_1) ? 0 : param_1.addr >>> 0;
+    local_28.fc = id;
+    local_28.f41 = (1 - ((s.f0a & 0xff) !== 0 ? 1 : 0)) & 0xff;
+    local_28.fe = (id * 2 + 9) & 0xffff;
+    local_48!.f44 = fn_0x542560(param_1) ? 0 : param_1.addr >>> 0;
+  } else {
+    throw new NotPorted("0x517c1a");   // SpellArea_Construct (fora de `spellApplyPorted`)
+  }
+  if ((s.def[5]! | 0) === 1) {
+    local_28.fe = (id * 2 + 9) & 0xffff;
+    wd.lists.spellObjs.addTail(local_28.addr);   // 0x542e60
+    h.clientMissile?.(s.addr, param_1, param_2, 0);
+  } else if ((s.def[5]! | 0) === 2) {
+    const local_38 = fn_0x518d1e(wd, local_28, param_1.mapObj, s.def[7]!);
+    if (id === 10 || id === 11) local_38.f50 = 10;
+    wd.lists.spellObjs.addTail(local_38.addr);   // 0x542e60
+    h.clientMissile?.(s.addr, param_1, param_2, (local_38.f50 << 16) >> 16);
+  }
+}
+
+// --------------------------------------------------------------------------- lote 3: os objetos de magia da lista do mundo
+
+/** Destruição pela vtable+4(1): 0x542e30 → 0x518e30 (projétil: destrói os filhos +0x48/+0x4c), 0x542d20 → 0x517aa0 (preso: destrói a
+ *  carga +0x4c), 0x543330/0x543300 (cargas) → 0x50d6d6 (base: o objeto de mapa); 0x401860 libera. */
+function deletePayload(wd: WorldRec, a: number): void {
+  wd.payloads.delete(a >>> 0);
+}
+function deleteSpellObj(wd: WorldRec, o: SpellObjRec): void {
+  if (o.vtbl === VT_TRANSPORT) {
+    if (o.f48 !== 0) { const c = wd.spellObjs.get(o.f48 >>> 0); if (c) deleteSpellObj(wd, c); o.f48 = 0; }
+    if (o.f4c !== 0) { const c = wd.spellObjs.get(o.f4c >>> 0); if (c) deleteSpellObj(wd, c); o.f4c = 0; }
+  } else if (o.vtbl === VT_POINT_EFFECT) {
+    if (o.f4c !== 0) { deletePayload(wd, o.f4c); o.f4c = 0; }
+  } else {
+    throw new NotPorted("0x542d50");   // SpellArea
+  }
+  wd.spellObjs.delete(o.addr >>> 0);
+}
+
+/** 0x518efd (fastcall; vtable+0x18 do projétil): +0x50−−; a < 1 o filho (+0x48, ou +0x4c) entra na lista do mundo (0x542e60), os dois
+ *  ponteiros zeram e +0x40 = 1 (acabou). */
+export function fn_0x518efd(wd: WorldRec, o: SpellObjRec): void {
+  o.f50 = ((o.f50 - 1) << 16) >> 16;
+  if (o.f50 < 1) {
+    if (o.f48 === 0) wd.lists.spellObjs.addTail(o.f4c);
+    else wd.lists.spellObjs.addTail(o.f48);
+    o.f48 = 0;
+    o.f4c = 0;
+    o.f40 = 1;
+  }
+}
+
+/** vtable+0x3c da carga (aplicar no alvo): 0x51e65b no dano; 0x51ce12 no efeito (NotPorted). */
+function payloadApply(wd: WorldRec, p: SpellPayloadRec, t: UnitRec, h: CombatHooks): void {
+  if (p.vtbl === VT_DIRECT_DAMAGE) fn_0x51e65b(wd, p, t, h);
+  else throw new NotPorted("0x51ce12");
+}
+
+/** 0x51e65b (thiscall; vtable+0x3c do dano; alvo): unidade (vtable+0x2c) → dano = vtable+0x54 (Unit_PhysicalDamage 0x516f6f nas três
+ *  vtables) com o dano +0x48 e quem lançou +0x44; vida −= dano; dano > 0 → experiência de quem lançou (vtable+0x6c com o id +0xc, se
+ *  houver os dois) e 's' ao cliente (0x504b1d, stub). Alvo que não é unidade (vtable+0x34: 0x5201b2, exec 0): NotPorted. */
+export function fn_0x51e65b(wd: WorldRec, o: SpellPayloadRec, param_1: UnitRec, h: CombatHooks): void {
+  if (vt2c(param_1) === 0) {
+    if (vt34(param_1) !== 0) throw new NotPorted("0x5201b2");
+    return;
+  }
+  const a = o.f44 === 0 ? null : wd.map.unitAt(o.f44);
+  const iVar2 = unitPhysicalDamage(wd, param_1, o.dmg, a, h);
+  const local_c = (iVar2 << 16) >> 16;
+  param_1.f94 = ((((param_1.f94 << 16) >> 16) - local_c) << 16) >> 16;
+  if (0 < iVar2) {
+    if (o.f44 !== 0 && (o.fc & 0xffff) !== 0) vt6c(a!, param_1, iVar2, o.fc & 0xffff, h.xpOnHit);
+    h.clientSpellHit?.(a, param_1, iVar2, o.fc & 0xffff);   // stub: cliente (0x504b1d 's')
+  }
+}
+
+/** 0x542d00 → 0x517949 (fastcall; vtable+0x18 do preso ao alvo): quem lançou a carga sem dono → carga+0x44 = 0; alvo unidade → a carga
+ *  age nele (vtable+0x3c, se ele tem dono) e, com quem lançou e +0x41: marca o agressor no alvo (+0x40 = quem lançou e +0x48 = id da
+ *  carga; sem modelo, 0x542560 → +0x40 = 0) e o aviso 0x56e6b8; +0x40 = 1 (acabou). */
+export function fn_0x517949(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
+  if (o.f4c !== 0) {
+    const p = wd.payloadAt(o.f4c);
+    if (p.f44 !== 0 && !hasOwner(wd, p.f44)) p.f44 = 0;
+  }
+  const t = wd.map.unitAt(o.f48);
+  if (vt2c(t) === 0) {
+    if (vt34(t) !== 0) payloadApply(wd, wd.payloadAt(o.f4c), t, h);
+  } else {
+    if (o.f48 !== 0 && hasOwner(wd, o.f48)) payloadApply(wd, wd.payloadAt(o.f4c), t, h);
+    if (o.f3c !== 0 && (o.f41 & 0xff) !== 0) {
+      const c = wd.map.unitAt(o.f3c);
+      if (!fn_0x542560(c)) {
+        if (hasOwner(wd, o.f3c)) {
+          t.f40 = o.f3c >>> 0;
+          t.f48 = wd.payloadAt(o.f4c).fc & 0xff;
+        }
+      } else {
+        t.f40 = 0;
+      }
+      if (o.f48 !== 0 && o.f3c !== 0 && hasOwner(wd, o.f3c) && hasOwner(wd, o.f48)) fn_0x56e6b8(wd, c, t, 0);
+    }
+  }
+  o.f40 = 1;
+}
+
+/** vtable+0x18 dos objetos da lista: 0x518efd (projétil), 0x542d00 (preso ao alvo); SpellArea_Process 0x517cfe: NotPorted. */
+function spellObjTick(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
+  if (o.vtbl === VT_TRANSPORT) fn_0x518efd(wd, o);
+  else if (o.vtbl === VT_POINT_EFFECT) fn_0x517949(wd, o, h);
+  else throw new NotPorted("0x517cfe");
+}
+
+/** 0x52c279 (fastcall; contentor [[0x6044c4]+0x7c]+4): um tique dos objetos de magia (ver o cabeçalho). */
+export function fn_0x52c279(wd: WorldRec, h: CombatHooks): void {
+  const local_10 = new CListPtrIter();
+  let a = local_10.first(wd.lists.spellObjs);
+  while (a !== 0) {
+    const local_8 = wd.spellObjAt(a);
+    if (local_8.f3c !== 0 && !hasOwner(wd, local_8.f3c)) local_8.f3c = 0;
+    if ((local_8.f42 & 0xffff) !== (local_8.f44 & 0xffff)) {
+      // IsKindOf(SpellArea 0x5f8340) e jogo local: o pacote ao cliente dos jogadores novos na máscara (0x5167c6/0x5045a5, stub) e
+      // +0x44 = +0x42; os outros objetos só chamam GetRuntimeClass (0x518ca1...)
+      if (local_8.vtbl === 0x5d10e0 && (EXE_GLOBALS.f74 >>> 0) !== 0) local_8.f44 = local_8.f42 & 0xffff;
+    }
+    spellObjTick(wd, local_8, h);
+    if ((local_8.f40 & 0xff) !== 0) {
+      wd.lists.spellObjs.remove(local_8.addr);   // 0x53cc70: 0x53cf30 (Find + RemoveAt) e vtable+4(1)
+      deleteSpellObj(wd, local_8);
+    }
+    a = local_10.next();
   }
 }

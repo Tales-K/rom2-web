@@ -8,8 +8,9 @@
  */
 import { CListEvent, CListEventNode, CListNode, CListPtr, CListPtrNode, CListWord, CMapAssoc, CMapShortOcc } from "../exe/mfc";
 import {
-  BookSpellRec, CellStructRec, DmgRec, EVENT_SIZE, EXE_GLOBALS, ItemRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MAP_WORLD_OFF, MapObjRec, MapRec,
-  OccRec, PlayerRec, SpellBookRec, TemplateRec, UnitListsRec, UnitRec, UnitTypeRec, WorldRec,
+  BookSpellRec, CellStructRec, DmgRec, EVENT_SIZE, EXE_GLOBALS, ItemMagicRec, ItemRec, MAP_OCC_MAP_OFF, MAP_RINGS_OFF, MAP_WORLD_OFF, MapObjRec,
+  MapRec, OccRec, PlayerRec, SPELL_DEF_N, SpellBookRec, SpellObjRec, SpellPayloadRec, TemplateRec, UnitListsRec, UnitRec, UnitTypeRec,
+  VT_DIRECT_DAMAGE, VT_TRANSPORT, WorldRec,
 } from "../exe/types";
 import { Rng } from "../rng";
 import { NotPorted } from "../exe/walk_action";
@@ -421,7 +422,7 @@ export const UNIT_FIELDS: Field[] = [
   [0x98, 2, "f98", true], [0x9a, 2, "mana", true], [0x9c, 2, "f9c", true], [0x9e, 2, "f9e", true], [0xa2, 1, "fa2"], [0xa3, 1, "fa3"], [0xa5, 1, "fa5"],
   [0xbe, 2, "fbe", true], [0xc0, 2, "fc0", true], [0xde, 2, "fde", true], [0xe2, 2, "fe2", true],
   [0x12c, 1, "attackRange"], [0x134, 1, "f134"], [0x135, 1, "f135"], [0x136, 1, "ready"],
-  [0x138, 4, "f138"], [0x13c, 1, "f13c"], [0x144, 4, "effects"], [0x148, 4, "f148"], [0x14c, 2, "f14c"], [0x1a0, 4, "f1a0"], [0x1a4, 2, "f1a4"],
+  [0x138, 4, "f138"], [0x13c, 1, "f13c"], [0x144, 4, "effects"], [0x148, 4, "f148"], [0x14c, 2, "f14c"], [0x150, 4, "f150"], [0x1a0, 4, "f1a0"], [0x1a4, 2, "f1a4"],
 ];
 /** Dados do comando do grupo ([grupo+0x3c]): o pensamento (0x56fa63, 0x5726f7, 0x5728fa, 0x55b406…) os escreve. */
 export const GROUP_FIELDS: Field[] = [
@@ -550,6 +551,13 @@ export function itemFrom(cm: CallMem, p: number): ItemRec | null {
   it.f40 = cm.u16(p + 0x40); it.f42 = (cm.u16(p + 0x42) << 16) >> 16; it.f44 = cm.u8(p + 0x44); it.f4a = (cm.u16(p + 0x4a) << 16) >> 16;
   const sp = cm.u32(p + 0x84);
   it.spell = sp === 0 ? null : spellFrom(cm, sp);
+  // +0x20 CList dos efeitos mágicos (cabeça +0x24; nó +0 próximo, +8 dado), pelos nós lidos (0x5238c5)
+  for (let n = cm.u32(p + 0x24), k = 0; n !== 0 && cm.has(n + 8) && k < 64; n = cm.u32(n), k++) {
+    const e = cm.u32(n + 8), m = new ItemMagicRec();
+    m.f3c = cm.u8(e + 0x3c); m.f42 = (cm.u16(e + 0x42) << 16) >> 16;
+    it.magic.push(m);
+    if (!cm.has(n)) break;
+  }
   const itpl = cm.u32(p + 0x3c);
   if (itpl !== 0 && cm.has(cm.u32(itpl + 0xc) + 0xf * 4)) it.tplF0f = cm.u32(cm.u32(itpl + 0xc) + 0xf * 4) | 0;
   return it;
@@ -558,21 +566,22 @@ export function itemFrom(cm: CallMem, p: number): ItemRec | null {
 export function spellFrom(cm: CallMem, p: number): BookSpellRec {
   const s = new BookSpellRec();
   s.addr = p >>> 0; s.id = cm.u8(p + 8); s.range = cm.u8(p + 9); s.f0a = cm.u8(p + 0xa); s.cost = (cm.u16(p + 0xc) << 16) >> 16;
+  s.f0e = cm.u8(p + 0xe); s.f0f = cm.u8(p + 0xf); s.f10 = (cm.u16(p + 0x10) << 16) >> 16;
   const def = cm.u32(p + 4);
   s.hasDef = def !== 0;
   if (def !== 0 && cm.has(def + 0xc)) {
+    // as colunas que a chamada leu ([0] nível, [4] alvo 0x519441, [5] entrega 0x519998, Spell_Instance/Spell_Apply: 2, 6..0x11)
     const data = cm.u32(def + 0xc);
-    s.def0 = cm.u32(data) | 0;
-    // [4] alvo unidade (0x519441) e [5] projétil (Spell_SpendMana 0x519998), quando a chamada os leu
-    if (cm.has(data + 16)) s.def4 = cm.u32(data + 16) | 0;
-    if (cm.has(data + 20)) s.def5 = cm.u32(data + 20) | 0;
+    for (let i = 0; i < SPELL_DEF_N; i++) if (cm.has(data + 4 * i)) s.def[i] = cm.u32(data + 4 * i) | 0;
   }
   return s;
 }
 /** Atributos do golpe em `p` (unidade+0xa6 ou struct avulsa). */
 export function dmgFrom(cm: CallMem, p: number): DmgRec {
   const d = new DmgRec();
-  d.atk = (cm.u16(p) << 16) >> 16; d.dmin = cm.u8(p + 0xe); d.dadd = cm.u8(p + 0xf); d.wtype = cm.u8(p + 0x10);
+  d.atk = (cm.u16(p) << 16) >> 16;
+  for (let i = 0; i < 6; i++) d.sk[i] = (cm.u16(p + 2 + 2 * i) << 16) >> 16;
+  d.dmin = cm.u8(p + 0xe); d.dadd = cm.u8(p + 0xf); d.wtype = cm.u8(p + 0x10);
   d.elA0 = cm.u8(p + 0x11); d.elA1 = cm.u8(p + 0x12); d.elB0 = cm.u8(p + 0x13); d.elB1 = cm.u8(p + 0x14); d.elK = cm.u8(p + 0x15);
   return d;
 }
@@ -599,7 +608,7 @@ function checkBytes(cm: CallMem, base: number, offs: number[], before: Uint8Arra
   return null;
 }
 
-function packMapObj(o: MapObjRec): Uint8Array {
+export function packMapObj(o: MapObjRec): Uint8Array {
   const b = new Uint8Array(12);
   b[0] = o.x; b[1] = o.y; b[2] = o.cell & 0xff; b[3] = (o.cell >> 8) & 0xff; b[4] = o.fx; b[5] = o.fy;
   for (let i = 0; i < 4; i++) b[8 + i] = Math.floor((o.owner >>> 0) / 2 ** (8 * i)) & 0xff;
@@ -678,10 +687,12 @@ export function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string |
 export interface Ctx {
   d: Pair; cm: CallMem; memo: Map<number, UnitRec>; map: TestMap | null; mapBefore: Uint8Array | null; rng: CountingRng | null;
   world: WorldRec | null; worldAddr: number; events: CListEvent | null; eventsAddr: number; ptrList: CListPtr | null; ptrListAddr: number;
+  /** etapa 8b, lote 3: o cabeçalho da lista dos objetos de magia [[0x6044c4]+0x7c]+4 (+4), quando a chamada o leu */
+  spellListAddr: number;
 }
 
 export function ctx(d: Pair, cm: CallMem): Ctx {
-  return { d, cm, memo: new Map(), map: null, mapBefore: null, rng: null, world: null, worldAddr: 0, events: null, eventsAddr: 0, ptrList: null, ptrListAddr: 0 };
+  return { d, cm, memo: new Map(), map: null, mapBefore: null, rng: null, world: null, worldAddr: 0, events: null, eventsAddr: 0, ptrList: null, ptrListAddr: 0, spellListAddr: 0 };
 }
 /** Lista de eventos em `hdr` pela memória da chamada: contagem e, da cauda (o único nó que a chamada lê), o evento. */
 export function eventListFrom(cm: CallMem, hdr: number): CListEvent {
@@ -749,11 +760,94 @@ export function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
     if (c.cm.has(g + 4)) EXE_GLOBALS.clock16 = c.cm.u32(g + 4);
     EXE_GLOBALS.f74 = c.cm.has(g + 0x74) ? c.cm.u32(g + 0x74) : 1;
     const reg = c.cm.u32(g + 0x7c);
-    if (reg !== 0 && c.cm.has(reg + 4)) wr.lists.structs = ptrListFrom(c.cm, c.cm.u32(reg + 4) + 4);
+    if (reg !== 0 && c.cm.has(reg + 4)) { c.spellListAddr = c.cm.u32(reg + 4) + 4; wr.lists.spellObjs = ptrListFrom(c.cm, c.spellListAddr); }
   }
+  // objetos de magia (etapa 8b, lote 3): remontados da memória sob demanda; `new` 0x401880 devolve os endereços que o par alocou
+  wr.spellObjAt = (a: number) => { let o = wr.spellObjs.get(a >>> 0); if (!o) { o = spellObjFrom(c.cm, a); wr.spellObjs.set(a >>> 0, o); } return o; };
+  wr.payloadAt = (a: number) => { let o = wr.payloads.get(a >>> 0); if (!o) { o = payloadFrom(c.cm, a); wr.payloads.set(a >>> 0, o); } return o; };
+  const allocs = allocsOf(c.d);
+  wr.allocObj = () => { const a = allocs.shift(); if (a === undefined) throw new Error("new 0x401880: o par não alocou mais objetos"); return a; };
   c.world = wr;
   c.worldAddr = w;
   return wr;
+}
+
+// ------------------------------------------------------------------------------- objetos de magia (etapa 8b, lote 3)
+
+/** Campos do objeto da lista do mundo; o preso ao alvo tem 0x50 bytes (sem +0x50). */
+const SPELLOBJ_FIELDS: Field[] = [
+  [0x00, 4, "vtbl"], [0x04, 4, "f04"], [0x0c, 2, "fc"], [0x0e, 2, "fe"], [0x14, 4, "f14"], [0x18, 2, "f18"], [0x1c, 4, "f1c"], [0x3c, 4, "f3c"],
+  [0x40, 1, "f40"], [0x41, 1, "f41"], [0x42, 2, "f42"], [0x44, 2, "f44"], [0x46, 2, "f46"], [0x48, 4, "f48"], [0x4c, 4, "f4c"],
+];
+const TRANSPORT_FIELDS: Field[] = [...SPELLOBJ_FIELDS, [0x50, 2, "f50", true]];
+const PAYLOAD_FIELDS: Field[] = [
+  [0x00, 4, "vtbl"], [0x04, 4, "f04"], [0x0c, 2, "fc"], [0x0e, 2, "fe"], [0x14, 4, "f14"], [0x18, 2, "f18"], [0x1c, 4, "f1c"], [0x3c, 1, "f3c"],
+  [0x3d, 1, "f3d"], [0x40, 2, "f40", true], [0x42, 2, "f42", true], [0x44, 4, "f44"],
+];
+const objFields = (o: SpellObjRec): Field[] => (o.vtbl === VT_TRANSPORT ? TRANSPORT_FIELDS : SPELLOBJ_FIELDS);
+/** O CObject 0x401900 escreve a vtable 0x5d1d74 primeiro em todo objeto novo: os endereços alocados, na ordem. O CList embutido em
+ *  +0x20 (0x541de0, vtable final 0x5d0e60) também é CObject e fica de fora. */
+export function allocsOf(d: Pair): number[] {
+  const r: number[] = [], seen = new Set<number>(), last = new Map<number, number>();
+  for (const [a, s, , after] of d.writes) if (s === 4) last.set(a, after >>> 0);
+  for (const [a, s, , after] of d.writes) {
+    if (s === 4 && (after >>> 0) === 0x5d1d74 && !seen.has(a) && last.get(a) !== 0x5d0e60) { seen.add(a); r.push(a >>> 0); }
+  }
+  return r;
+}
+/** `vt`: a vtable quando a chamada não a leu (método chamado pelo despacho virtual do chamador). */
+export function spellObjFrom(cm: CallMem, a: number, vt?: number): SpellObjRec {
+  const o = new SpellObjRec();
+  o.addr = a >>> 0;
+  o.vtbl = cm.has(a) || vt === undefined ? cm.u32(a) : vt;
+  const v = o.vtbl;
+  fill(o as unknown as Rec, cm, a, objFields(o));
+  o.vtbl = v;
+  o.mapObj = mapObjFrom(cm, cm.u32(a + 0x10));
+  return o;
+}
+export function payloadFrom(cm: CallMem, a: number, vt?: number): SpellPayloadRec {
+  const o = new SpellPayloadRec();
+  o.addr = a >>> 0;
+  fill(o as unknown as Rec, cm, a, PAYLOAD_FIELDS);
+  if (!cm.has(a) && vt !== undefined) o.vtbl = vt;
+  o.mapObj = mapObjFrom(cm, cm.u32(a + 0x10));
+  if (o.vtbl === VT_DIRECT_DAMAGE) o.dmg = dmgFrom(cm, a + 0x48);
+  return o;
+}
+function packDmgFull(d: DmgRec): Uint8Array {
+  const b = packDmg(d);
+  for (let i = 0; i < 6; i++) { b[2 + 2 * i] = d.sk[i]! & 0xff; b[3 + 2 * i] = (d.sk[i]! >> 8) & 0xff; }
+  return b;
+}
+/** Os objetos de magia do mundo (os remontados e os criados pela porta) iguais à memória final do original: campos, objeto de mapa
+ *  (+0x10) e o dano (+0x48); e a lista do mundo. Objetos destruídos ficam de fora (a memória liberada não conta). */
+export function checkSpellWorld(c: Ctx): string | null {
+  const w = c.world;
+  if (!w) return null;
+  const f = finView(c.cm);
+  const mo = (a: number, o: { mapObj: MapObjRec }, what: string): string | null => {
+    const p = f.u32(a + 0x10);
+    const e = c.cm.checkRecord(p, packMapObj(mapObjFrom(c.cm, p)), packMapObj(o.mapObj));
+    return e ? `${what}.objeto de mapa ${e}` : null;
+  };
+  // vtable dada pelo teste (não lida nem escrita pela chamada) fica fora da conferência
+  const known = (a: number, fl: Field[]) => (c.cm.has(a) || c.cm.written.has(a) ? fl : fl.filter(x => x[0] !== 0));
+  for (const [a, o] of w.spellObjs) {
+    const what = `objeto de magia 0x${a.toString(16)}`;
+    const e = checkFields(c.cm, a, o as unknown as Rec, known(a, objFields(o)), what) ?? mo(a, o, what);
+    if (e) return e;
+  }
+  for (const [a, o] of w.payloads) {
+    const what = `carga 0x${a.toString(16)}`;
+    let e = checkFields(c.cm, a, o as unknown as Rec, known(a, PAYLOAD_FIELDS), what) ?? mo(a, o, what);
+    if (!e && o.vtbl === VT_DIRECT_DAMAGE) {
+      const all = Array.from({ length: 0x16 }, (_, i) => i);
+      e = checkBytes(c.cm, a + 0x48, all, packDmgFull(dmgFrom(c.cm, a + 0x48)), packDmgFull(o.dmg), `${what}.dano`);
+    }
+    if (e) return e;
+  }
+  return c.spellListAddr ? checkPtrList(c.cm, c.spellListAddr, w.lists.spellObjs, "lista dos objetos de magia") : null;
 }
 /** Rascunho do evento e lista de eventos do mundo iguais ao original (e nada mudado no rascunho que o original não escreveu). */
 export function checkWorld(c: Ctx): string | null {
@@ -782,6 +876,7 @@ export function listsFrom(cm: CallMem, base: number): UnitListsRec {
 }
 export function M(c: Ctx, base: number): TestMap {
   const m = mapFrom(c.cm, base, (a) => unitFrom(c.cm, a, c.memo));
+  m.addr = base >>> 0;
   m.world = new WorldRec(m);
   c.map = m;
   c.mapBefore = m.mem.slice();
@@ -828,6 +923,11 @@ export type Check = (d: Pair, cm: CallMem) => string | null;
 export const run = (f: (c: Ctx, d: Pair) => number | null, ret?: (v: number) => number): Check => (d, cm) => {
   const c = ctx(d, cm);
   return done(c, f(c, d), ret);
+};
+/** `run` que também confere os objetos de magia do mundo e a lista deles (etapa 8b, lote 3). */
+export const runS = (f: (c: Ctx, d: Pair) => number | null, ret?: (v: number) => number): Check => (d, cm) => {
+  const c = ctx(d, cm);
+  return done(c, f(c, d), ret) ?? checkSpellWorld(c);
 };
 export const A = (d: Pair, i: number) => d.args[i];
 
