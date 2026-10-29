@@ -307,8 +307,14 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   unidade (0x51caa0, 0x51ce12, 0x51cc9f, 0x51d436), o `case` do Shield e `unitRecompute 0x51366b`, todos a 100 % dos pares; o motor
   antigo ainda é dono dos atributos a cada tique (gancho `recompute`). Estado inteiro → **97,4 / 98,4 / 98,6 %** (`effects`, `absorb`
   100 %); golden 76,5 %, sem janela pior.
-- **Próximo**: etapa 8b lote 5 (os outros `case` de efeito de `Spell_Apply`, o recálculo do monstro 0x5118be, SpellArea; tirar os
-  `buffs` do motor antigo); depois o resíduo nomeado do tickcmp, 9b (carregador) e, no fim, a passada de nomes legíveis em `exe/`.
+- **Etapa 8b, lote 5: os outros efeitos, o monstro e a SpellArea** (commit 5693fa7; `tools/re/oracle/synth_spells.py`): como esses
+  `case` não rodam no corpus, foram provados por pares sintéticos (`Spell_Apply` chamado direto no Unicorn, poder 0..255 por `case`):
+  proteções, Poison, Invisibility, Light/Darkness, Stone Curse, Bless/Curse, Haste/Slow, recálculo do monstro 0x5118be e SpellArea
+  0x517c1a/0x517cfe, todos a 100 %. Gancho `effectPower` removido. Estado inteiro e golden iguais (97,4 / 98,4 / 98,6 %, 76,5 %).
+  Ainda no motor antigo: áreas de dano e Fireball, Wall of Earth, Teleport/Summon/Animate/Drain Life, e os atributos a cada tique
+  (`syncCombat`).
+- **Próximo**: o resíduo nomeado do tickcmp (pensamento do grupo 0x57240b, `post|1`, `target|1`, `task|1`); depois 9b (carregador), o
+  resto da 8b acima e, no fim, a passada de nomes legíveis em `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
