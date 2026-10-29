@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "tickcmp": "tsx ../tools/refcap/diff/tick_compare.mts",
+    "loadcmp": "tsx ../tools/refcap/diff/load_compare.mts",
     "fuzz": "node ../tools/fuzz/fuzz.mjs",
     "golden": "node ../tools/refcap/diff/golden_run.mjs",
     "fuzz:report": "node ../tools/fuzz/report.mjs",

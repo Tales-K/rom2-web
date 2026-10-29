@@ -7,8 +7,8 @@ import { ItemRec } from "./types";
 import { CListWord, type CMapAssoc, CMapShortOcc } from "./mfc";
 import type { MapRec, UnitRec } from "./types";
 
-type Field = [off: number, size: 1 | 2 | 4, key: string, signed?: boolean];
-const WALK_FIELDS: Field[] = [
+export type Field = [off: number, size: 1 | 2 | 4, key: string, signed?: boolean];
+export const WALK_FIELDS: Field[] = [
   [0x00, 1, "dir"], [0x01, 1, "dirTarget"], [0x05, 1, "passMask"], [0x06, 2, "nextCell"], [0x09, 1, "f09"], [0x0a, 1, "turnRate"],
   [0x6c, 4, "f6c"], [0x70, 2, "stepFrom"], [0x72, 2, "f72"], [0x74, 2, "dest"], [0x76, 2, "f76"], [0x78, 1, "f78"],
   [0x7c, 4, "chaseTarget"], [0x80, 2, "footCell"], [0x82, 1, "f82"], [0x83, 1, "f83"], [0x84, 1, "f84"], [0x85, 1, "f85"],
@@ -17,7 +17,7 @@ const WALK_FIELDS: Field[] = [
   [0xa4, 1, "turnTicks"], [0xa8, 2, "stepSpeed"], [0xaa, 2, "stepTicks"], [0xac, 2, "stepTick"], [0xae, 2, "stepDir"],
   [0xb0, 1, "stepDx", true], [0xb1, 1, "stepDy", true],
 ];
-const AI_FIELDS: Field[] = [
+export const AI_FIELDS: Field[] = [
   [0x00, 2, "f00"], [0x02, 2, "f02"], [0x04, 4, "f04"], [0x08, 1, "task"], [0x09, 1, "sub"], [0x0a, 2, "f0a"], [0x0c, 4, "f0c"], [0x14, 1, "range"],
   [0x15, 1, "f15"], [0x16, 2, "f16", true], [0x18, 4, "target"], [0x28, 4, "f28"], [0x30, 4, "f30"], [0x3c, 2, "f3c"], [0x50, 4, "f50"], [0x54, 4, "f54"],
   [0x58, 2, "f58"], [0x5a, 1, "f5a"], [0x5c, 4, "f5c"], [0x60, 4, "f60"], [0x71, 1, "f71"], [0x78, 1, "spellSlot"], [0x94, 4, "f94"], [0x98, 4, "f98"],
@@ -35,6 +35,13 @@ const hexBytes = (h: string): Uint8Array => {
   for (let i = 0; i < b.length; i++) b[i] = parseInt(h.substr(i * 2, 2), 16);
   return b;
 };
+
+/** Campos `fields` lidos dos bytes crus (hex) de um registro despejado (comparador do carregador, tools/refcap/diff/load_compare.mts). */
+export function fieldsFromHex(h: string, fields: readonly Field[]): Record<string, number> {
+  const b = hexBytes(h), out: Record<string, number> = {};
+  for (const f of fields) out[f[2]] = read(b, f);
+  return out;
+}
 
 /** Campos de andar (+0x1c0) e de IA (+0x1c4) a partir dos bytes crus despejados. */
 export function recFromBytes(r: UnitRec, mv: string, ai: string): void {

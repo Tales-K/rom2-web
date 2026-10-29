@@ -18,7 +18,7 @@
  *    da comparação desse tique e entra na tabela "perdido na importação".
  */
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { RngReplay, type RandRecording } from "../../../game/src/sim/rng";
 import { applyState, resetWorld, spawnUnmatched, worldFromState, EFFECT_SPELL, ExeReplay, type Imported, type OrigState } from "../../../game/src/sim/test/import_state";
@@ -78,14 +78,14 @@ function loadEpisode(id: string): Episode {
 // ------------------------------------------------------------------------------------------------ visões planas (campo|chave → valor)
 const cellCode = (c: Cell | null | undefined): number => (c ? c.y * 256 + c.x : 0);
 const R256 = (v: number): number => Math.round(v * 256);
-const TASK_CLASS: Record<number, string> = { 1: "move", 10: "move", 3: "attack", 8: "cast", 0xd: "cast", 0xe: "cast", 11: "idle", 12: "idle", 0: "idle", 0x17: "idle", 16: "dead" };
+export const TASK_CLASS: Record<number, string> = { 1: "move", 10: "move", 3: "attack", 8: "cast", 0xd: "cast", 0xe: "cast", 11: "idle", 12: "idle", 0: "idle", 0x17: "idle", 16: "dead" };
 const EFFECT_MASK = EFFECT_SPELL.reduce((m, [b]) => m | b, 0);
-type View = Map<string, Val>;
-const origDead = (o: Any): boolean => o.state === 0x10 || o.hp <= 0;
-const skipUnit = (o: Any): boolean => o.id === 0 || (o.fx < 1 && o.fy < 1);
+export type View = Map<string, Val>;
+export const origDead = (o: Any): boolean => o.state === 0x10 || o.hp <= 0;
+export const skipUnit = (o: Any): boolean => o.id === 0 || (o.fx < 1 && o.fy < 1);
 
 /** Campos escalares do original de uma unidade viva (mesmos nomes de ourFields). */
-function origFields(o: Any): Record<string, Val | undefined> {
+export function origFields(o: Any): Record<string, Val | undefined> {
   const w = o.walk ?? {};
   const targeted = o.mode === 5 || o.mode === 6 || o.mode === 8 || o.task === 8 || o.task === 0xd;
   let tc = TASK_CLASS[o.task] ?? `#${o.task}`;
@@ -103,7 +103,7 @@ function origFields(o: Any): Record<string, Val | undefined> {
 }
 
 /** Campos da nossa unidade (u) no formato do original; `rev` = id nosso → id do original. */
-function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record<string, Val | undefined> {
+export function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record<string, Val | undefined> {
   const s = u.stats;
   // a ação é a do registro do exe (a máquina 0x50f12c portada a escreve; 0x10 na morte consumada); grupo dormindo pelo motor antigo
   const act = !w.awake(u) ? 27 : u.rec.act;
@@ -143,7 +143,7 @@ function trackOf(w: World, addr: number, rev: Map<number, number>, st: Any): num
 }
 
 /** Lado do original: mapa `campo|chave` → valor, só das unidades vivas (e mortas: só `alive`). */
-function viewOrig(st: Any, idmap: Map<number, number>, w: World): View {
+export function viewOrig(st: Any, idmap: Map<number, number>, w: World): View {
   const v: View = new Map();
   for (const o of st.units as Any[]) {
     if (skipUnit(o)) continue;
@@ -168,7 +168,7 @@ function groupKey(g: Any, idmap: Map<number, number>, w: World): string | null {
   return null;
 }
 
-function viewOurs(w: World, st: Any, orig: Any, idmap: Map<number, number>, rev: Map<number, number>): View {
+export function viewOurs(w: World, st: Any, orig: Any, idmap: Map<number, number>, rev: Map<number, number>): View {
   const v: View = new Map();
   for (const o of orig.units as Any[]) {
     if (skipUnit(o)) continue;
@@ -193,13 +193,13 @@ function viewOurs(w: World, st: Any, orig: Any, idmap: Map<number, number>, rev:
   return v;
 }
 
-const fieldOf = (k: string): string => k.slice(0, k.indexOf("|"));
-const unitOf = (k: string): string => k.slice(k.indexOf("|") + 1);
+export const fieldOf = (k: string): string => k.slice(0, k.indexOf("|"));
+export const unitOf = (k: string): string => k.slice(k.indexOf("|") + 1);
 const same = (a: Val | undefined, b: Val | undefined): boolean => String(a) === String(b);
 
-interface Diff { key: string; orig: Val | undefined; ours: Val | undefined }
+export interface Diff { key: string; orig: Val | undefined; ours: Val | undefined }
 /** Pares divergentes de duas visões. `ignore` = pares já perdidos na importação; `fields` = filtro. Alvo de ataque/magia: ver golden_compare. */
-function diffViews(o: View, n: View, ignore: { has(k: string): boolean } | null, fields: Set<string> | null): Diff[] {
+export function diffViews(o: View, n: View, ignore: { has(k: string): boolean } | null, fields: Set<string> | null): Diff[] {
   const out: Diff[] = [];
   const keys = new Set<string>([...o.keys(), ...n.keys()]);
   for (const k of keys) {
@@ -464,4 +464,5 @@ async function main(): Promise<void> {
   printNaoModelado();
 }
 
-void main();
+// como biblioteca (load_compare.mts importa as visões) não roda
+if (import.meta.filename === resolve(process.argv[1] ?? "")) void main();
