@@ -77,3 +77,5 @@ com --ci verde. Próximo: `docs/briefings/ETAPA9-PENSAMENTO.md` (pensamento da I
 Estado 2026-10-28 (etapa 9, lote 1): regeneração 0x50fc5a e laço de 1/s portados; estado inteiro idêntico 88/87/88 %, golden 63,1 %
 limpas com --ci verde. Bugs de apresentação de 28/10 (itens 1–14) corrigidos (`notes/bugs-2026-10-28.md`). Próximo: lote 2 do pensamento
 (`notes/pensamento.md`), lotes 3–4; magias (8b) depois.
+Estado 2026-10-29 (etapa 9 completa): pensamento, tarefas, visão e ordens do cliente portados; estado inteiro idêntico 97/97/98 %,
+golden 71,7 % limpas com --ci verde. Próximo: etapa 8b (magias).

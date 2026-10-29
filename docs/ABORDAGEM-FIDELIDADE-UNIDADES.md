@@ -289,12 +289,16 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   0x52bbb7`; `notes/pensamento.md`): a regeneração roda no tique ≡ 0xc mod 16 (pré-incremento) antes das máquinas; o contador de 1/s é
   ⌊relógio÷16⌋ (a âncora "≡ 13" do importador saiu); a conta é inteira truncada a short, como no exe (testes "imortais" zeram a regeneração);
   cadáveres e desgaste das invocações pelas listas do contentor `[0x68d2dc]` na ordem dos baldes do `CMap`. Apagados `World.regen`,
-  `secPhase`/`secBase`, `stepCorpses`/`stepSummons`. Estado inteiro 86,9 / 85,1 / 85,5 % → **87,9 / 87,2 / 87,9 %**; golden 61,6 → **63,1 %**,
-  `--ci` verde. `hp`/`mana` 100 % fora de magia. Lote 2 (pensamento do grupo): porta de 38 funções a 100 % dos pares em `exe/think.ts`/
-  `exe/vision.ts` (`Vision_Compute` incluído), integração na `World` em curso, **não commitada** (nota de passagem em `notes/pensamento.md`).
-- **Próximo**: retomar a etapa 9 pelo lote 2 (integração: `rng` diverge em T=1 por `casterSupport`/`rollProc` duplicados nos ganchos),
-  depois lotes 3 (tarefas da unidade `AI_TaskDispatcher 0x569321`) e 4 (`case` executados de `Server_PacketDispatcher 0x4f515d`); magos
-  da IA em gancho até a 8b (magias).
+  `secPhase`/`secBase`, `stepCorpses`/`stepSummons`. Estado inteiro 86,9 / 85,1 / 85,5 % → **87,9 / 87,2 / 87,9 %**; golden 61,6 → **63,1 %**.
+- **Etapa 9, lotes 2–4: pensamento do grupo, tarefas da unidade, ordens do cliente** (commit 7e0f2c7; `exe/think.ts`, `vision.ts`,
+  `tasks.ts`, `orders.ts`; `notes/pensamento.md`): `AI_PlayerThink`/`AI_GroupThink`/`0x5728fa`, `AI_TaskDispatcher 0x569321` e tarefas,
+  `Vision_Compute 0x552c28`, `case` executados de `Server_PacketDispatcher 0x4f515d`, todos a 100 % dos pares; magos da IA em gancho
+  (8b). Grupos e jogadores do exe vão para o save. Estado inteiro → **97,4 / 96,7 / 98,5 %**; golden 63,1 → **71,7 %**, `--ci` verde
+  (referência regravada com 2 assinaturas nomeadas: `target|t69` ×3 = janela sem MapRec, `target|t76` ×1 = cajado em gancho de magia).
+  Lição: o golden caiu a 33 % no meio do caminho por defeitos do arnês (mundo reaproveitado entre janelas, "stop" sem Stand ground,
+  grupos dormentes importados acordados, herói fora do início da lista `[0x68d2dc]+4`), não da porta.
+- **Próximo**: etapa 8b (magias: `Spell_Apply 0x519db8`, `AI_CastChosenSpell 0x56b059`, `AI_Autocast 0x56bc7b`, efeitos, invocações,
+  saque); depois 9b (carregador) e, no fim, a passada de nomes legíveis nos campos de `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
