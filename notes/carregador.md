@@ -37,7 +37,12 @@ mostra quem escreve IA+8 dessa unidade).
 | loadcmp: pares idênticos | 96,67 % (19 849 divergentes) | 98,74 % (7 514 divergentes) |
 | tickcmp reancorada (m10_start / m10_mage / m20_start) | 100,0 / 99,9 / 100,0 % | 100,0 / 99,9 / 100,0 % |
 | tickcmp sem reimportar, 1.ª divergência | T=1 / 1 / 1 | **T=322 / 822 / 740** |
-| golden limpas | 79,4 % | (abaixo) |
+| golden limpas (`--ci`) | 79,43 % | 79,37 % (verde; 1 janela pior, `pos|t74` m10_start_s1 688–720) |
+
+A janela pior do golden persiste com o lote inteiro desligado (chaves de ambiente temporárias em cada mudança, todas juntas): não é
+deste lote; o checkout compartilhado roda bem longe do HEAD (o arnês do golden nem está no git), então a referência de 79,43 % não é
+reproduzível só pelo commit. Na bissecção, a 1.ª versão das listas estáveis derrubava o golden a 72,8 %: `World.spawn` põe o herói no
+fim de `lists.all` (nasce depois do mapa) e a ordem antiga o punha à frente — corrigido (herói sempre à frente, como nos despejos).
 
 Corrida sem reimportar, o que sobra: m10_start T=322 só `rng`; m10_mage T=822 = o +0x12c do `syncCombat` (`notes/residuo.md`);
 m20_start T=740 `act`/`dir16`/`rng` (24616, 24660).
