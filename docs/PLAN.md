@@ -87,3 +87,5 @@ Estado 2026-10-29 (etapa 8b lote 5): outros efeitos, monstro e SpellArea portado
 97,4/98,4/98,6 %, golden 76,5 %. Próximo: resíduo nomeado do tickcmp.
 Estado 2026-10-29 (resíduo do tickcmp fechado): estado inteiro idêntico 100,0/99,9/100,0 % (sobra 1 tique: +0x12c do syncCombat),
 golden 79,4 %. Próximo: etapa 9b (carregador).
+Estado 2026-10-29 (etapa 9b lote 1): 46 despejos do tique 0 no Unicorn, `npm run loadcmp`; pares do tique 0 98,74 %, missões
+exatas 0/46; corrida sem reimportar diverge só em T=322/822/740. Próximo: 9b lote 2 (atributos e livro).

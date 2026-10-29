@@ -319,8 +319,14 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   original: o grupo apontava para um registro sem dono e AI_EnemyFilter tirava os candidatos; idade da ordem de magia retomada) e o
   comparador (alvo e classe lidos do registro). Estado inteiro → **100,0 / 99,9 / 100,0 %**; golden 76,5 → **79,4 %**, `--ci` verde.
   Sobra 1 tique (m10_mage T=822): +0x12c do herói escrito pelo `syncCombat` (7) em vez do recálculo portado (6).
-- **Próximo**: 9b (carregador), o resto da 8b acima (com o mundo largando `syncCombat`, que fecha o último tique) e, no fim, a passada
-  de nomes legíveis em `exe/`.
+- **Etapa 9b, lote 1: carregador** (commits dd4ea6d, d7bd67e; `tools/re/oracle/load_mission.py`, `npm run loadcmp`,
+  `docs/briefings/ETAPA9B-CARREGADOR.md`, `notes/carregador.md`): os 46 despejos do tique 0 saem do próprio Unicorn (a carga chamada
+  na retomada, ~2 min). Lote 1: rumo inicial sorteado no construtor 0x50e173 (o servidor não lê a direção do `.alm`), byte de
+  diplomacia inteiro do exe, e três defeitos de arnês na corrida sem reimportar. Pares idênticos no tique 0: 96,67 → **98,74 %**
+  (missões exatas ainda 0/46). Corrida sem reimportar: 1.ª divergência de T=1 → **T=322 / 822 / 740**. Golden 79,4 %, `--ci` verde.
+- **Próximo**: 9b lote 2 (atributos e livro de monstros e humanos contra `Monster_CreateByName 0x50dd41`/`Human_CreateByName
+  0x5143e4`/`Monster_LoadTemplate 0x5114f3`, Wimpy/Withdraw 0x57382c, a unidade sem par), depois colocação e MapRec; o resto da 8b
+  (áreas de dano, invocações, largar `syncCombat`, que fecha o último tique) e, no fim, a passada de nomes legíveis em `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
