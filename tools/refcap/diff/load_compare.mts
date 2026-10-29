@@ -88,6 +88,13 @@ function exeOurs(u: Unit, c: Ctx): Record<string, number | string> {
   return out;
 }
 
+/** Nº de passos do LCG do CRT de `a` até `b` (até 100 000), null se não chega. */
+function lcgSteps(a: number, b: number): number | null {
+  let s = a >>> 0;
+  for (let n = 0; n <= 100000; n++) { if (s === (b >>> 0)) return n; s = (Math.imul(s, 214013) + 2531011) >>> 0; }
+  return null;
+}
+
 // ------------------------------------------------------------------------------------------------ MapRec
 const MAP_BANDS: [string, number, number][] = [["map.passo", 0, 0x10000], ["map.mascara", 0x10000, 0x20000], ["map.dinamica", 0x20000, 0x30000], ["map.resto", 0x30000, 0xa4570]];
 function mapDiff(st: Any, w: World): Diff[] {
@@ -124,7 +131,9 @@ async function one(m: number, opt: Opts): Promise<Result> {
   const st = JSON.parse(gunzipSync(readFileSync(join(LOAD, `${m}.json.gz`))).toString("utf8")) as Any;
   for (const u of st.units) { u.range = u.attack_range; u.book = (u.exe?.book ?? []).map((b: [number, number]) => ({ id: b[0], mana: 0 })); }
   const data = await loadData(m);
-  const r = startRun(data, heroFromState(st as OrigState));
+  // a semente da carga do original (o rand() antes do 1.º sorteio de 0x4eb715): o nosso carregador tem de sortear a mesma sequência
+  const lr = st.load_rand as { seed0: number | null; draws: number } | undefined;
+  const r = startRun(data, heroFromState(st as OrigState), undefined, { seed: lr?.seed0 ?? undefined });
   const w = r.b.world;
   // casamento por id: herói pelo `hero` do despejo; o resto por 0x6000 + id do .alm
   const idmap = new Map<number, number>();
@@ -151,6 +160,9 @@ async function one(m: number, opt: Opts): Promise<Result> {
   const heroKey = new RegExp(`\\|(${st.hero}|G\\d+:${st.hero})$`);
   for (const v of [vo, vn]) for (const k of [...v.keys()]) if (heroKey.test(k)) v.delete(k);
   vn.delete(`alive|n${r.b.hero.id}`);
+  // sorteios da carga: os do original (load_mission.py conta) × os nossos até o fim do startRun, menos o do nosso herói (1, World.spawn),
+  // que o original sorteia só quando o cliente o junta, depois de 0x4eb715
+  if (lr?.seed0 != null) { vo.set("rng|carga", lr.draws); vn.set("rng|carga", (lcgSteps(lr.seed0, w.rng.state) ?? -1) - 1); }
   const diffs = diffViews(vo, vn, null, opt.fields);
   if (opt.map) diffs.push(...mapDiff(st, w).filter(d => !opt.fields || opt.fields.has(fieldOf(d.key))));
   if (opt.show === m && opt.map) for (const l of mapRuns(st, w)) console.log(`    MapRec ${l}`);

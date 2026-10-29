@@ -76,6 +76,7 @@ import { BookSpellRec, PlayerRec, UnitStatsRec, UnitTypeRec } from "./exe/types"
 import { DmgRec, ItemMagicRec, ItemRec, SpellObjRec, SpellPayloadRec, TemplateRec } from "./exe/types";
 import type { SpellObjsJson } from "./exe/recio";
 import { fn_0x52c279 } from "./exe/spells";
+import { randInclusive } from "./exe/rand";
 import { vt30 } from "./exe/vtables";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
@@ -623,6 +624,9 @@ export class World {
 
   spawn(init: UnitInit): Unit {
     const u = new Unit(this.nextId++, init);
+    // rumo inicial do construtor de toda unidade (0x50e173, antes da colocação): andar+0 = andar+1 = Rand_Inclusive(0x80) + 0x40
+    // (sul ± 90°); o servidor não lê a direção do .alm (0x561bf9) — etapa 9b, notes/carregador.md
+    u.angle = (randInclusive(this.exeWorld, 0x80, 0x50e2b6) + 0x40) & 0xff;
     const c = this.grid.nearestFree(u.cx, u.cy, u.flying) ?? { x: u.cx, y: u.cy };
     u.x = c.x + 0.5; u.y = c.y + 0.5; u.home = { x: c.x, y: c.y };
     this.syncCombat(u);
@@ -897,6 +901,13 @@ export class World {
       if (pr) r.owner = pr;
     }
     this.nextGroupAddr = 0x21000000;
+    // o comando de grupo que o `AiMode` pede já está nos grupos importados (o original o aplicou): marcado como aplicado, senão o 1.º
+    // passo fora do tique importado o reaplicava (Stand ground 0x570b8b zera IA+8 — m20_start, corrida sem reimportar, T=1)
+    this.groupCmdApplied.clear();
+    for (const u of this.units) {
+      const g = byUnit.get(u.rec.addr >>> 0), key = g && !this.legacyMode(u) ? this.exeGroupCmdKey(u) : null;
+      if (g && key !== null) this.groupCmdApplied.set(g.addr, key);
+    }
   }
   /** Os registros de grupo/jogador de todas as unidades e os campos de IA que o pensamento lê (fora do estado exato do oráculo). */
   private exeSyncGroups(): void {
@@ -1183,7 +1194,7 @@ export class World {
     const w = this.exeWorld;
     w.helpless.clear(); for (const u of this.units) if (u.helpless) w.helpless.add(u.rec.addr >>> 0);
     for (let a = 0; a < this.dip.length && a < 0x46; a++) for (let b = 0; b < this.dip.length && b < 0x46; b++) {
-      w.dipTable[8 + a * 0x46 + b] = a === b ? 0x12 : (this.dip[a]?.[b] ?? 0) & 3;   // bit 0 guerra, bit 1 aliança (0x57977a testa & 3; AI_AlliesScan 0x567b2d guarda o bit 1); consigo mesmo 0x12 nas 3 imagens do oráculo
+      w.dipTable[8 + a * 0x46 + b] = a === b ? 0x12 : (this.dip[a]?.[b] ?? 0) & 0xff;   // bit 0 guerra, bit 1 aliança, 0x10 visão partilhada (0x57977a testa & 3; AI_AlliesScan 0x567b2d guarda o bit 1; 0x567c56 compara o byte inteiro com 2); consigo mesmo 0x12 (46 despejos do tique 0)
     }
     const heroOf = new Map<number, number>();
     for (const u of this.units) if (u.isHero) heroOf.set(u.player, u.rec.addr);
@@ -1196,15 +1207,26 @@ export class World {
     // do mapa) — 0x52b459 roda a unidade inteira (pensar, golpe, passo) na ordem da lista: com o herói por último, quem o persegue media a
     // distância com o passo dele por acabar (golden `pos|t75`). [est] O resto segue a nossa ordem (a do original não é a dos ids)
     const created = [...this.units.filter(u => u.isHero), ...this.units.filter(u => !u.isHero)];
-    w.liveUnits.removeAll();
-    for (const u of created) if (u.state !== "dead" && u.state !== "dying") w.liveUnits.addTail(u.rec.addr);
-    // contentor [0x68d2dc] (World_SecondTick): todas as não consumadas (ordem de criação, caídas incluídas), as criadas por magia e os
-    // cadáveres [est: ordem de criação; no exe é a da morte — sem efeito no estado, cada cadáver decompõe-se sozinho]
-    w.lists.all.removeAll(); w.lists.magic.removeAll(); w.lists.corpses.removeAll();
-    for (const u of created) {
-      if (u.bodyDead) w.lists.corpses.addTail(u.rec.addr); else w.lists.all.addTail(u.rec.addr);
-      if (u.dynamic || u.summoner) w.lists.magic.addTail(u.rec.addr);
-    }
+    // as listas guardam a ordem que já têm (a do despejo num estado importado do oráculo, a de criação no jogo): sai quem não pertence
+    // mais, quem entra vai para o fim (AddTail do exe) na ordem de criação. Refazer pela ordem dos ids trocava a ordem em que as unidades
+    // rodam (e sorteiam) depois do tique importado — m20_start, corrida sem reimportar do tickcmp, T=1 (notes/carregador.md)
+    // o herói vai sempre à frente (despejos m10/m20 e a regra de antes, acima): `spawn` o põe no fim de `lists.all`, depois do mapa
+    const heroes = new Set(created.filter(u => u.isHero).map(u => u.rec.addr >>> 0));
+    const stable = (l: CListPtr, want: (u: Unit) => boolean): void => {
+      const ok = new Set(created.filter(want).map(u => u.rec.addr >>> 0));
+      const cur = l.values().map(a => a >>> 0);
+      const order = [...cur.filter(a => heroes.has(a)), ...cur.filter(a => !heroes.has(a))].filter(a => ok.has(a));
+      const seen = new Set(order);
+      for (const u of created) { const a = u.rec.addr >>> 0; if (ok.has(a) && !seen.has(a)) { order.push(a); seen.add(a); } }
+      l.removeAll();
+      for (const a of order) l.addTail(a);
+    };
+    stable(w.liveUnits, u => u.state !== "dead" && u.state !== "dying");
+    // contentor [0x68d2dc] (World_SecondTick): todas as não consumadas (caídas incluídas), as criadas por magia e os cadáveres (na ordem
+    // em que entraram: a da morte, como no exe)
+    stable(w.lists.all, u => !u.bodyDead);
+    stable(w.lists.corpses, u => u.bodyDead);
+    stable(w.lists.magic, u => !!(u.dynamic || u.summoner));
   }
 
   /** Refaz as listas do mundo do exe a partir das unidades: vivas (mundo+4, na ordem dada ou na das unidades, só as de pé), as de

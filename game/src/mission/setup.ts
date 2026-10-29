@@ -237,14 +237,18 @@ export const MEASURE_PHASED = new Set([84, 93, 94, 95, 96]);
 /** missão -> valor "Necro to exit" do script (seq) e o ponto de sumiço corrigido (= destino do "Group Command: Move" do necromante) */
 const NECRO_EXIT_FIX: Record<number, { value: number; x: number; y: number }> = { 94: { value: 32, x: 137, y: 9 }, 96: { value: 23, x: 137, y: 9 } };
 
-export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbacks): BuiltMission {
+/** `seed`: semente do rand() da carga (o comparador do tique 0, tools/refcap/diff/load_compare.mts, passa a do despejo do original). */
+export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbacks, opts: { seed?: number } = {}): BuiltMission {
   const map = data.map;
   const grid = Grid.fromMap(map, data.terrain, data.objects, data.structures);
-  const world = new World(grid, map.players.length, 0x10a + data.id);
+  const world = new World(grid, map.players.length, opts.seed ?? 0x10a + data.id);
   const dipFromMap = map.players.every(p => Array.isArray(p.diplomacy)) ? map.players.map(p => p.diplomacy!) : undefined;
   const dip = dipFromMap ?? data.meta?.diplomacy;
+  // byte de diplomacia do exe (mundo+0xa8bc, como os jogadores da carga 0x561422 o deixam; 46 despejos do tique 0): consigo mesmo 0x12;
+  // senão bits 0..1 do .alm (guerra/aliança) e 0x10 = visão partilhada
+  const vision = map.players.map(p => (p as { vision?: boolean[] }).vision);
   for (let a = 1; a <= map.players.length; a++) for (let b = 1; b <= map.players.length; b++) {
-    world.dip[a]![b] = a === b ? 0 : dip ? (dip[a - 1]?.[b - 1] ?? 0) & 3 : (a === 1 || b === 1 ? 1 : 0);
+    world.dip[a]![b] = a === b ? 0x12 : dip ? ((dip[a - 1]?.[b - 1] ?? 0) & 3) | (vision[a - 1]?.[b - 1] ? 0x10 : 0) : (a === 1 || b === 1 ? 1 : 0);
   }
   for (const p of map.players) world.money[p.id] = 0;
   const host = new MissionHost(world, cb);
@@ -264,7 +268,6 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
     if (mu.quest?.noXp) stats.noXp = true;
     const u = world.spawn({ kind, typeId: mu.kind, player: mu.player, x: mu.x, y: mu.y, stats,
       timing: timingFor(am, stats, (tpl?.dyingTime as number | undefined)), scriptId, npc, name: NPC_NAMES[npc] ?? stats.name });
-    if (typeof mu.direction === "number") u.dir = ((mu.direction - 8) % 16 + 16) % 16;
     host.bindUnit(scriptId, u);
     // vida 0 no mapa: unidade caída (refém ogro da 50, druida chefe moribundo da 101); fica com 5% da vida para que "curar" (>= 25%) a acorde, além de chegar perto
     if (mu.hp === 0) { host.dazed.add(u); host.weak.add(u); host.mapDazed.add(u); u.helpless = true; u.hp = Math.max(1, Math.round(u.maxHp * 0.05)); }

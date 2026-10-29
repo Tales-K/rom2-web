@@ -48,7 +48,7 @@ export interface Run {
 }
 
 /** Monta a missão como a cena (buildMission + wireOutcome + installMissionAi). */
-export function startRun(data: MissionData, hero: HeroState = defaultHero(), seedVars?: Record<number, number>, opts: { companions?: number[] } = {}): Run {
+export function startRun(data: MissionData, hero: HeroState = defaultHero(), seedVars?: Record<number, number>, opts: { companions?: number[]; seed?: number } = {}): Run {
   const r: Run = { b: undefined as unknown as BuiltMission, data, outcome: null, messages: [], subs: new Map(), gold: 0, logs: [], ticks: 0 };
   r.b = buildMission(data, hero, {
     message: n => r.messages.push(n),
@@ -58,7 +58,7 @@ export function startRun(data: MissionData, hero: HeroState = defaultHero(), see
     giveAll: () => { /* documentos */ },
     money: (p, a) => { if (p === 1) r.gold += a; },
     log: (level, msg) => { r.logs.push({ level, msg }); },
-  });
+  }, { seed: opts.seed });
   wireOutcome(r.b, c => { r.outcome ??= { ok: false, cause: c }; });
   if (seedVars) for (const [k, v] of Object.entries(seedVars)) r.b.host.scenarioVars.set(Number(k), v);
   // Igles (10002) / Dina (10003) do grupo: como a cena (spawnParty + attachFollowers antes do installMissionAi)

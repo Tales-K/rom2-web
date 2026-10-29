@@ -105,7 +105,9 @@ export interface WorldSnapshot {
   exe?: MapRecJson;
   /** mundo do exe: rascunho do evento (+0xbd98, hex), a lista de eventos para a IA (+0xbbec, hex por evento) e as listas de
    *  candidatos do fim de caminho (+0xa68/+0xa88, endereços) — opcional */
-  exeWorld?: { evt: string; events: string[]; cand?: number[]; dead?: number[]; friends?: number[]; foes?: number[]; dip?: string; f?: Record<string, number> };
+  exeWorld?: { evt: string; events: string[]; cand?: number[]; dead?: number[]; friends?: number[]; foes?: number[]; dip?: string; f?: Record<string, number>;
+    /** ordem das listas de unidades (mundo+4 vivas; contentor [0x68d2dc] +4/+0x24/+0x44) — ausente em saves antigos: ordem de criação */
+    lists?: { live: number[]; all: number[]; magic: number[]; corpses: number[] } };
   /** jogadores e grupos do exe (unidade+0x14/+0x70, comando aplicado) — ausente em saves antigos: refeitos das unidades */
   exeGroups?: ExeGroupsJson;
   /** objetos de magia do exe no mundo (projéteis/efeitos presos ao alvo em voo; Spell_Apply 0x519db8) — ausente em saves antigos: nenhum */
@@ -158,7 +160,8 @@ export function snapshotWorld(world: World): WorldSnapshot {
     killsByType: [...world.killsByType],
     occ,
     exe: mapRecToJson(world.exe, world.exeBase),
-    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values(), friends: world.exeWorld.friends.values(), foes: world.exeWorld.foes.values(), dip: hex(world.exeWorld.dipTable), f: scalarFields(world.exeWorld) },
+    exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values(), friends: world.exeWorld.friends.values(), foes: world.exeWorld.foes.values(), dip: hex(world.exeWorld.dipTable), f: scalarFields(world.exeWorld),
+      lists: { live: world.exeWorld.liveUnits.values(), all: world.exeWorld.lists.all.values(), magic: world.exeWorld.lists.magic.values(), corpses: world.exeWorld.lists.corpses.values() } },
     exeGroups: world.exeGroupsToJson(),
     spellObjs: world.exeSpellObjsToJson(),
     areas: world.areas.map(a => JSON.parse(JSON.stringify(a)) as SpellArea),
@@ -245,7 +248,10 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   }
   if (s.exeGroups) world.exeGroupsFromJson(s.exeGroups);
   world.exeSpellObjsFromJson(s.spellObjs);
-  world.exeRebuildLists();
+  // a ordem das listas é a do retrato (World.exeSyncWorld a preserva entre tiques); sem ela, a de criação
+  const ls = s.exeWorld?.lists;
+  if (!ls) { world.exeWorld.liveUnits.removeAll(); for (const k of ["all", "magic", "corpses"] as const) world.exeWorld.lists[k].removeAll(); }
+  world.exeRebuildLists(ls?.live, ls);
   if (s.playerAi) s.playerAi.forEach((p, i) => { if (world.playerAi[i]) Object.assign(world.playerAi[i]!, p); });
   world.groupState.clear();
   for (const [g, v] of s.groupState ?? []) world.groupState.set(g, { ...v });

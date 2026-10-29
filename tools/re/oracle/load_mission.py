@@ -26,12 +26,15 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(ROOT, "tools", "refcap", "diff"))
 import resume  # noqa: E402
 from resume import GAME_PTR, IMAGES, Oracle, OracleError  # noqa: E402
+from unicorn import UC_HOOK_CODE  # noqa: E402
+from unicorn import x86_const as X  # noqa: E402
 
 GAME_DIR = os.path.join(os.path.expanduser("~"), "Games", "a2_diff")
 OUT = os.path.join(ROOT, "refs", "oracle", "load")
 SERVER_NEW = 0x4E957B           # construtor do servidor (0x1d0 B; zera [0x68d2dc], [0x68d2c4], [0x670e48], [0x66832c])
 SERVER_INIT = 0x4EB356          # servidor: início (data.bin "World Data", contentor das unidades [0x68d2dc], jogadores [0x68d2c4])
 START_MAP = 0x4EB715            # servidor: começa um mapa (save se +0x1ac != 0)
+CRT_RAND = 0x583290             # rand() do CRT (o Rng do nosso mundo); semente em _tiddata+0x14
 CAMPAIGN = 2                    # cliente+0x5d8 na campanha (0x48c8a3: "%d.alm"); 0x4eb356 → +0x74 = 0, +0x70 = 1 (= a imagem)
 CSTRING_CTOR = 0x5A1838         # CString::CString(LPCSTR), thiscall
 FH0 = 0x4F2E0000                # handles dos arquivos abertos aqui
@@ -193,8 +196,20 @@ def load(mission: int, image: str = "m10_start_s1", verbose: bool = False) -> tu
         raise OracleError("0x4eb356 devolveu %d" % r)
     o.set_u32(srv + 0x6B * 4, 0)             # +0x1ac = 0: mapa, não o game0000.sav (0x48c8a3)
     cs = cstring(o, "%d.alm" % mission)
+    # sorteios da carga: a semente antes do 1.º (Rand_SeedTimeGetTime no começo de 0x4eb715) e o sítio de cada um (retorno no chamador
+    # de Rand_Inclusive/Rand_One = [ebp+4] no quadro dele) — o nosso carregador recebe a mesma semente e tem de sortear igual
+    lr = o.load_rand = {"seed0": None, "draws": 0, "sites": {}}
+
+    def on_rand(uc, addr, size, _):
+        if lr["seed0"] is None:
+            lr["seed0"] = o.u32(o.meta["tiddata"] + 0x14)
+        lr["draws"] += 1
+        site = "0x%x" % o.u32(uc.reg_read(X.UC_X86_REG_EBP) + 4)
+        lr["sites"][site] = lr["sites"].get(site, 0) + 1
+    hk = o.uc.hook_add(UC_HOOK_CODE, on_rand, begin=CRT_RAND, end=CRT_RAND)
     t0 = time.perf_counter()
     r = o.call(START_MAP, ecx=srv, args=(cs,))
+    o.uc.hook_del(hk)
     if verbose:
         print("  0x4eb715 -> %d em %.1f s; arquivos: %s" % (r, time.perf_counter() - t0, ", ".join(fs.log)))
     return o, fs, r
@@ -214,6 +229,7 @@ def snapshot(o: Oracle, mission: int) -> dict:
         if u["id"] in recs:
             u["exe"] = recs[u["id"]]
     st["exe"] = ex
+    st["load_rand"] = getattr(o, "load_rand", None)
     return {"t": 0, **st}
 
 
@@ -241,8 +257,9 @@ def main():
         path = os.path.join(OUT, "%d.json.gz" % m)
         with gzip.open(path, "wt", encoding="utf-8") as fh:
             json.dump(st, fh, separators=(",", ":"))
-        print("  missão %3d: %3d unidades, %2d grupos, rng %d -> %s" % (m, len(st["units"]), len(st["groups"]), st["rng"],
-                                                                     os.path.relpath(path, ROOT)), flush=True)
+        lr = st["load_rand"]
+        print("  missão %3d: %3d unidades, %2d grupos, %3d sorteios %s -> %s" % (m, len(st["units"]), len(st["groups"]), lr["draws"],
+              lr["sites"], os.path.relpath(path, ROOT)), flush=True)
 
 
 if __name__ == "__main__":

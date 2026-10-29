@@ -10,7 +10,7 @@
  *   --max N                  só os N primeiros tiques   --no-resync  pula a corrida de T=0 sem reimportar
  *   --dump <arq>             grava todas as divergências da corrida reancorada (JSONL: episódio, T, campo|unidade, original, nosso)
  *   --no-exe                 ignora o registro do exe do despejo (importação derivada, como nas janelas do golden)
- *   --free-from T            a corrida sem reimportar parte do tique T (padrão 0)
+ *   --free-from T            a corrida sem reimportar parte do tique T (padrão 0)   --free-show T  sorteios do passo T dela
  *
  * Regras de contagem:
  *  - campo que o nosso motor não modela (NAO_MODELADO) é listado à parte e não conta como divergência;
@@ -22,7 +22,7 @@ import { join, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { RngReplay, type RandRecording } from "../../../game/src/sim/rng";
 import { applyState, resetWorld, spawnUnmatched, worldFromState, EFFECT_SPELL, ExeReplay, type Imported, type OrigState } from "../../../game/src/sim/test/import_state";
-import { listVals } from "../../../game/src/sim/exe/recio";
+import { AI_FIELDS, WALK_FIELDS, fieldsFromHex, listVals, type Field } from "../../../game/src/sim/exe/recio";
 import { orderOf } from "../../../game/src/sim/test/diff_window";
 import { type Unit, type World } from "../../../game/src/sim/world";
 import { TICKS_PER_SEC, type Cell } from "../../../game/src/sim/types";
@@ -241,6 +241,12 @@ function stepOnce(imp: Imported): void {
   imp.w.events.length = 0;
 }
 
+/** --show/--free-show: estado de cada unidade antes do passo (id do original: IA+8, ação, ordem apresentada, acordada). */
+function preStep(w: World, imp: Imported): string {
+  const rv = new Map<number, number>([...imp.idmap].map(([o, n]) => [n, o]));
+  return `tick=${w.tick} fase=${w.clockPhase} t16base=${w.t16base} rng=${w.rng.state >>> 0} bbe8=${(w.exeWorld as Any).fbbe8 ?? (w.exeWorld as Any).bbe8} a4c=${JSON.stringify(Object.fromEntries(Object.entries(w.exeWorld).filter(([, v]) => typeof v === "number")))} ` + w.units.map(u => `${rv.get(u.id) ?? -u.id}:${u.rec.ai.task}/${u.rec.act}/${u.order?.type ?? "-"}${w.awake(u) ? "" : "z"}${u.orderArmed ? "a" : ""}`).join(" ");
+}
+
 /** Retoma a magia em curso do herói (tarefa 0xd/0xe no estado importado): o estado não diz qual era (diff_window faz o mesmo). */
 function resumeCast(imp: Imported, w: World, st: Any, script: Action[], T: number, heroOrig: number): void {
   const hs = (st.units as Any[]).find(o => o.id === heroOrig);
@@ -298,6 +304,7 @@ async function runResync(E: Episode, imp: Imported, opt: Opts, show: number | nu
     w.rng.state = st.rng >>> 0;
     const sel0 = [imp.w.get(imp.idmap.get(heroOrig) ?? -1)].filter((u): u is Unit => !!u);
     runActions(imp, w, actionsAt(script, T), sel0, heroOrig);
+    if (show === T) console.log(`  antes do passo ${T} (reancorada): ${preStep(w, imp)}`);
     stepOnce(imp);
     const rev2 = new Map<number, number>([...imp.idmap].map(([o, n]) => [n, o]));
     const nv = viewOurs(w, nx, nx, imp.idmap, rev2);
@@ -379,14 +386,64 @@ async function runFree(E: Episode, imp: Imported, opt: Opts): Promise<FreeResult
   w.rng.replay = null;
   if (opt.replay && E.replay) { E.replay.counting = false; w.rng.replay = E.replay; E.replay.clock = () => (w.t16base ?? 0) + w.clock16(); E.replay.begin(E.ep.t16_0 + T0 + 1, E.ep.t16_0 + N + 2); }
   resumeCast(imp, w, st0, script, T0, heroOrig);
-  let sel = [w.get(imp.idmap.get(heroOrig) ?? -1)].filter((u): u is Unit => !!u);
+  // os sorteios da importação (applyState/resumeCast: w.command & cia.) não são do passo: o rng volta ao do estado, como na corrida reancorada
+  w.rng.state = st0.rng >>> 0;
+  // IA+0x20 (alvo atribuído pelo grupo, 0x57240b): resetWorld guarda o da corrida reancorada anterior e a importação não o traz; a corrida
+  // livre parte do despejo (endereço do original → a nossa unidade). Sem isto a 1.ª divergência era T=1 (g_assigned; notes/carregador.md)
+  const byAddr = new Map<number, number>();
+  for (const o of st0.units as Any[]) if (o.exe) byAddr.set(o.exe.a >>> 0, o.id);
+  for (const o of st0.units as Any[]) {
+    const n = imp.idmap.get(o.id), u = n !== undefined ? w.get(n) : undefined;
+    if (!u || !o.exe?.ai || o.exe.ai.length < 0x48) continue;
+    const a = parseInt((o.exe.ai as string).slice(0x40, 0x48).match(/../g)!.reverse().join(""), 16) >>> 0;
+    const t = a ? imp.idmap.get(byAddr.get(a) ?? -1) : undefined;
+    u.rec.ai.f20 = a && t !== undefined ? w.get(t)?.rec.addr ?? 0 : 0;
+  }
+  let sel =[w.get(imp.idmap.get(heroOrig) ?? -1)].filter((u): u is Unit => !!u);
   const res: FreeResult = { first: -1, firstDiff: [], perUnit: new Map(), perField: new Map(), unitsSeen: 0 };
   const ids = new Set<string>();
   for (const o of st0.units as Any[]) if (!skipUnit(o)) ids.add(String(o.id));
   for (let T = T0; T < N; T++) {
     sel = runActions(imp, w, actionsAt(script, T), sel, heroOrig);
+    // --free-show T: os sítios sorteados nesse passo da corrida livre (compare com --show T da reancorada)
+    const log: string[] = [], draw0 = w.rng.draw;
+    if (opt.freeShow === T) console.log(`  antes do passo ${T} (livre): ${preStep(w, imp)}`);
+    if (opt.freeShow === T) (w.rng as Any).draw = function (site: Any, a = -1, b = -1) { log.push(`${typeof site === "number" ? "0x" + site.toString(16) : site}(${a},${b})`); return draw0.call(this, site, a, b); };
+    if (opt.freeShow === T && process.env.TRAP_TASK) {
+      const u = w.get(imp.idmap.get(Number(process.env.TRAP_TASK)) ?? -1)!; let v = u.rec.ai.task;
+      Object.defineProperty(u.rec.ai, "task", { configurable: true, get: () => v, set: (x: number) => { if (x !== v) console.log(`  IA+8 ${v} -> ${x}\n${new Error().stack!.split("\n").slice(2, 9).join("\n")}`); v = x; } });
+    }
     stepOnce(imp);
     const nx = E.ticks[T + 1] as Any;
+    if (opt.freeShow === T) {
+      (w.rng as Any).draw = draw0;
+      console.log(`  corrida livre, sorteios nossos no tique ${T}: ${log.join(" ")}`);
+      const rv = new Map<number, number>([...imp.idmap].map(([o, n]) => [n, o]));
+      console.log(`  dormindo (nosso): ${w.units.filter(u => !w.awake(u)).map(u => rv.get(u.id) ?? -u.id).join(",")}; lista viva: ${w.exeWorld.liveUnits.values().map(a => rv.get(w.unitByAddr(a >>> 0)?.id ?? -1) ?? "?").join(",")}`);
+      // campos escalares do andar/IA (inclusive os fora da visão: IA+8 modo, timers) × o despejo do tique seguinte
+      for (const o of nx.units as Any[]) {
+        const n = imp.idmap.get(o.id), u = n !== undefined ? w.get(n) : undefined;
+        if (!u || !o.exe) continue;
+        const pre = (p: string, r: Record<string, number>) => Object.fromEntries(Object.entries(r).map(([k, v]) => [p + k, v]));
+        const fo = { ...pre("walk.", fieldsFromHex(o.exe.mv ?? "", WALK_FIELDS)), ...pre("ai.", fieldsFromHex(o.exe.ai ?? "", AI_FIELDS)) };
+        const fn = { ...pre("walk.", u.rec.walk as unknown as Record<string, number>), ...pre("ai.", u.rec.ai as unknown as Record<string, number>) };
+        const ptr = ["walk.chaseTarget", "ai.f0c", "ai.f10", "ai.target", "ai.f20", "ai.f28", "ai.f30", "ai.f94", "ai.f04"];
+        Object.assign(fo, { "u.f58": o.act_phase ?? 0, "u.f6c": o.act_cnt ?? 0, "u.ready": o.act_ready ?? 0, "u.f138": o.exe.f138 ?? 0, "u.fa2": o.exe.fa2 ?? 0, "u.fa3": o.exe.fa3 ?? 0, "u.f98": o.exe.f98 ?? 0 });
+        Object.assign(fn, { "u.f58": u.rec.f58 >>> 0, "u.f6c": u.rec.f6c, "u.ready": u.rec.ready, "u.f138": u.rec.f138 >>> 0, "u.fa2": u.rec.fa2, "u.fa3": u.rec.fa3, "u.f98": u.rec.f98 });
+        const d = Object.keys(fo).filter(k => fo[k] !== fn[k] && !ptr.includes(k) && k !== "ai.f71" && k !== "walk.f88");
+        if (d.length) console.log(`    ${o.id}: ${d.map(k => `${k} o=${fo[k]} n=${fn[k]}`).join("; ")}`);
+      }
+      // dados dos grupos do exe (+0x3c) × o despejo, pelo endereço do grupo
+      const GF: Field[] = [[0x0a, 2, "f0a", true], [0x15, 1, "f15"], [0x20, 1, "f20"], [0x24, 4, "f24"], [0x28, 2, "f28"], [0x2a, 1, "f2a"], [0x2b, 1, "f2b"],
+        [0x2c, 1, "f2c"], [0x2d, 1, "f2d"], [0x30, 4, "f30"], [0x34, 4, "f34"], [0x38, 1, "f38"], [0x39, 1, "f39"], [0x44, 1, "speedByte"], [0x45, 1, "f45"], [0x48, 4, "f48"]];
+      for (const p of nx.exe?.world?.players ?? []) for (const g of p.groups) {
+        const gr = w.exeWorld.groupsByAddr.get(g.a >>> 0);
+        if (!gr || !g.data) { console.log(`    grupo 0x${(g.a >>> 0).toString(16)}: ${gr ? "sem dados" : "não existe no nosso"}`); continue; }
+        const fo = fieldsFromHex(g.data, GF), st = gr.stats as unknown as Record<string, number>;
+        const d = Object.keys(fo).filter(k => ((fo[k]! << 0) >>> 0) !== (((st[k] ?? 0) << 0) >>> 0) && !(k === "f20" && ((fo[k]! << 24) >> 24) === st[k]));
+        if (d.length) console.log(`    grupo 0x${(g.a >>> 0).toString(16)} (${g.units.slice(0, 3).join(",")}…): ${d.map(k => `${k} o=${fo[k]} n=${st[k]}`).join("; ")}`);
+      }
+    }
     const rev = new Map<number, number>([...imp.idmap].map(([o, n]) => [n, o]));
     const nv = viewOurs(w, nx, nx, imp.idmap, rev);
     const diffs = diffViews(viewOrig(nx, imp.idmap, w), nv, unchanged(lost, nv), opt.fields);
@@ -403,7 +460,7 @@ async function runFree(E: Episode, imp: Imported, opt: Opts): Promise<FreeResult
 }
 
 // ------------------------------------------------------------------------------------------------ relatório
-interface Opts { fields: Set<string> | null; replay: boolean; max?: number; quiet?: boolean; resync: boolean; dump?: string; freeFrom?: number }
+interface Opts { fields: Set<string> | null; replay: boolean; max?: number; quiet?: boolean; resync: boolean; dump?: string; freeFrom?: number; freeShow?: number }
 const pct = (a: number, b: number): string => (b ? (100 * a / b).toFixed(1) : "—") + "%";
 const median = (a: number[]): number => { if (!a.length) return NaN; const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 
@@ -447,7 +504,8 @@ async function main(): Promise<void> {
   const arg = (k: string): string | undefined => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : undefined; };
   const ids = a.includes("--all") ? EPISODES : (arg("--episode") ?? EPISODES[0]!).split(",");
   const opt: Opts = { fields: arg("--fields") ? new Set(arg("--fields")!.split(",")) : null, replay: a.includes("--replay"), resync: !a.includes("--no-resync"),
-    max: arg("--max") ? Number(arg("--max")) : undefined, quiet: a.includes("--quiet"), dump: arg("--dump"), freeFrom: arg("--free-from") ? Number(arg("--free-from")) : undefined };
+    max: arg("--max") ? Number(arg("--max")) : undefined, quiet: a.includes("--quiet"), dump: arg("--dump"), freeFrom: arg("--free-from") ? Number(arg("--free-from")) : undefined,
+    freeShow: arg("--free-show") ? Number(arg("--free-show")) : undefined };
   if (opt.dump) writeFileSync(opt.dump, "");
   const show = arg("--show") !== undefined ? Number(arg("--show")) : null;
   const summary: string[] = [];
