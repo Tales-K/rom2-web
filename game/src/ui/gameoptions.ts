@@ -44,6 +44,7 @@ export function openGameOptions(game: Game, parent: Container, opts: { onChange?
     T("Game Options", 292, 19, true);
     T("Game Speed", 136, 55, true);
     const sl = new ClassicSlider(kit, 192, (st.settings.gameSpeed - SPEEDS.min) / (SPEEDS.max - SPEEDS.min), v => { st.settings.gameSpeed = Math.round((SPEEDS.min + v * (SPEEDS.max - SPEEDS.min)) * 20) / 20; changed(); });
+    sl.overlapLeft(3);   // curso medido no original: nível 0 em x 281, 3 px sobre a estrela (bug 3 de 31/10)
     sl.position.set(40, 84);
     b.addChild(sl);
     const S = st.settings as unknown as Record<string, unknown>;

@@ -7,12 +7,15 @@ import type { MenuKit } from "./menukit";
  * que se arrasta. Os botões movem 1/16 do curso. Componente ÚNICO para qualquer slider desse estilo.
  */
 export const SLIDER = { btn: 24, step: 1 / 16, left: 0, right: 2, leftHot: 3, rightHot: 5, track: 7, thumb: 4 };
+/** cursor: o mouse arrasta o quadro 4 por este ponto (px a partir da borda esquerda) */
+const THUMB = { grab: 3 };
 
 export class ClassicSlider extends Container {
   private v: number;
   private readonly thumb: Sprite | Graphics;
   private readonly trackW: number;
   private drag = false;
+  private over = 0;
 
   /** `width` = largura total (botão + trilho + botão); `value` 0..1 */
   constructor(kit: MenuKit, totalW: number, value: number, private readonly onChange: (v: number) => void) {
@@ -49,14 +52,22 @@ export class ClassicSlider extends Container {
     this.place();
   }
 
+  // curso do cursor medido no original (sondas de 31/10): curso = trilho − 4 px; o quadro 4 tem 12 px visíveis (o resto é transparente) e
+  // segue o mouse com a borda esquerda 3 px antes dele. Volumes do Sound Options: borda esquerda de 24 a 162 (controle de 190 px em x 526;
+  // arrastado até x 641 ⇒ borda em 638). Game Speed: de 21 a 161 (níveis 0/4/8 em x 281/351/421, controle em x 260), ver `overlapLeft`.
   private place(): void {
-    const tw = this.thumb.width;
-    this.thumb.position.set(SLIDER.btn + Math.round(this.v * (this.trackW - tw)), 0);
+    this.thumb.position.set(SLIDER.btn - this.over + Math.round(this.v * (this.trackW - 4)), 0);
   }
 
   private fromX(x: number): void {
-    const tw = this.thumb.width;
-    this.set((x - SLIDER.btn - tw / 2) / (this.trackW - tw), true);
+    this.set((x - THUMB.grab - (SLIDER.btn - this.over)) / (this.trackW - 4), true);
+  }
+
+  /** o cursor começa `px` sobre a estrela esquerda (Game Speed: 3) */
+  overlapLeft(px: number): this {
+    this.over = px;
+    this.place();
+    return this;
   }
 
   get value(): number { return this.v; }
