@@ -1451,6 +1451,20 @@ export class World {
     for (const u of m) { u.groupRadius = base; u.home = { x: u.rec.ai.f00 & 0xff, y: (u.rec.ai.f00 >> 8) & 0xff }; }
   }
 
+  /** Carga do mapa (0x562745): a unidade de IA sem grupo no `.alm` tem o grupo só dela (0x52ae43 na criação) e ele também recebe
+   *  AI_GuardLoad 0x570aba (comando 0x12) — m30 24679 no despejo do tique 0; o Guard padrão fica marcado como da carga (`AiMode.load`),
+   *  senão `exeGroupSync` lhe dava o Guard do script (comando 1). */
+  initLoadGuardAlone(u: Unit): void {
+    if (!u.alive || u.group || !this.isAiPlayerUnit(u) || u.ai.type !== "guard") return;
+    u.ai = { ...u.ai, load: true };
+    u.rec.fa5 = Math.max(0, Math.floor(this.sightOf(u))) & 0xff;
+    const g = this.exeGroupSync(u);
+    aiGuardLoad(this.exeWorld, g, 0);
+    const base = g.stats.f38 & 0xff;
+    this.groupState.set(-u.id, { base, radius: g.stats.f2d & 0xff, combat: (g.stats.f30 | 0) !== 0, cmd12: true });
+    u.groupRadius = base; u.home = { x: u.rec.ai.f00 & 0xff, y: (u.rec.ai.f00 >> 8) & 0xff };
+  }
+
   /** estado da guarda de cada grupo de IA (comando `+0x3c`): raio-base `+0x38`, raio atual `+0x2d`, em combate `+0x30`; `cmd12` = Guard
    *  da carga do mapa (comando 0x12, 0x570aba → pensamento 0x5728fa; o Guard do script é o comando 1, 0x57275f) */
   groupState = new Map<number, GroupGuardState>();
@@ -1621,6 +1635,7 @@ export class World {
   private clientQueue: [Unit, Order][] = [];
 
   step(): void {
+    if (this.knockOutAtFirstStep.length) { for (const id of this.knockOutAtFirstStep.splice(0)) { const u = this.get(id); if (u) this.knockOut(u); } }
     this.tick++;
     const serverTick = this.clock16() !== this.clock16(this.tick - 1);
     const aiTick = this.aiTickAt(this.tick);
@@ -1711,6 +1726,10 @@ export class World {
   /** "Vida 0" do mapa/script (refém da 50, druida chefe da 101, ogro da 74): a unidade fica inconsciente — vida exatamente 0, deitada, estável
    *  (não sangra nem regenera), alvo de golpes e de Heal — sem passar pela morte (nada de `fall`/`onDeath`/som). `helpless` mantém a IA e o
    *  piloto automático longe dela (o script cuida de quando acorda: mission/host.ts). */
+  /** Unidades com vida 0 no `.alm`: de pé no tique 0 (como o original: 46 despejos da carga, tarefa 11, só a vida 0) e caídas por
+   *  `knockOut` no começo do 1.º passo — no exe a queda é a de 0x50f12c no 1.º tique; o `knockOut` (sem animação, sem falha de missão)
+   *  é a nossa queda dela [est: a m101 não tem episódio no oráculo; com a queda animada o dragão aliado cura o druida chefe caído] */
+  knockOutAtFirstStep: number[] = [];
   knockOut(u: Unit): void {
     u.helpless = true;
     if (!u.alive) { if (u.downed) u.corpseHp = 0; return; }

@@ -378,8 +378,11 @@ async function m42(): Promise<void> {
   const warns = data.script?.warnings ?? [];
   check(!warns.some(m => /inexistente/.test(m)), `script sem referências quebradas (${warns.length} avisos)`);
   check(Math.abs(h.cx - 12) <= 3 && Math.abs(h.cy - 31) <= 3, `herói nasce no Drop Location (12,31): ${h.cx},${h.cy}`);
-  check(tame.phased && !mad.phased && mad.maxHp > tame.maxHp, `dragão louco (${mad.maxHp} de vida) em cena; forma polimorfada (${tame.maxHp}) escondida`);
-  settle(r, 20 * 15);
+  // tique 0 do original (despejo da carga): a forma polimorfada está nas células; o "Phase out unit" do script a tira de cena
+  check(!tame.phased, "carga: forma polimorfada nas células (como no tique 0 do original)");
+  settle(r, 20);
+  check(tame.phased && !mad.phased && mad.maxHp > tame.maxHp, `dragão louco (${mad.maxHp} de vida) em cena; forma polimorfada (${tame.maxHp}) escondida pelo script`);
+  settle(r, 20 * 14);
   check(!r.outcome && has(r, 1), "parado 15 s: sem desfecho, mensagem 1");
   beside(r, h, 33); settle(r);
   check(has(r, 2), "ancião 1: msg 2");

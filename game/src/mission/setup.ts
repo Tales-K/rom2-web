@@ -277,8 +277,11 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
       timing: timingFor(am, stats, (tpl?.dyingTime as number | undefined)), scriptId, npc, name: NPC_NAMES[npc] ?? stats.name });
     if (created) { applyCreatedRec(u.rec, created.rec); if (hp0 !== undefined && mu.hp !== 0) u.hp = hp0; }
     host.bindUnit(scriptId, u);
-    // vida 0 no mapa: unidade caída (refém ogro da 50, druida chefe moribundo da 101); fica com 5% da vida para que "curar" (>= 25%) a acorde, além de chegar perto
-    if (mu.hp === 0) { host.dazed.add(u); host.weak.add(u); host.mapDazed.add(u); u.helpless = true; u.hp = Math.max(1, Math.round(u.maxHp * 0.05)); }
+    // vida 0 no mapa: unidade inconsciente de verdade (refém ogro da 50, druida chefe moribundo da 101): vida exatamente 0, deitada, estável;
+    // acorda ao chegar alguém do jogador perto ou com Heal (vida >= 25% para o script: mission/host.ts `wake`). No tique 0 do original
+    // (46 despejos: m30 ×2, m50, m101) ela está de pé na célula, tarefa 11 do Guard da carga, só com a vida 0: a queda é do 1.º passo
+    // (0x50f12c, vida ≤ 0) — o `knockOut` fica para o começo dele (World.knockOutAtFirstStep)
+    if (mu.hp === 0) { host.dazed.add(u); host.weak.add(u); host.mapDazed.add(u); u.helpless = true; u.hp = 0; world.knockOutAtFirstStep.push(u.id); }
     const group = mu.group ?? su?.group;
     if (group != null) host.bindGroup(group, u);
     mapUnits.push(u);
@@ -297,6 +300,7 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   if (!host.groups.size) {
     for (const g of map.groups ?? data.script?.groups ?? []) for (const idx of g.units) { const u = mapUnits[idx]; if (u) host.bindGroup(g.id, u); }
   }
+  for (const u of mapUnits) world.initLoadGuardAlone(u);   // o grupo só dela da unidade sem grupo no .alm (0x562745 → 0x570aba)
   for (const st of map.structures) if (st.id != null) host.bindStructure(st.id, st.hp ?? 100, st.kind, st.x, st.y);
   // armadilhas Teleport do mapa (bloco 9, magia 23): gatilho em (x, y), 1ª entrada = origem e 2ª = destino, como o "Set trap" do script [est: semântica
   // deduzida dos mapas 93-96, em que os teleportes de ida/volta dos santuários só existem aqui; as de outras magias (mapa 76) continuam ignoradas]
@@ -307,12 +311,8 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
     if (sx === tx && sy === ty) continue; // origem = destino: marcador sem efeito
     host.setTrap(23, e.p2, e.x, e.y, sx, sy, tx, ty);
   }
-  // "Polymorph unit": a forma polimorfada (parâmetro 2) só entra em cena quando a ação rodar
-  for (const a of data.script?.actionList ?? []) {
-    if (!/^Polymorph/i.test(a.kindName)) continue;
-    const poly = host.units.get(a.params[1]?.value ?? 0);
-    if (poly) world.phaseOut(poly);
-  }
+  // "Polymorph unit": a forma polimorfada (parâmetro 2) fica nas células na carga (tique 0 do original: m31 24741, m42 24702); quem a
+  // tira de cena é o próprio script, com "Phase out unit" (m31: unidade 165; m42: 126)
   // marcadores fora de fase cuja distância o script mede (MissionHost.measurePhased): Tekel (84) e as "pirâmides" dos santuários (93-96: unidades 27, 51, 50, 49)
   if (MEASURE_PHASED.has(data.id)) host.measurePhased = true;
   // necromante dos livros (94 e 96): o script o manda andar até (137,9) mas o faz sumir ("Phase out unit") a <= 1 de (134,9)/(135,9), por onde o caminho

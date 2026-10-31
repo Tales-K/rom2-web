@@ -153,8 +153,34 @@ loadcmp `--no-map`: **35 de 46** missões exatas, 99,99 % (57 pares); com o MapR
 - Fora do comparador ainda: o construtor dos itens (atributos de items.json), os registros de ocupação byte a byte (só a contagem e as
   máscaras entram), os dados dos grupos do exe em bytes, e a junção do herói (lote 5).
 
+### Lote 3b (mesmo dia, com o aval do coordenador para `mission/setup.ts`): vida 0, Polymorph e a unidade sem grupo
+Evidência do original (despejos do tique 0, `refs/oracle/load/`):
+- **(a) vida 0 no `.alm`**: m30 24622/24623, m50 24620, m101 24583 estão de pé na célula (`cell` 0x736f/0x7772/0xf10/0xe16, footCell
+  marcada), estado 0, ação 0, tarefa 11, comando do grupo 0x12 (AI_GuardLoad), só `hp` = 0 (vida máx. 42/55/100/333). Nada de queda
+  na carga: ela é a de 0x50f12c (vida ≤ 0) no 1.º tique. Saiu o `world.knockOut` da carga (trecho WIP não commitado); ficam os sets
+  `dazed`/`weak`/`mapDazed` do host (servem ao script; o tique 0 não os contradiz), `helpless` (não é do exe) e a vida 0. A queda
+  passa para o começo do 1.º passo (`World.knockOutAtFirstStep`, gravado no snapshot). [est] Com a queda animada da máquina (sem o
+  `knockOut`) o dragão aliado (jogador 3, caminho portado) lança Heal no druida chefe da m101 caído no tique 15 e ele levanta —
+  `missions_90s` quebrava; a m101 não tem episódio no oráculo para dizer quem está certo, então o `knockOut` no 1.º passo mantém o
+  comportamento que o jogo tinha a partir do tique 1.
+- **(b) a forma do "Polymorph unit"**: m31 24741 (id 165) e m42 24702 (id 126) estão nas células no tique 0 (vida cheia, tarefa 11,
+  comando 0x12). O próprio script tem "Phase out unit" para elas (m31 [165], m42 [126]): saiu o `world.phaseOut` da carga; o nosso
+  script as tira de cena no 1.º ciclo (fase em < 1 s; `missions_kaarg` m42 confere as duas coisas).
+- **A unidade sem grupo** (m30 24679, `group: null` no `.alm`): no original ela tem um grupo só dela com comando 0x12 (AI_GuardLoad,
+  como todo grupo na carga 0x562745); o nosso dava o Guard do script (comando 1). `World.initLoadGuardAlone` aplica 0x570aba ao grupo
+  dela e marca o Guard padrão como da carga.
+
+| | antes (5d78e65) | depois |
+|---|---|---|
+| loadcmp `--no-map` | 40 / 46 | **45 / 46** (sobra a m92 `dip`) |
+| loadcmp com o MapRec | 38 / 46 | **43 / 46** (m76, m93 armadilhas; m92) |
+| tickcmp, golden `--ci`, `test:sim`, `test:script` | 100,0 / 100,0 / 100,0 % (T=322 / nenhuma / 740), 79,74 %, verdes | iguais |
+
+Atenção: o HEAD de `mission/setup.ts` não tem o laço `world.initGroupGuard(g, list, 0, true)` da carga (é um trecho WIP não
+commitado na árvore); sem ele o Guard da carga (e o Stand ground do jogador 1 do lote 3) não roda. Os números acima são da árvore.
+
 ## Próximo lote (4)
-1. Com o aval do coordenador: vida 0 e Polymorph na carga (`mission/setup.ts`), o que fecha m30/m31/m42/m50/m101 → 45/46 sem o MapRec.
+1. Feito no 3b. Pendente: commitar o laço WIP `initGroupGuard(..., true)` de `buildMission` (dono: o coordenador).
 2. Armadilhas no MapRec (acima) e a diplomacia do 8.º jogador.
 3. O resíduo da fase 1 (`notes/bugs-2026-10-31-fase1.md`): o gatilho do script no tique de pensamento (0x57485b roda 1×/s; o nosso
    `runtime.update` roda por tique: conferir no C antes de mexer em `script/runtime`) e o crescimento de vida/mana máx. pela XP.

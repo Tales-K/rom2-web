@@ -98,6 +98,8 @@ export interface WorldSnapshot {
   units: UnitSnapshot[];
   projectiles: ProjectileSnapshot[];
   loot: Loot[];
+  /** unidades de vida 0 do mapa ainda por cair no 1.º passo (`World.knockOutAtFirstStep`; ausente = nenhuma) */
+  knockOutAtFirstStep?: number[];
   killsByType: [number, number][];
   /** ocupação da grade: pares [índice da célula, id da unidade] (só células ocupadas) */
   occ: [number, number][];
@@ -157,6 +159,7 @@ export function snapshotWorld(world: World): WorldSnapshot {
       return { ...p, spell: p.spell?.id ?? null, ...(p.spell && !known ? { spellDef: { ...p.spell } } : {}) };
     }),
     loot: world.loot.map(l => ({ ...l, items: [...l.items] })),
+    knockOutAtFirstStep: [...world.knockOutAtFirstStep],
     killsByType: [...world.killsByType],
     occ,
     exe: mapRecToJson(world.exe, world.exeBase),
@@ -211,6 +214,7 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
     const spell = findSpell(world.get(p.from), p.spell) ?? (spellDef ? { ...spellDef } : null);
     world.projectiles.push({ ...rest, spell });
   }
+  world.knockOutAtFirstStep = [...(s.knockOutAtFirstStep ?? [])];
   world.loot.length = 0;
   for (const l of s.loot) world.loot.push({ ...l, items: [...l.items] });
   world.killsByType.clear();
