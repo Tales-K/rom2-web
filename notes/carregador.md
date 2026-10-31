@@ -179,6 +179,21 @@ Evidência do original (despejos do tique 0, `refs/oracle/load/`):
 Atenção: o HEAD de `mission/setup.ts` não tem o laço `world.initGroupGuard(g, list, 0, true)` da carga (é um trecho WIP não
 commitado na árvore); sem ele o Guard da carga (e o Stand ground do jogador 1 do lote 3) não roda. Os números acima são da árvore.
 
+### Lote 3c: a diplomacia do 8.º jogador (m92)
+A carga 0x561422 copia as 16 entradas de diplomacia do `.alm` de cada jogador presente para a tabela do mundo, também as dos jogadores
+que não existem: na m92 (7 jogadores) as linhas 1, 5 e 7 têm 1 (guerra) na coluna 8 (despejo do tique 0; o script não troca dono de
+ninguém, então é inerte no jogo). `alm_export.py` ganhou `players[].diplomacyRaw` (as 16 entradas cruas; os JSON de mapa foram só
+acrescidos desse campo — a regeneração inteira também traria o `tileBlock` do trecho alheio não commitado, que não mexe no loadcmp);
+`buildMission` estende a linha de cada jogador presente até a 16.ª entrada (`& 0x13`) e `exeSyncWorld` copia a linha inteira.
+loadcmp `--no-map` **46 / 46**; com o MapRec 44 / 46 (m76, m93). tickcmp, golden 79,74 %, test:sim, test:script iguais.
+
+**Armadilhas do bloco 9 (m76, m93) — não é só o carregador.** O registro vem de 0x55ba36 (0x564072 na carga e 0x57847e "Set trap" do
+script): cria o registro (0x5508a0), copia 6 bytes em +0x34 (0x55b978: magia, poder, x, y, x/y de destino), grava e reaplica. Com o
+registro no MapRec o andar portado (0x5503af) passa a dispará-las: 0x17 põe o destino em IA+0xb0 para `Unit_TeleportTo 0x55a96c`
+(NotPorted), as outras chamam 0x4f0832 / 0x4f086f → 0x4f06ac (o lançador de magia da armadilha: aloca um conjurador, 0x51c29e livro,
+0x50dc2b, 0x519466, 0x51906d — pendentes), também NotPorted. Hoje o `mission/host` imita os teleportes (`setTrap`) e ignora as de magia.
+Fechar m76/m93 = portar 0x55ba36/0x55b978, o trecho de 0x564072, 0x55a96c e a família 0x4f06ac, e tirar a imitação do host.
+
 ## Próximo lote (4)
 1. Feito no 3b. Pendente: commitar o laço WIP `initGroupGuard(..., true)` de `buildMission` (dono: o coordenador).
 2. Armadilhas no MapRec (acima) e a diplomacia do 8.º jogador.

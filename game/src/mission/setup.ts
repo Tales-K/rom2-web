@@ -252,6 +252,12 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   for (let a = 1; a <= map.players.length; a++) for (let b = 1; b <= map.players.length; b++) {
     world.dip[a]![b] = a === b ? 0x12 : dip ? ((dip[a - 1]?.[b - 1] ?? 0) & 3) | (vision[a - 1]?.[b - 1] ? 0x10 : 0) : (a === 1 || b === 1 ? 1 : 0);
   }
+  // a carga 0x561422 copia as 16 entradas de cada jogador presente, também as dos que não existem (m92: 1, 5 e 7 em guerra com o 8.º
+  // no despejo do tique 0): a linha passa do nº de jogadores
+  map.players.forEach((p, i) => {
+    const raw = (p as { diplomacyRaw?: number[] }).diplomacyRaw, row = world.dip[i + 1];
+    if (raw && row) for (let b = map.players.length + 1; b <= raw.length; b++) row[b] = raw[b - 1]! & 0x13;
+  });
   for (const p of map.players) world.money[p.id] = 0;
   const host = new MissionHost(world, cb);
   host.spellTable = data.spells as SpellTable | undefined;

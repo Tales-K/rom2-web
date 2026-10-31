@@ -135,7 +135,10 @@ def players_json(m):
                     "money": p["money"],
                     # diplomacy[j] = relacao deste jogador com o jogador j+1: 0 neutro, 1 inimigo, 2 aliado; vision = bit 0x10
                     "diplomacy": [d & 3 for d in p["diplomacy"][:n]],
-                    "vision": [bool(d & 0x10) for d in p["diplomacy"][:n]]})
+                    "vision": [bool(d & 0x10) for d in p["diplomacy"][:n]],
+                    # as 16 entradas cruas: a carga 0x561422 copia todas para a tabela do mundo, também as de jogadores que não
+                    # existem (m92: 1, 5 e 7 em guerra com o 8.º; despejo do tique 0)
+                    "diplomacyRaw": list(p["diplomacy"])})
     return out
 
 

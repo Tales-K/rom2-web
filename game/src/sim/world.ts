@@ -1202,7 +1202,7 @@ export class World {
   private exeSyncWorld(): void {
     const w = this.exeWorld;
     w.helpless.clear(); for (const u of this.units) if (u.helpless) w.helpless.add(u.rec.addr >>> 0);
-    for (let a = 0; a < this.dip.length && a < 0x46; a++) for (let b = 0; b < this.dip.length && b < 0x46; b++) {
+    for (let a = 0; a < this.dip.length && a < 0x46; a++) for (let b = 0; b < (this.dip[a]?.length ?? 0) && b < 0x46; b++) {
       w.dipTable[8 + a * 0x46 + b] = a === b ? 0x12 : (this.dip[a]?.[b] ?? 0) & 0xff;   // bit 0 guerra, bit 1 aliança, 0x10 visão partilhada (0x57977a testa & 3; AI_AlliesScan 0x567b2d guarda o bit 1; 0x567c56 compara o byte inteiro com 2); consigo mesmo 0x12 (46 despejos do tique 0)
     }
     const heroOf = new Map<number, number>();
