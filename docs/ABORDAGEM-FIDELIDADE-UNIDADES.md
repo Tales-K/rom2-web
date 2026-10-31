@@ -330,8 +330,12 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   só rodava depois do golpe físico) e o alcance da maga somava o da magia do cajado (7 em vez de 6). Corrigidos: o Ogre e o Hydun com os
   morcegos revidam como no original. Estado inteiro → **100,0 / 100,0 / 100,0 %**; corrida sem reimportar da m10_mage sem divergência;
   golden **79,7 %**, `--ci` verde.
-- **Próximo**: o plano do jogo inteiro (`docs/PLANO-FIDELIDADE-JOGO.md`); nesta frente (F2): 9b lote 3 (colocação, `AI_GuardLoad`,
-  MapRec), largar `syncCombat`, o resto da 8b (áreas de dano, invocações, magia no chão da IA) e corridas livres desde o tique 0 em
+- **9b lote 3 (31/10)**: grupos do jogador 1, passo e tabelas do MapRec, sacos e prédios sobrepostos; vida 0 de pé no tique 0 (a queda
+  passa ao 1.º passo), sem `phaseOut` da forma do Polymorph na carga, `AI_GuardLoad` da unidade sem grupo e o laço de Guard da carga
+  (0x570aba). `loadcmp --no-map` 35 → 45/46 (sobra m92), com MapRec 0 → 43/46 (m76, m93: armadilhas); tickcmp 100,0/100,0/100,0 %,
+  golden 79,74 %. A perseguição do Troll1 relatada pelo usuário é igual ao original (notes/bugs-2026-10-31-fase1.md, C).
+- **Próximo**: o plano do jogo inteiro (`docs/PLANO-FIDELIDADE-JOGO.md`); nesta frente (F2): 9b resto (m92, armadilhas do MapRec),
+  largar `syncCombat`, o resto da 8b (áreas de dano, invocações, magia no chão da IA) e corridas livres desde o tique 0 em
   mais missões; no fim, a passada de nomes legíveis em `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
