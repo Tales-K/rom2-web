@@ -267,8 +267,9 @@ export class Hud {
     this.minimap.position.set(PANEL_X + 24, 18);
     this.minimap.addChild(this.mmMask);
     this.minimap.mask = this.mmMask;
-    this.root.addChild(this.mmRect);
     this.root.addChild(this.minimap);
+    // retângulo da câmera POR CIMA do mapa explorado e dos pontos (original: a linha branca cruza o terreno, mission_cursor_enemy; bug 1 de 31/10)
+    this.root.addChild(this.mmRect);
 
     // linha de mensagens curtas (recolher ouro, falta de mana...) no canto da vista
     this.status = makeText("", { size: 14, color: 0xffe9a8, stroke: 0x000000 });
