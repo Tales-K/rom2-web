@@ -170,7 +170,8 @@ export default class InnScene extends Scene {
     for (const [off, on, x] of [[gl0, gl1, 476], [gr0, gr1, 598]] as const) {
       const g = spr(off, x, 446);
       g.eventMode = "static"; g.cursor = "pointer";
-      g.on("pointerover", () => { g.texture = on; }).on("pointerout", () => { g.texture = off; });
+      // original (sonda de 31/10): sob o mouse a gema NÃO acende (só a etiqueta Previous/Next Hero); o bitmap aceso fica para o botão apertado [est]
+      g.on("pointerdown", () => { g.texture = on; }).on("pointerup", () => { g.texture = off; }).on("pointerupoutside", () => { g.texture = off; }).on("pointerout", () => { g.texture = off; });
       view.addChild(g);
     }
 

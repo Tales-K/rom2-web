@@ -228,11 +228,12 @@ export default class ShopScene extends Scene {
 
     // retrato do herói na moldura oval de 176 px do HUD (humanbackl + humanbackr; a mesma boneca da taverna/missão), livro e olho dos cantos
     view.addChild(spr(this.hud.humanbackl, MENU.x, OVAL.y), spr(this.hud.humanbackr, OVAL.x, OVAL.y), spr(this.hud.bookclosed, 480, 242), spr(eyeT, 608, 242));
-    // gemas dos cantos (as setas douradas de rolar entre os personagens do grupo; só há um herói, então só acendem com o mouse)
+    // gemas dos cantos (as setas douradas de rolar entre os personagens do grupo; só há um herói, então o clique não muda nada)
     for (const [off, on, x] of [[gl0, gl1, 476], [gr0, gr1, 598]] as const) {
       const g = spr(off, x, 446);
       g.eventMode = "static"; g.cursor = "pointer";
-      g.on("pointerover", () => { g.texture = on; }).on("pointerout", () => { g.texture = off; });
+      // original (sonda de 31/10): sob o mouse a gema NÃO acende (só a etiqueta Previous/Next Hero); o bitmap aceso fica para o botão apertado [est]
+      g.on("pointerdown", () => { g.texture = on; }).on("pointerup", () => { g.texture = off; }).on("pointerupoutside", () => { g.texture = off; }).on("pointerout", () => { g.texture = off; });
       view.addChild(g);
     }
     this.hint = new Hint(view);

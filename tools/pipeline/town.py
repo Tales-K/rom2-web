@@ -286,11 +286,11 @@ def build_town(src, out, key="plagat"):
                "cx": int(np.median(xs)), "cy": int(np.median(ys)), "top": int(np.percentile(ys, 3))}
         hili_path = os.path.join(d, "hili_%d.webp" % i)
         if key == "plagat":
-            # realce: a propria imagem clareada dentro da regiao
-            sub = base[y0:y1 + 1, x0:x1 + 1].astype(np.float32)
-            lit = np.clip(sub * 1.28 + 14, 0, 255).astype(np.uint8)
-            alpha = (ids[y0:y1 + 1, x0:x1 + 1] == i).astype(np.uint8) * 255
-            save(Image.fromarray(np.dstack([lit, alpha]), "RGBA"), hili_path, "lossless")
+            # Plagat nao tem realce: com o mouse na taverna, loja, portao, estatua ou escola o original so mostra a etiqueta e as
+            # animacoes de hover (refs/original/town_hover_* x town_hover_none; shop_l/tavern_l/trener_l nao aparecem: o erro contra a
+            # captura nao cai no hover da propria regiao; bug 5 de 31/10). Antes: a imagem clareada (x1,28 + 14) em cada regiao.
+            if os.path.exists(hili_path):
+                os.remove(hili_path)
         else:
             # Kaarg e acampamento: o original SO realca a taverna e a loja, com os bitmaps hili_tavern/hili_shop da pasta da cidade
             # (desenhados inteiros na posicao achada por correlacao com o fundo); portao, estatua e moradores nao se clareiam
