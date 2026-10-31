@@ -87,7 +87,12 @@ Igles, mapa global entre missões; conferir contra saves do original nos pontos 
 Efeito real das opções do jogo (#28), som e música por região, vídeos não comparados (#30), contagem de mortes da fama (#18), atalhos
 extras (F10, Home, =, −, H, F: manter só se o usuário quiser), formato do save e o que ele guarda (névoa).
 
-### Depois de F0–F7
+### F8 — Dificuldades fácil e difícil (por último, pedido do usuário em 31/10)
+Só o normal (`[0x6044c4]+0xd8` = 2) está conferido. Ler no exe os fatores de vida de 1 e 3 (0x561bf9, 0x4a2908; hoje 0,5/1,5
+estimados em `applyDifficulty`), dumps do oráculo com +0xd8 = 1 e 3, `loadcmp` nas 46 missões nas três dificuldades, e procurar
+todo outro uso da dificuldade no exe (experiência, IA, dinheiro).
+
+### Depois de F0–F8
 Passada de nomes legíveis em `game/src/sim/exe/`. Compressão e multiplayer **só por decisão do usuário**.
 
 ## Paralelismo
