@@ -108,8 +108,54 @@ loadcmp `--no-map`: **35 de 46** missões exatas, 99,99 % (57 pares); com o MapR
 (o raio vinha do Withdraw). Resíduo, nomeado: vida 0 no `.alm` (m30 ×2, m50, m101: o `knockOut` do trecho não commitado de setup.ts),
 `u.task` 0xc × 0xb nas unidades do jogador 1 (m53, m73), `walk.f72` (3, MapRec "passo") e `dip` da m92 (8.º jogador).
 
-## Próximo lote (3)
-Os grupos e o lado humano: a tarefa 0xc das unidades do jogador 1 (m53, m73; `AI_GuardLoad 0x570aba` e o modo de grupo) e os dados de
-grupo do exe em bytes no comparador. Depois o MapRec (lote 4: mascarar ponteiros na faixa "resto" +0x5400c…, passo 6 do pé das estruturas — inclui o
-`walk.f72` acima) e o herói (lote 5). Fora do comparador ainda: o construtor dos itens (atributos de items.json) e o resto da criação
-para os companheiros/invocações (`spawnCompanions`, `summonFactoryFor` usam o `statsFor`).
+## Lote 3 (2026-10-31, cc63871): grupos do jogador 1, MapRec, sacos e prédios
+- **Grupos do jogador 1** (0x562745, ramo da carga): grupo cujo dono+4 = 1 recebe `AI_NewGroupStandGround 0x570f2b` (0x570e83 + Stand
+  ground 0x570b8b: comando 3, tarefa 12), não `AI_GuardLoad`. Nos 46 despejos só há 5 unidades assim (m53 Ataman G29, m73 G17 ×4).
+  `World.initGroupGuard(setup)` aplica 0x570f2b ao grupo (por unidade, como o resto do lado humano) e marca o Guard padrão da unidade
+  (`AiMode.load`) para que `exeGroupSync` não o tome por comando 1 do script; o script que der Guard troca o objeto.
+- **MapRec, constantes do construtor 0x54d2d9** (`mapbuild.ts initCtorTables`): tamanhos de bloco dos contentores MFC, +0x54190+0x3f0 = 2
+  (0x55f2f0), as tabelas de 0x553d51 (canto +0x540a6, par de terrenos +0x54126, +0x5413e, custo por terreno +0x54146 = os valores do
+  map.reg nos despejos), +0x58ebc/+0x58ebe (0x554626), visão +0x2a000 = 1 << ScanShift e a tabela dx² + dy² em +0x20000 (0x552244).
+- **Passo** (+0x0): pelo tile com `Path_RockClass 0x55494d` lendo as tabelas do próprio MapRec (`Grid.tile`, `tilePasso`): pega a última
+  linha dos mapas e os tiles de classe ≥ 0xd (0xff); nas células livres do pé das estruturas o padrão +0x5414b = 6 (0x550a96). O
+  `walk.f72` (m40/m72/m90) era isto.
+- **Pontes de tamanho variável** (tipo 0x21 com `extra`): estrutura de largura extra[0] e máscara 0 (`exe.structs` dos despejos) — um
+  registro por célula do tabuleiro (máscara 0x20) e passo 6. **Prédios sobrepostos**: 0x5599df põe o prédio célula a célula e para na
+  1.ª que já tem outro (0x559890 → 0), ficando com as que pôs (`Grid.structs[].n`): m30 casa #37 sobre a cabana #27 (nenhuma célula; o
+  despejo tem 40 de 41 estruturas), m40 ferraria #43 sem a última linha.
+- **Sacos**: 0x5538c7 (põe: 0x5508a0 + saco em +0x10 + 0x550a53), 0x5539e5 (tira; registro vazio → 0x550966) e 0x553ad1 portadas em
+  `wave.ts`; `World.exeSyncBags` (no `exeSyncWorld`, fora do modo exato) acompanha `loot` — todo saco, também o vazio do mapa (m93 13,16).
+- **Comparador**: `MAP_MASKED` em `load_compare.mts` com o motivo de cada faixa — ponteiros (vtables, heap, globais, o mapa, o arquivo),
+  os 4 cronômetros de perfil 0x55f290 (QueryPerformanceFrequency do arnês), o OccRec corrente +0x5402c (rascunho da última consulta);
+  `m_nCount` do CMap comparado pelo nosso objeto (`map.ocupacao`); a célula do nosso herói fora das máscaras e da contagem.
+
+| | antes (442747b) | depois (cc63871) |
+|---|---|---|
+| loadcmp `--no-map`: missões exatas / pares | 35 / 46, 99,99 % (57) | **40 / 46**, 99,99 % (44) |
+| loadcmp com o MapRec | 0 / 46 (resto, passo, máscaras em todas) | **38 / 46** |
+| tickcmp reancorada / sem reimportar | 100,0 / 100,0 / 100,0 %; T=322 / nenhuma / 740 | igual |
+| golden `--ci` | 79,7 % | 79,74 % (CI ok; a janela pior é a antiga `pos|t74`) |
+| typecheck, `test:sim` | verdes | verdes |
+
+### Resíduo nomeado (8 missões com o MapRec)
+- **Vida 0 no `.alm`** (m30 ×2, m50, m101: `walk.footCell`/+0x86..+0x89, `u.task`, `t.f20`; e o `g_radius`/`g_base` do G6 da m30, que
+  sai das mesmas duas unidades): o trecho NÃO commitado de `mission/setup.ts` chama `world.knockOut` na carga; o original deixa a
+  unidade normal na célula (tarefa 11 do Guard), só com vida 0 — a queda é do 1.º tique. Fora do meu escopo (`game/src/mission/`);
+  perguntei ao coordenador.
+- **Forma do "Polymorph unit"** (m31 24741, m42 24702): `buildMission` (HEAD) faz `world.phaseOut` na carga; o original a deixa nas
+  células no tique 0. Mesmo arquivo, mesma pergunta. Conferir no C da ação 0x57… do script como o exe esconde a forma antes de mudar.
+- **m92 `dip` 1/5/7 × 8**: o 8.º jogador (sem unidades) em guerra; `alm_export.py` corta a diplomacia em `players.length` e
+  `buildMission` monta a tabela por ela (tools/ e mission/, ambos com trechos alheios). Inerte no jogo.
+- **Armadilhas do bloco 9** (m76 ×12, m93 teleportes ×N): o exe cria um registro de ocupação por armadilha (+0x34 = magia/0x17,
+  +0x35 = poder, +0x36 = célula, +0x38 = destino, +0x3a = célula); o nosso trata as armadilhas no `mission/host` (`setTrap`) e não
+  marca o MapRec. Pôr os registros exige ler o carregador dos efeitos (0x5626bc/0x562274?) e tirar o tratamento do host, senão o andar
+  portado (que lê +0x34 = 0x17) teleporta em dobro.
+- Fora do comparador ainda: o construtor dos itens (atributos de items.json), os registros de ocupação byte a byte (só a contagem e as
+  máscaras entram), os dados dos grupos do exe em bytes, e a junção do herói (lote 5).
+
+## Próximo lote (4)
+1. Com o aval do coordenador: vida 0 e Polymorph na carga (`mission/setup.ts`), o que fecha m30/m31/m42/m50/m101 → 45/46 sem o MapRec.
+2. Armadilhas no MapRec (acima) e a diplomacia do 8.º jogador.
+3. O resíduo da fase 1 (`notes/bugs-2026-10-31-fase1.md`): o gatilho do script no tique de pensamento (0x57485b roda 1×/s; o nosso
+   `runtime.update` roda por tique: conferir no C antes de mexer em `script/runtime`) e o crescimento de vida/mana máx. pela XP.
+4. O herói (lote 5).
