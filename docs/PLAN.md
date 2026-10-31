@@ -89,3 +89,5 @@ Estado 2026-10-29 (resíduo do tickcmp fechado): estado inteiro idêntico 100,0/
 golden 79,4 %. Próximo: etapa 9b (carregador).
 Estado 2026-10-29 (etapa 9b lote 1): 46 despejos do tique 0 no Unicorn, `npm run loadcmp`; pares do tique 0 98,74 %, missões
 exatas 0/46; corrida sem reimportar diverge só em T=322/822/740. Próximo: 9b lote 2 (atributos e livro).
+Estado 2026-10-31: 9b lote 2 (35/46 missões com tique 0 exato) e bugs de 31/10 (interface; fase 1: guerra das magias e alcance da
+maga); estado inteiro 100,0/100,0/100,0 %, golden 79,7 %. Plano do jogo inteiro: docs/PLANO-FIDELIDADE-JOGO.md (F0-F7).

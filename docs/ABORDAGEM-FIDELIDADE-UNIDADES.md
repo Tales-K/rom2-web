@@ -324,9 +324,15 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   na retomada, ~2 min). Lote 1: rumo inicial sorteado no construtor 0x50e173 (o servidor não lê a direção do `.alm`), byte de
   diplomacia inteiro do exe, e três defeitos de arnês na corrida sem reimportar. Pares idênticos no tique 0: 96,67 → **98,74 %**
   (missões exatas ainda 0/46). Corrida sem reimportar: 1.ª divergência de T=1 → **T=322 / 822 / 740**. Golden 79,4 %, `--ci` verde.
-- **Próximo**: 9b lote 2 (atributos e livro de monstros e humanos contra `Monster_CreateByName 0x50dd41`/`Human_CreateByName
-  0x5143e4`/`Monster_LoadTemplate 0x5114f3`, Wimpy/Withdraw 0x57382c, a unidade sem par), depois colocação e MapRec; o resto da 8b
-  (áreas de dano, invocações, largar `syncCombat`, que fecha o último tique) e, no fim, a passada de nomes legíveis em `exe/`.
+- **Etapa 9b, lote 2 e bugs da fase 1 de 31/10** (commits f7369bd, 1da21ac, d8d8983, 81b0702; `exe/create.ts`, `notes/carregador.md`,
+  `notes/bugs-2026-10-31-fase1.md`): criação das unidades do mapa portada (0x511959/0x5145d1) e nascimento na célula do `.alm`; tique 0
+  exato sem o MapRec em **35/46** missões. Na fase 1, a guerra aberta pelas magias portadas sumia no tique seguinte (a volta da diplomacia
+  só rodava depois do golpe físico) e o alcance da maga somava o da magia do cajado (7 em vez de 6). Corrigidos: o Ogre e o Hydun com os
+  morcegos revidam como no original. Estado inteiro → **100,0 / 100,0 / 100,0 %**; corrida sem reimportar da m10_mage sem divergência;
+  golden **79,7 %**, `--ci` verde.
+- **Próximo**: o plano do jogo inteiro (`docs/PLANO-FIDELIDADE-JOGO.md`); nesta frente (F2): 9b lote 3 (colocação, `AI_GuardLoad`,
+  MapRec), largar `syncCombat`, o resto da 8b (áreas de dano, invocações, magia no chão da IA) e corridas livres desde o tique 0 em
+  mais missões; no fim, a passada de nomes legíveis em `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
   dentro da `World` (o `Unit` atual vira vista sobre `UnitRec`).
