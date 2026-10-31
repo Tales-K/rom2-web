@@ -342,8 +342,9 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
     scriptId: data.script?.heroUnitId ?? 10001, npc: 21, isHero: true, name: hero.name });
   const sp = heroSpells(hero, data);
   h.spells = sp.spells;
+  // o alcance segue o do item (+0x12c = alcance da arma, 0x5290cc; AI_AttackRange 0x56ac5b): o cajado não soma o da magia que lança
+  // (Wood Staff 6, a Fire Arrow dele 7 — no exe a maga atira de 6: despejos da m10_mage)
   h.weaponSpell = sp.weaponSpell;
-  if (h.weaponSpell) { h.stats.range = Math.max(h.stats.range, h.weaponSpell.range); }
   h.dir = 8; // o herói do original começa virado para o norte (quadro parado 8)
   h.exp = 0;
   h.heroInfo = { mage: hero.heroClass === "mage", alignment: heroAlignment(hero), skillExp: heroSkillExp(hero, data) };
@@ -431,8 +432,7 @@ export function refreshHero(u: Unit, hero: HeroState, data: MissionData): void {
   const sp = heroSpells(hero, data);
   const temp = u.spells.filter(s => s.id.startsWith("scroll:"));
   u.spells = [...sp.spells, ...temp];
-  u.weaponSpell = sp.weaponSpell;
-  if (u.weaponSpell) u.stats.range = Math.max(u.stats.range, u.weaponSpell.range);
+  u.weaponSpell = sp.weaponSpell;   // alcance = o do item, sem o da magia do cajado (0x5290cc; ver buildMission)
 }
 
 /** Companheiros da campanha cuja morte encerra a missão: Igles (10002) = causa 3, Dina (10003) = causa 4 (todas as missões 30+ têm

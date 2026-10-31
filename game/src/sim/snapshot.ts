@@ -256,6 +256,13 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   world.groupState.clear();
   for (const [g, v] of s.groupState ?? []) world.groupState.set(g, { ...v });
   world.syncRecs();   // campos derivados dos registros do exe (atributos de combate, modelo, dono), como depois de um passo
+  // o `exeSyncWorld` do syncRecs já normaliza a ordem das listas (herói à frente, quem entrou vai para o fim), o que o mundo salvo só
+  // faz no começo do passo seguinte: a ordem volta a ser a do retrato (missão 103: a tartaruga invocada morrendo ia para o fim)
+  if (ls) {
+    const xw = world.exeWorld;
+    xw.liveUnits.removeAll(); for (const a of ls.live) xw.liveUnits.addTail(a >>> 0);
+    for (const k of ["all", "magic", "corpses"] as const) { xw.lists[k].removeAll(); for (const a of ls[k]) xw.lists[k].addTail(a >>> 0); }
+  }
   // a tabela de diplomacia do exe por último: 0x57977a escreve nela fora de `dip` (diagonal, jogadores fora da matriz)
   if (s.exeWorld?.dip) world.exeWorld.dipTable.set(unhex(s.exeWorld.dip));
   world.events.length = 0;

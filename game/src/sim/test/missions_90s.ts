@@ -257,7 +257,10 @@ async function m92(): Promise<void> {
   beside(r, h, 55); settle(r);
   check(has(r, 12) && sub(r, 3) === 1 && trapper.ai?.type === "follow", `armadilheiro concorda: msg 12, sub 3 e ele passa a seguir o herói (ai ${trapper.ai?.type})`);
   check(!has(r, 15), "fantasmas ainda parados (msg 15 só quando o armadilheiro os alcança)");
-  // escolta de verdade: o armadilheiro (jogador 3) segue o herói até os fantasmas e depois até o falante, com os fantasmas atrás dele
+  // escolta de verdade: o armadilheiro (jogador 3) segue o herói até os fantasmas e depois até o falante, com os fantasmas atrás dele.
+  // Os monstros (jogador 6) saem antes: as áreas das magias de chance deles no herói pegam os fantasmas, e a guerra por agressão
+  // (0x56e6b8 → 0x57977a, SpellArea 0x517c1a) põe o 6 em guerra com o 4 e depois o 4 com o 6, como no exe — a escolta vira briga
+  killAll(r, ofPlayer(r, 6));
   for (const u of [trapper, ...all3(r)]) { u.maxHp = u.hp = 100000; u.stats = { ...u.stats, healthRegen: 0 }; } // grupo "imortal" (sem regeneração: 0x50fc5a estouraria o short) só na escolta (as abelhas matam a Dina de 26 PV de um golpe)
   at(r, h, 44, 27);
   // o herói fica (Stand ground): quem atira de longe nele (a guarda dos grupos alcança mais longe, exe 0x57275f) não o tira do lugar

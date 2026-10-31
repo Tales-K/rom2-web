@@ -1660,6 +1660,10 @@ export class World {
     this.stepProjectiles();
     if (this.areas.length) this.stepAreas();
     if (this.traps.length) this.stepTraps();
+    // a guerra por agressão que a porta marcou na tabela do exe neste passo (0x56e6b8 → 0x57977a: impacto do projétil e dano preso ao
+    // alvo em exe/spells.ts, golpe da máquina) volta para `dip` antes que o `exeSyncWorld` do próximo passo reescreva a tabela — senão o
+    // cajado da maga feria um neutro (o Ogre da missão 10) sem abrir a guerra e ele nunca revidava
+    this.syncDiplomacyBack();
   }
 
   /** Levanta quem estava morrendo (Heal que passa a vida de 0) [exe 0x510534]: volta ao estado normal com `hp`. */
@@ -1849,9 +1853,10 @@ export class World {
     return out;
   }
 
-  /** Alcance de ataque efetivo [exe 0x56ac5b]: magia escolhida (se houver mana) senão a arma. */
+  /** Alcance de ataque efetivo [exe 0x56ac5b]: magia escolhida (se houver mana) senão a arma. A arma que lança magia (o cajado) não
+   *  soma o alcance da magia dela: +0x12c = alcance do item (0x5290cc; Wood Staff 6, a Fire Arrow dele 7 — despejos da m10_mage) */
   attackRange(u: Unit): number {
-    const base = u.weaponSpell ? Math.max(u.stats.range, u.weaponSpell.range) : u.stats.range;
+    const base = u.stats.range;
     return u.selectedSpell ? Math.max(base, selectedSpellRange(u)) : base;
   }
 

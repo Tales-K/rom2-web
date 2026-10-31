@@ -28,7 +28,13 @@ const K = TICKS_PER_SEC / SERVER_TICKS_PER_SEC;
 export function orderOf(w: World, a: Action, u: Unit, ref: (v: number | string | undefined) => Unit | undefined): Order | null {
   switch (a.do) {
     case "move": case "pickup": return { type: "move", x: a.x ?? u.cx, y: a.y ?? u.cy };
-    case "attack": { const t = ref(a.target); return t ? { type: "attack", target: t.id } : null; }
+    // o pacote "atacar unidade" do cliente não olha a diplomacia (0x570946): num alvo sem guerra é o ataque forçado da nossa
+    // interface (Ctrl+clique) — m10_ogre_x1, a maga no Ogre neutro da missão 10
+    case "attack": {
+      const t = ref(a.target);
+      if (!t) return null;
+      return t.player !== u.player && !w.hostile(u.player, t.player) ? { type: "attack", target: t.id, forced: true } : { type: "attack", target: t.id };
+    }
     // "stop" do roteiro = mensagem 0x18 do cliente (vclock.py) → Stand ground 0x570b8b, a mesma do botão "parado" da interface
     case "stop": return { type: "hold" };
     case "guard": return { type: "guard", x: u.cx, y: u.cy };

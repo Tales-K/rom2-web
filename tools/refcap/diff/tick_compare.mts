@@ -94,7 +94,9 @@ export function origFields(o: Any): Record<string, Val | undefined> {
     type: o.type, player: o.player, x: o.x, y: o.y, fx: R256(o.fx), fy: R256(o.fy), hp: o.hp, hpmax: o.hpmax, mana: o.mana, manamax: o.manamax,
     act: o.state, task: tc, target: targeted ? o.target : 0, dir16: (o.angle ?? 0) >> 4,
     speed_eff: o.speed_eff ?? o.speed, scan: o.scan, toHit: o.toHit, dmin: o.dmin, dmax: o.dmin + o.damp, defense: o.defense, absorb: o.absorb,
-    range: Math.max(1, o.attack_range & 0xff), turn: o.turn & 0xff, withdraw: o.withdraw, wimpy: o.wimpy, charge: o.charge ?? 0, relax: o.relax ?? 0,
+    // alcance = +0x12c do registro (o despejo da etapa 6 traz `exe.f12c`); sem ele, o byte baixo de IA+0x14 (`attack_range`), que é o
+    // alcance da TAREFA de ataque/magia (0x56d1be/0x56d3e6) e vale 0 com a unidade parada
+    range: Math.max(1, (o.exe?.f12c ?? o.attack_range) & 0xff), turn: o.turn & 0xff, withdraw: o.withdraw, wimpy: o.wimpy, charge: o.charge ?? 0, relax: o.relax ?? 0,
     eldmg: (o.eldmg ?? [0, 0, 0, 0, 0]).join(","), hpregen: o.hpregen, manaregen: o.manaregen, effects: o.effects & EFFECT_MASK, summoner: o.summoner,
     post: o.task === 0xa ? undefined : o.post, unreach: o.unreach_sec_raw, flee_cell: o.flee_cell, hit_clock16: o.hit_clock16, look_hit: o.look_hit ? 1 : 0,
     walk_static: (w.static ?? []).join(","), walk_dynamic: (w.dynamic ?? []).join(","), walk_goal: w.goal ?? 0, walk_final: w.final ?? 0,
