@@ -106,17 +106,46 @@ function lcgSteps(a: number, b: number): number | null {
 
 // ------------------------------------------------------------------------------------------------ MapRec
 const MAP_BANDS: [string, number, number][] = [["map.passo", 0, 0x10000], ["map.mascara", 0x10000, 0x20000], ["map.dinamica", 0x20000, 0x30000], ["map.resto", 0x30000, 0xa4570]];
-function mapDiff(st: Any, w: World): Diff[] {
+/** Bytes do MapRec fora da comparação, por motivo (construtor 0x54d2d9 e callees): ponteiros (vtables, heap, globais, o próprio mapa) que
+ *  o nosso modelo não tem como endereço; os 4 cronômetros de perfil 0x55f290 (QueryPerformanceFrequency do arnês: não é estado de jogo);
+ *  o OccRec corrente +0x5402c (rascunho: cópia da última consulta de ocupação, refeita antes de cada uso — a última da carga do original
+ *  é a de uma unidade do mapa, a nossa a do nosso herói); a contagem do CMap de ocupação (+0x54090) vai à parte, pelo nosso objeto. */
+const MAP_MASKED: [string, number, number][] = [
+  ["ptr", 0x5400c, 8],            // 0x52b19a: vtable do objeto do anel e do CList dele
+  ["rascunho", 0x5402c, 0x3c],    // OccRec corrente (0x54f84c)
+  ["ptr", 0x54068, 4],            // 0x5420f0: vtable
+  ["ptr", 0x54084, 8],            // 0x55f360: vtable, tabela de baldes
+  ["mfc", 0x54090, 4],            // m_nCount (comparado pelo nosso CMap)
+  ["ptr", 0x54094, 8],            // m_pFreeList, m_pBlocks
+  ["ptr", 0x5859c, 12],           // 0x567300: &globais 0x6ca2b8/bc/c0
+  ["ptr", 0x58d80, 4],            // mundo
+  ["perfil", 0x58dc8, 0xc0],      // 0x55f290 × 4
+  ["ptr", 0x92ec8, 4],            // visão +0x3a008: o mapa
+  ["ptr", 0x944dc, 4],            // 0x553d51: o arquivo do mapa
+  ["ptr", 0xa44f4, 4],            // 0x55f7f0: vtable
+  ["ptr", 0xa4510, 4],            // 0x5420f0: vtable
+  ["ptr", 0xa456c, 4],            // ponteiro do arquivo do mapa
+];
+const MASKED = new Set<number>();
+for (const [, a, n] of MAP_MASKED) for (let i = 0; i < n; i++) MASKED.add(a + i);
+function mapDiff(st: Any, w: World, hero: Unit): Diff[] {
   const run = st.exe?.mem?.[0];
   if (!run || run[0] !== 0) return [];
   const hex: string = run[1], mem = w.exe.mem, out: Diff[] = [];
+  // o nosso herói (o despejo da carga não tem herói): a célula dele nas máscaras e o registro de ocupação que ela ganhou
+  const hc = hero.alive ? (hero.cy << 8) | hero.cx : -1;
+  const heroCells = new Set(hc >= 0 ? [0x10000 + hc, 0x20000 + hc] : []);
   for (const [name, a, b] of MAP_BANDS) {
     let n = 0, first = -1;
     for (let i = a; i < b && i * 2 < hex.length; i++) {
+      if (MASKED.has(i) || heroCells.has(i)) continue;
       if (parseInt(hex.substr(i * 2, 2), 16) !== mem[i]) { n++; if (first < 0) first = i; }
     }
     if (n) out.push({ key: `${name}|${first.toString(16)}`, orig: `${n} B`, ours: `1.º +0x${first.toString(16)}` });
   }
+  const oc = w.exe.occ.count - (hc >= 0 && (parseInt(hex.substr((0x10000 + hc) * 2, 2), 16) & 0x20) === 0 && (mem[0x10000 + hc]! & 0x20) !== 0 ? 1 : 0);
+  const ocO = (st.exe?.occ?.count as number | undefined) ?? new DataView(Buffer.from(hex.substr(0x54090 * 2, 8), "hex").buffer).getInt32(0, true);
+  if (oc !== ocO) out.push({ key: "map.ocupacao|count", orig: ocO, ours: oc });
   return out;
 }
 
@@ -174,7 +203,7 @@ async function one(m: number, opt: Opts): Promise<Result> {
   // que o original sorteia só quando o cliente o junta, depois de 0x4eb715
   if (lr?.seed0 != null) { vo.set("rng|carga", lr.draws); vn.set("rng|carga", (lcgSteps(lr.seed0, w.rng.state) ?? -1) - 1); }
   const diffs = diffViews(vo, vn, null, opt.fields);
-  if (opt.map) diffs.push(...mapDiff(st, w).filter(d => !opt.fields || opt.fields.has(fieldOf(d.key))));
+  if (opt.map) diffs.push(...mapDiff(st, w, r.b.hero).filter(d => !opt.fields || opt.fields.has(fieldOf(d.key))));
   if (opt.show === m && opt.map) for (const l of mapRuns(st, w)) console.log(`    MapRec ${l}`);
   return { m, pairs: new Set([...vo.keys(), ...vn.keys()]).size, diffs, units: st.units.length, matched: idmap.size };
 }

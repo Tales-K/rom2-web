@@ -1326,7 +1326,7 @@ addr	name	size	file	line	status	ts	note
 0x551edb	FUN_00551edb	95	game/g_550000.c	1264	ported	wave.ts:fn_0x551edb	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
 0x55201a	Map_UnitAtCell	95	game/g_550000.c	1348	pending		
 0x552079	Map_StructureAtCell	95	game/g_550000.c	1376	pending		
-0x552244	FUN_00552244	240	game/g_550000.c	1467	pending		
+0x552244	FUN_00552244	240	game/g_550000.c	1467	ported	fn_0x552244	exec 0 (carga); prova: loadcmp tique 0, 46 despejos (refs/oracle/load): visão +0x20000 igual
 0x552334	FUN_00552334	1119	game/g_550000.c	1489	pending		
 0x552af8	FUN_00552af8	304	game/g_550000.c	1656	ported	vision.ts:visionCompute	laço interno da visão (inline em visionCompute; etapa 9 lote 2)
 0x552c28	Vision_Compute	645	game/g_550000.c	1680	ported	vision.ts:visionCompute	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2) (189/189 na m20): laços quentes 0x552af8/0x559536 dentro
@@ -1335,15 +1335,15 @@ addr	name	size	file	line	status	ts	note
 0x5536a4	FUN_005536a4	323	game/g_550000.c	1992	pending		
 0x55385f	FUN_0055385f	31	game/g_550000.c	2085	ported	occRecCopy	exe_walk.ts: pares 100% (3 episódios)
 0x553891	Unit_RemoveFromCells	54	game/g_550000.c	2104	ported	walk_action.ts:unitRemoveFromCells	pares 3 episódios 100% (exe_walkaction.ts)
-0x5538c7	FUN_005538c7	286	game/g_550000.c	2119	pending		
-0x5539e5	FUN_005539e5	162	game/g_550000.c	2174	pending		
+0x5538c7	FUN_005538c7	286	game/g_550000.c	2119	ported	fn_0x5538c7	exec 0 (carga); prova: loadcmp tique 0, 46 despejos (refs/oracle/load): máscara/contagem do CMap com os sacos do mapa
+0x5539e5	FUN_005539e5	162	game/g_550000.c	2174	ported	fn_0x5539e5	espelho de 0x5538c7 (World.exeSyncBags); sem pares (exec 0)
 0x553a87	FUN_00553a87	44	game/g_550000.c	2211	pending		
 0x553ab3	FUN_00553ab3	30	game/g_550000.c	2221	out		saco na célula (caso 2 de 0x50f12c): exec 0; NotPorted
-0x553ad1	FUN_00553ad1	95	game/g_550000.c	2234	pending		
+0x553ad1	FUN_00553ad1	95	game/g_550000.c	2234	ported	fn_0x553ad1	trivial; sem pares (exec 0)
 0x553b30	FUN_00553b30	545	game/g_550000.c	2260	pending		
 0x553d51	FUN_00553d51	2247	game/g_550000.c	2308	pending		
 0x554626	FUN_00554626	807	game/g_550000.c	2536	pending		
-0x55494d	Path_RockClass	650	game/g_550000.c	2628	pending		
+0x55494d	Path_RockClass	650	game/g_550000.c	2628	ported	pathRockClass	exec 0 (carga); prova: loadcmp tique 0, 46 despejos (refs/oracle/load): passo +0x0 igual em todas as células fora a m30 (prédio)
 0x554fd2	FUN_00554fd2	516	game/g_550000.c	2816	ported	walk_action.ts:fn_0x554fd2	pares 3 episódios 100% (exe_walkaction.ts); AVANÇO DA POSIÇÃO FINA POR TIQUE (via 0x555b38 do despachante 0x56dca2 com IA+9==3)
 0x5551d6	FUN_005551d6	25	game/g_550000.c	2859	ported	mapObjCenterFraction	exe_walk.ts: pares 100% (3 episódios)
 0x5551ef	Unit_WalkWait	318	game/g_550000.c	2870	ported	walk_action.ts:unitWalkWait	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
@@ -1679,7 +1679,7 @@ addr	name	size	file	line	status	ts	note
 0x570cd5	FUN_00570cd5	81	game/g_570000.c	494	pending		
 0x570d26	FUN_00570d26	81	game/g_570000.c	510	pending		
 0x570e83	FUN_00570e83	87	game/g_570000.c	580	ported	orders.ts:fn_0x570e83	pares 100% (exe_orders.ts, 3 episódios)
-0x570f2b	AI_NewGroupStandGround	37	game/g_570000.c	623	pending		
+0x570f2b	AI_NewGroupStandGround	37	game/g_570000.c	623	ported	aiNewGroupStandGround	exec 0 (carga); prova: loadcmp tique 0, 46 despejos (refs/oracle/load): m53/m73 tarefa 12, comando 3
 0x5711ea	AI_TargetCost	526	game/g_570000.c	715	ported	think.ts:aiTargetCost	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x5713f8	FUN_005713f8	424	game/g_570000.c	785	ported	think.ts:fn_0x5713f8	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2): custo só adjacentes
 0x571c4d	AI_GroupVisibleEnemies	590	game/g_570000.c	1044	ported	think.ts:aiGroupVisibleEnemies	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)

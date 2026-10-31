@@ -38,8 +38,10 @@ export class Grid {
   /** estruturas com máscara de passagem (data.bin Buildings.Passability), na ordem do mapa: canto, largura, altura, máscara (bit
    *  dy×w + dx = bloqueia) e o bloqueio que cada célula do pé tinha antes da estrutura — o exe guarda um registro de ocupação por
    *  célula do pé (sim/exe/mapbuild.ts) */
-  readonly structs: { x: number; y: number; w: number; h: number; pass: number; under: Uint8Array }[] = [];
+  readonly structs: { x: number; y: number; w: number; h: number; pass: number; under: Uint8Array; n: number }[] = [];
   readonly alt: Int16Array;
+  /** id cru do tile por célula (map.tiles; só na grade de um mapa): o passo do MapRec sai dele pela classe 0x55494d (sim/exe/mapbuild.ts) */
+  tile: Uint16Array | null = null;
   minCost = 6;
 
   constructor(w: number, h: number, classes: string[] = []) {
@@ -86,8 +88,10 @@ export class Grid {
     const costByClass = terr ? terr.classes.map(c => terr.cost[c] ?? 8) : [];
     const blockedClass = terr ? terr.classes.map(c => terr.blocked.includes(c)) : [];
     g.minCost = Math.max(1, Math.min(...(costByClass.length ? costByClass : [8]), ...Object.values(terr?.speed ?? {})));
+    g.tile = new Uint16Array(map.w * map.h);
     for (let i = 0; i < map.w * map.h; i++) {
       const id = (map.tiles[i] ?? 0) & 0x1fff;
+      g.tile[i] = map.tiles[i] ?? 0;
       const cls = terr?.tile[String(id)] ?? 0;
       g.terrain[i] = cls;
       g.cost[i] = terr?.speed?.[String(id)] ?? costByClass[cls] ?? 8;
@@ -106,15 +110,26 @@ export class Grid {
     for (const [ox, oy] of map.objs) {
       if (g.inside(ox, oy)) g.block[g.idx(ox, oy)]! |= BLOCK_OBJECT;
     }
+    // dono (índice + 1 em `structs`) do registro de estrutura de cada célula: 0x5599df põe o prédio célula a célula (linha a linha) e
+    // para na 1.ª que já tem outro (0x559890 → 0), ficando com as que já pôs — m30 (casa #37 sobre a cabana #27: nenhuma célula), m40
+    // (ferraria #43 sem a última linha); as células que sobraram ficam como estavam
+    const owner = new Int32Array(map.w * map.h);
     for (const s of map.structures) {
       // ponte de madeira de tamanho variável (tipo 0x21, com ou sem o bit 0x1000000; +8 bytes no .alm = largura, altura): o tabuleiro
       // inteiro passa sobre a água [est: a máscara de 1×1 do data.bin não cobre o tamanho variável; travessias da missão 76]
       if ((s.kind & 0xffffff) === 0x21 && s.extra && s.extra.length >= 2) {
         const x0 = Math.floor(s.x), y0 = Math.floor(s.y);
-        for (let dy = 0; dy < s.extra[1]!; dy++) for (let dx = 0; dx < s.extra[0]!; dx++) {
+        // no exe é uma estrutura de largura extra[0] e máscara 0 (todas as células livres): um registro de ocupação por célula do
+        // tabuleiro (máscara 0x20) e o passo padrão 6 por 0x550a96 (46 despejos do tique 0: `exe.structs` [x, y, largura, 0])
+        const w = s.extra[0]!, h = s.extra[1]!;
+        const rec = { x: x0, y: y0, w, h, pass: 0, under: new Uint8Array(w * h), n: w * h };
+        g.structs.push(rec);
+        for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
           const x = x0 + dx, y = y0 + dy;
           if (!g.inside(x, y)) continue;
           const i = g.idx(x, y);
+          rec.under[dy * w + dx] = g.block[i]!;
+          owner[i] = g.structs.length;
           g.block[i]! &= ~(BLOCK_TERRAIN | BLOCK_OBJECT | BLOCK_STRUCTURE);
           if (((map.tiles[i] ?? 0) & 0x300) === 0x200) g.cost[i] = 8;
         }
@@ -124,13 +139,17 @@ export class Grid {
       if (!def) continue;
       const x0 = Math.floor(s.x), y0 = Math.floor(s.y);
       const bridge = /bridge/i.test(def.name);
-      const rec = def.pass !== undefined ? { x: x0, y: y0, w: def.tw, h: def.th, pass: def.pass >>> 0, under: new Uint8Array(def.tw * def.th) } : null;
+      const rec = def.pass !== undefined ? { x: x0, y: y0, w: def.tw, h: def.th, pass: def.pass >>> 0, under: new Uint8Array(def.tw * def.th), n: def.tw * def.th } : null;
       if (rec) g.structs.push(rec);
-      for (let dy = 0; dy < def.th; dy++) for (let dx = 0; dx < def.tw; dx++) {
+      cells: for (let dy = 0; dy < def.th; dy++) for (let dx = 0; dx < def.tw; dx++) {
         const x = x0 + dx, y = y0 + dy;
         if (!g.inside(x, y)) continue;
         const i = g.idx(x, y);
-        if (rec) rec.under[dy * def.tw + dx] = g.block[i]!;
+        if (rec) {
+          if (owner[i]) { rec.n = dy * def.tw + dx; break cells; }
+          owner[i] = g.structs.length;
+          rec.under[dy * def.tw + dx] = g.block[i]!;
+        }
         if (def.pass !== undefined) {
           // máscara de passagem da estrutura (data.bin Buildings.Passability; bit dy×tw + dx) [exe 0x550bbf]: 1 → `| 5` (bloqueia),
           // 0 → `& 0xfa` (livra o terreno e o objeto embaixo: o tabuleiro da ponte sobre a água, os cantos das casas); F fica o do tile

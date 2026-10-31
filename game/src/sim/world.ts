@@ -80,14 +80,14 @@ import { randInclusive } from "./exe/rand";
 import { vt30 } from "./exe/vtables";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
-import { BACKTRACE_UB, fn_0x55be86 } from "./exe/wave";
+import { BACKTRACE_UB, fn_0x5538c7, fn_0x5539e5, fn_0x55be86 } from "./exe/wave";
 import { EXE_GLOBALS } from "./exe/types";
 import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
 import { castAt, exeFlee, legacyThink, pickOffensive } from "./ai";
 import {
   ClientOrder, EMPTY_GROUP, aiGroupCmdGuard, aiGroupCmdMove, aiGroupCmdSwarm2, aiGuardLoad, clientOrder, fn_0x52ae43, fn_0x52af8c, fn_0x53d690,
-  fn_0x5708ff, fn_0x570946, fn_0x570b8b, fn_0x570d26,
+  aiNewGroupStandGround, fn_0x5708ff, fn_0x570946, fn_0x570b8b, fn_0x570d26,
 } from "./exe/orders";
 import { canRevive, healDying, onFell, raiseDead, summonCreature, CORPSE } from "./necro";
 import { selectedSpellRange } from "./spellattack";
@@ -118,7 +118,9 @@ export interface ExePlayerSpec { a: number; id: number; f2c: number; f32: number
 
 /** Comportamento padrão dado pelo script (comando de grupo), pelo mapa ou pela cena (mercenários). */
 export type AiMode =
-  | { type: "guard"; range: number }
+  /** `load`: o Guard padrão que a unidade do lado humano tinha quando a carga do mapa deu Stand ground ao grupo dela (0x562745 →
+   *  AI_NewGroupStandGround 0x570f2b) — não é comando do script; o script que der Guard troca o objeto */
+  | { type: "guard"; range: number; load?: true }
   | { type: "hold" }
   /** "Stand still" (tecla L): não ataca nem persegue ninguém */
   | { type: "still" }
@@ -694,7 +696,7 @@ export class World {
     if (u.suspended || u.helpless) return null;
     const a = u.ai;
     switch (a.type) {
-      case "guard": return u.group ? null : `g:${a.range | 0}`;
+      case "guard": return u.group || a.load ? null : `g:${a.range | 0}`;
       case "hold": return "h";
       case "move": return `m:${a.x},${a.y}`;
       case "swarm": return `s:${a.x},${a.y}`;
@@ -1209,6 +1211,7 @@ export class World {
     for (const [p, r] of this.exePlayers) r.autocast = (this.playerAi[p]?.autocast ?? 0) & 0xff;
     if (this.exeExact) { for (const u of this.units) { u.rec.owner.f04 = u.player; u.rec.owner.f38 = heroOf.get(u.player) ?? 0; } return; }
     this.exeSyncGroups();
+    this.exeSyncBags();
     for (const [p, r] of this.exePlayers) { r.f04 = p; r.f38 = heroOf.get(p) ?? 0; r.f2c = p === this.humanPlayer ? 0 : 1; }
     // ordem de criação do exe: o herói ANTES das unidades do mapa (despejos m10/m20: [0x68d2dc]+4 começa no herói; o nosso o cria depois
     // do mapa) — 0x52b459 roda a unidade inteira (pensar, golpe, passo) na ordem da lista: com o herói por último, quem o persegue media a
@@ -1246,6 +1249,20 @@ export class World {
     if (lists) {
       for (const k of ["all", "magic", "corpses"] as const) { w.lists[k].removeAll(); for (const a of lists[k]) w.lists[k].addTail(a >>> 0); }
     }
+  }
+
+  /** Os sacos no MapRec (registro de ocupação +0x10, máscara 0x20): cada saco de `loot` (também o vazio do mapa: m93 13,16) posto na célula dele (0x5538c7, como a
+   *  carga 0x564072 e a queda os põem), o registro de quem sumiu ou esvaziou tirado (0x5539e5). O saco do nosso jogo vive em `loot` e é
+   *  mexido por vários lados (recolher, cena, script): aqui o MapRec o acompanha, na ordem de `loot`. Endereço sintético pelo id. */
+  private exeSyncBags(): void {
+    const m = this.exe, have = new Set<number>(), want = new Map<number, number>();
+    for (const a of m.occ.table ?? []) for (let p = a; p; p = p.next) if (p.value.u32(0x10) !== 0) have.add(p.key & 0xffff);
+    for (const l of this.loot) {
+      const c = ((l.y & 0xff) << 8) | (l.x & 0xff);
+      if (!want.has(c)) want.set(c, (0x30000000 + (l.id & 0xffffff) * 0x10) >>> 0);
+    }
+    for (const c of have) if (!want.has(c)) fn_0x5539e5(m, c);
+    for (const [c, a] of want) if (!have.has(c)) fn_0x5538c7(m, a, c);
   }
 
   /** As estruturas do mapa (alvo dos ponteiros OccRec+0xc) de volta (o estado importado do oráculo usa as do original). */
@@ -1411,6 +1428,15 @@ export class World {
    *  ele, a MinimalGuardRange (`+0x38`); no 1º pensamento o raio vira `base + 4 + rand(−1..1)` (`+0x2d`) e fica. [est] o rand(−1..1) do exe
    *  vira um hash do número do grupo (não desloca a sequência de sorteios dos pilotos). */
   initGroupGuard(group: number, units: Unit[], param = 0, setup = false): void {
+    // carga do mapa (0x562745): o grupo do jogador 1 (dono+4 = 1) recebe AI_NewGroupStandGround 0x570f2b (0x570e83 + Stand ground
+    // 0x570b8b: comando 3, tarefa 12) em vez de AI_GuardLoad — m53 (Ataman, G29) e m73 (G17) nos 46 despejos do tique 0. O lado humano
+    // tem um grupo do exe por unidade (exeGroupSync, que nasce em Stand ground); o Guard padrão da unidade fica marcado como da carga
+    if (setup) for (const u of units) {
+      if (!u.alive || u.isHero || this.isAiPlayerUnit(u) || u.player !== 1 || u.ai.type !== "guard") continue;
+      u.ai = { ...u.ai, load: true };
+      this.humanScriptCmd.delete(u.id);
+      aiNewGroupStandGround(this.exeWorld, this.exeGroupSync(u));
+    }
     const m = units.filter(u => u.alive && this.isAiPlayerUnit(u));
     if (!group || !m.length) return;
     for (const u of m) { u.group = group; u.groupTarget = 0; }

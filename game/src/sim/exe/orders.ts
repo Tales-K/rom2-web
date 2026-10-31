@@ -16,7 +16,7 @@
  *    centroide (AI_GroupMaxScanRange 0x56f850); deslocamentos IA+0x24/+0x26; +0x44 do grupo = menor velocidade +0x8c), 0x5708bc (2),
  *    0x5708ff (0x11 enxame), 0x5709b8 (→ Swarm2), AI_GroupCmd_Guard 0x5709d9 e AI_GuardLoad 0x570aba (0x56d4ba em cada membro,
  *    0x57026e: raio-base = max(distância ao centroide + visão) elevado ao parâmetro ou a MinimalGuardRange mundo+0xa8b8 / 20),
- *    0x570b8b (3; AI_StandGroundAt 0x56d52b), 0x570946 (AI_TargetCost 0xffffff → 0x56dba1, senão 0x56d1be), 0x5702be (unidade+0x44 →
+ *    0x570b8b (3; AI_StandGroundAt 0x56d52b), AI_NewGroupStandGround 0x570f2b (0x570e83 + 0x570b8b), 0x570946 (AI_TargetCost 0xffffff → 0x56dba1, senão 0x56d1be), 0x5702be (unidade+0x44 →
  *    0x56d3e6, senão 0x56dba1), 0x570d26 (patrulha: 0x56d6b7), 0x570bde/0x570c31/0x570c84/0x570cd5 (0x56d572/0x56da4f/0x56d5b9/
  *    0x56d638: exec 0, NotPorted).
  *  - Por unidade: 0x56d032 (andar: destino limitado à área útil mapa+0x58eb8, +0x50 = 1, IA+0xa, andar+0x90 = 0, IA+8 = 1), 0x56d1be
@@ -333,6 +333,13 @@ export function fn_0x570b8b(wd: WorldRec, param_1: UnitTypeRec): void {
   fn_0x570e83(wd, param_1);
   for (let local_8 = param_1.members.first(); local_8 !== 0; local_8 = param_1.members.nextAfter(local_8)) aiStandGroundAt(wd, wd.map.unitAt(local_8));
   param_1.stats.f20 = 3;
+}
+
+/** 0x570f2b AI_NewGroupStandGround (thiscall; grupo): 0x570e83 e Stand ground 0x570b8b — a carga do mapa (0x562745) o dá aos grupos do
+ *  jogador 1 (no lugar de AI_GuardLoad); também Cheat_SummonUnits, Spell_Apply (invocação) e 0x52f8e2. */
+export function aiNewGroupStandGround(wd: WorldRec, param_1: UnitTypeRec): void {
+  fn_0x570e83(wd, param_1);
+  fn_0x570b8b(wd, param_1);
 }
 
 /** 0x570946 (thiscall; grupo, alvo): atacar unidade — por membro, AI_TargetCost 0xffffff (não atacável) → 0x56dba1, senão 0x56d1be. */

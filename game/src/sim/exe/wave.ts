@@ -7,6 +7,7 @@
  * 1 célula), 0x55c6f0 0x55c910 0x55cb30 0x55cdf0 (ondas de unidade grande), 0x54e886 Path_BacktraceDynamic, 0x54e58c
  * Path_BacktraceStatic, 0x55c440 Path_TargetFree, 0x55cd50, 0x55c5a0 Unit_FootprintCheck, 0x5563ca, 0x55be86 (pegada),
  * 0x55c1fe 0x55c2ce (tira/põe a unidade na célula), 0x550a96 0x550a53 0x550966 0x5508a0 (registro de ocupação → grades),
+ * 0x5538c7 0x5539e5 0x553ad1 (saco na célula),
  * 0x550e12 0x550ed5 0x55f350, 0x551edb 0x559bc9 (unidade/estrutura na célula), 0x558fe9 AI_TeleportTargetDist, 0x556f56,
  * 0x56ac5b AI_AttackRange, 0x51c391 Unit_GetBookSpell.
  *
@@ -390,6 +391,58 @@ export function fn_0x5508a0(m: MapRec, cell: number): void {
     m.occ.setAt(cell, r);
     orMaskInto(m.mem, cellIdxOff10000(cell), 0x20);
   }
+}
+
+/** Saco no registro de ocupação corrente (+0x10; mapa+0x5403c). */
+const OCC_BAG = 0x10;
+function occSetU32(r: OccRec, off: number, v: number): void {
+  r.b[off] = v & 0xff; r.b[off + 1] = (v >>> 8) & 0xff; r.b[off + 2] = (v >>> 16) & 0xff; r.b[off + 3] = (v >>> 24) & 0xff;
+}
+
+/**
+ * 0x5538c7 (thiscall; mapa, saco): põe o saco na célula dele. Célula com o bit 1 da grade dinâmica: 0. Sem registro de ocupação: cria
+ * (0x5508a0), grava o saco em +0x10 e reaplica às grades (0x550a53: a máscara ganha 0x20); com registro e sem saco: só grava; com outro
+ * saco: 0. `param_1` = endereço do saco, `cell` = a célula do objeto de mapa dele (Obj_CellOf(saco+0x10)).
+ */
+export function fn_0x5538c7(m: MapRec, param_1: number, cell: number): number {
+  const puVar4 = m.occCur;
+  const uVar2 = cell & 0xffff;
+  if ((m.mem[uVar2 + FLAGS_OFF]! & 1) !== 0) return 0;
+  if (!m.occ.lookup(uVar2, puVar4)) {
+    fn_0x5508a0(m, uVar2);
+    if (!m.occ.lookup(uVar2, puVar4)) return 0;
+    occSetU32(puVar4, OCC_BAG, param_1);
+    m.occ.setAt(uVar2, puVar4);
+    fn_0x550a53(m, uVar2);
+    return 1;
+  }
+  if (puVar4.u32(OCC_BAG) === 0) {
+    occSetU32(puVar4, OCC_BAG, param_1);
+    m.occ.setAt(uVar2, puVar4);
+    return 1;
+  }
+  return 0;
+}
+
+/** 0x5539e5 (thiscall; mapa, saco): tira o saco da célula: +0x10 = 0, grava, reaplica às grades e desfaz o registro vazio (0x5513b6 →
+ *  0x550966). 0 se a célula não tem registro. */
+export function fn_0x5539e5(m: MapRec, cell: number): number {
+  const puVar4 = m.occCur;
+  const uVar2 = cell & 0xffff;
+  if (!m.occ.lookup(uVar2, puVar4)) return 0;
+  occSetU32(puVar4, OCC_BAG, 0);
+  m.occ.setAt(uVar2, puVar4);
+  fn_0x550a53(m, uVar2);
+  if (occRecIsEmpty(puVar4) !== 0) fn_0x550966(m, uVar2);
+  return 1;
+}
+
+/** 0x553ad1 (thiscall; mapa, célula): o saco da célula (registro de ocupação com a máscara 0x20), ou 0. */
+export function fn_0x553ad1(m: MapRec, param_1: number): number {
+  const c = param_1 & 0xffff;
+  if ((m.mem[c + MAP_MASK_OFF]! & 0x20) === 0) return 0;
+  if (!m.occ.lookup(c, m.occCur)) return 0;
+  return m.occCur.u32(OCC_BAG);
 }
 
 /** Ponteiro de unidade em MapRec+off (u32 do registro corrente) é `u`? */
