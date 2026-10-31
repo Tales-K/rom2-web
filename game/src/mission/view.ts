@@ -23,6 +23,12 @@ import { SHADOW_ALPHA, WorldAnim, makeShadow } from "./worldanim";
 
 export const TILE = 32;
 const CHUNK = 16;
+/** Ordem do passe de cadáveres e sacos (exe 0x406f43): depois dos objetos rasos e ANTES de unidades vivas e objetos altos; célula a
+ *  célula, linhas de cima para baixo e colunas da direita para a esquerda; na mesma célula o cadáver (grade +0x9c) antes do saco (+0x98).
+ *  Célula do objeto = floor(x + (lado − 1)/2) (0x460591). */
+function lowPassZ(cx: number, cy: number, sack: boolean): number {
+  return -1e6 + (cy * 512 + (511 - cx)) * 2 + (sack ? 1 : 0);
+}
 /** Ganho de brilho do mundo: as capturas do original (refs/original/mission10_idle_000) mostram terreno, objetos e sprites
  *  ≈1,55× mais claros que as cores das paletas (razão medida em blocos de terreno plano 1,4–1,7; placa 1,62); o HUD não.
  *  Provável iluminação do mapa (info.brightness/contrast + sol); ver GAPS. */
@@ -378,7 +384,8 @@ export class MapView {
       // relevo: o sprite sobe a altura do chão no ponto da unidade; a ordem continua pela linha no chão
       const gy = py - this.unitLift(u);
       v.root.position.set(px, gy);
-      v.root.zIndex = u.state === "dead" ? py - 10000 : py + (u.flying ? 64 : 0);
+      const side = u.stats.size ?? 1;
+      v.root.zIndex = u.state === "dead" ? lowPassZ(Math.floor(u.x + (side - 1) / 2), Math.floor(u.y + (side - 1) / 2), false) : py + (u.flying ? 64 : 0);
       this.updateSprite(u, v, now);
       // unidade sob o cursor fica mais clara (UnityAllods: luminosidade 0,5 → 0,75); o original não tem anel de seleção
       v.sprite.filters = u.alive && u.id === this.hoverId ? [this.hoverFilter] : null;
@@ -567,7 +574,9 @@ export class MapView {
       }
       (c as Container & { frame?: number }).frame = fr;
       c.position.set((l.x + 0.5) * TILE, (l.y + 0.5) * TILE - this.relief.heightAt(l.x + 0.5, l.y + 0.5));
-      this.ground.addChild(c);
+      // no passe dos cadáveres: por cima do cadáver da mesma célula, sob as unidades vivas (bug 2 de 31/10; antes ia para `ground`)
+      c.zIndex = lowPassZ(Math.floor(l.x), Math.floor(l.y), true);
+      this.sorted.addChild(c);
       this.lootGfx.set(l.id, c);
     }
     for (const [id, c] of this.lootGfx) if (!alive.has(id)) { c.destroy({ children: true }); this.lootGfx.delete(id); }
