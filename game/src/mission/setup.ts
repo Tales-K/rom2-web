@@ -300,6 +300,8 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   if (!host.groups.size) {
     for (const g of map.groups ?? data.script?.groups ?? []) for (const idx of g.units) { const u = mapUnits[idx]; if (u) host.bindGroup(g.id, u); }
   }
+  // todo grupo do mapa começa em Guard sem parâmetro (tarefa 11 em todas as unidades no 1º tique: refs/trace/m110_idle*.jsonl) [exe 0x5709d9]
+  for (const [g, list] of host.groups) world.initGroupGuard(g, list, 0, true);   // Guard da carga do mapa (0x570aba)
   for (const u of mapUnits) world.initLoadGuardAlone(u);   // o grupo só dela da unidade sem grupo no .alm (0x562745 → 0x570aba)
   for (const st of map.structures) if (st.id != null) host.bindStructure(st.id, st.hp ?? 100, st.kind, st.x, st.y);
   // armadilhas Teleport do mapa (bloco 9, magia 23): gatilho em (x, y), 1ª entrada = origem e 2ª = destino, como o "Set trap" do script [est: semântica
