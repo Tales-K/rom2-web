@@ -80,7 +80,12 @@ export interface UnitRecJson {
   bi?: [number, number, number, number, number][];
   /** +0x68 item em uso: 1 = a arma equipada (+0x74, o cajado no meio da magia dele); ausente/0 = nenhum */
   i68?: number;
+  /** o golpe +0xa6.. (com as habilidades +0xa8), as proteções +0xc2.. e as resistências +0xce.. — ausente em saves antigos */
+  cb?: { d: Record<string, number>; ds: number[]; p: number[]; r: number[] };
 }
+
+/** Os campos escalares que `World.syncCombat` escreve a partir do motor antigo: no restore voltam aos salvos depois dele (`unitCombatFromJson`). */
+const COMBAT_SCALARS = ["fbe", "fc0", "f4c", "f04", "f0e", "vtbl", "kind", "attackRange", "f1a0", "f148", "f98", "f9e", "fde", "fe2", "f86", "f134", "f135", "effects"] as const;
 
 export function unitRecToJson(r: UnitRec): UnitRecJson {
   const w = r.walk as unknown as Record<string, number>, a = r.ai as unknown as Record<string, number>;
@@ -94,7 +99,17 @@ export function unitRecToJson(r: UnitRec): UnitRecJson {
     i68: r.f68 !== null && r.f68 === r.f74 ? 1 : 0,
     fx: r.fx.values(),
     bx: { d: scalarFields(r.bdmg), ds: [...r.bdmg.sk], e: scalarFields(r.bdef), ep: [...r.bdef.prot], er: [...r.bdef.resist], sb: [...r.skBase] },
+    cb: { d: scalarFields(r.dmg), ds: [...r.dmg.sk], p: [...r.prot], r: [...r.resist] },
   };
+}
+
+/** Os atributos de combate salvos de volta no registro, por cima do `syncCombat` do restore (F2 etapa 2: o passo não os reescreve, o
+ *  registro é que vale). Save antigo (sem `cb`): ficam os do `syncCombat`. */
+export function unitCombatFromJson(r: UnitRec, j: UnitRecJson): void {
+  if (!j.cb || !j.u) return;
+  const o = r as unknown as Record<string, number>;
+  for (const k of COMBAT_SCALARS) if (j.u[k] !== undefined) o[k] = j.u[k]!;
+  Object.assign(r.dmg, j.cb.d); r.dmg.sk.set(j.cb.ds); r.prot.set(j.cb.p); r.resist.set(j.cb.r);
 }
 
 export function unitRecFromJson(r: UnitRec, j: UnitRecJson): void {

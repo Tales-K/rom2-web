@@ -142,6 +142,7 @@ console.log("\n[voador] fim da animação de queda com +0x4a > 1: vida −1000 e
   const w = makeWorld();
   const f = mon(w, ORC, 2, 10, 10);
   f.stats.flying = true;
+  w.syncCombat(f);   // +0x4a no registro (o passo não o reescreve: F2 etapa 2)
   w.damage(undefined, f, f.hp);
   run(w, 1);   // a queda sai no tique da própria unidade
   const t0 = w.tick;
@@ -208,6 +209,7 @@ console.log("\n[paz] a paz solta o caído: ataque comum não reabre a guerra por
   check(att.order.type === "none" && w.diplomacyValue(1, 2) === 0 && v.corpseHp >= hp0 - 1, `ordem largada, paz mantida, corpo intacto (${hp0} → ${v.corpseHp})`);
   // o ataque forçado insiste (acerto garantido: o teste é da ordem, não do sorteio de acerto)
   (att.stats as { alwaysHit?: boolean }).alwaysHit = true;
+  w.syncCombat(att);
   w.command(att, { type: "attack", target: v.id, forced: true });
   const hits = run(w, sec(3), ev => ev.some(e => e.type === "hit" && e.target === v.id));
   check(hits < sec(3), "ataque forçado (Ctrl+clique) ainda acerta");

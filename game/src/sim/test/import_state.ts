@@ -541,6 +541,8 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     }
   }
   // unidades nossas sem par no original (ex.: invocação que o original não tem): ficam como estão
+  // os atributos de combate do registro a partir dos `stats` importados (o passo não os reescreve mais: F2 etapa 2)
+  for (const u of w.units) w.syncCombat(u);
   return { missing, dead };
 }
 

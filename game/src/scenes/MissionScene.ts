@@ -654,7 +654,7 @@ export default class MissionScene extends Scene {
   /** Ponte do console (mission/console.ts) com a cena: ouro/itens/magias no herói, névoa, vitória, falas, invocação. */
   private consoleHost(): ConsoleHost {
     if (this.consoleHostObj) return this.consoleHostObj;
-    const heroChanged = () => { refreshHero(this.hero, this.heroState, this.data); reapplyGod(this.hero); this.refreshSpellUi(); };
+    const heroChanged = () => { refreshHero(this.hero, this.heroState, this.data); reapplyGod(this.hero); this.world.syncCombat(this.hero); this.refreshSpellUi(); };
     this.consoleHostObj = {
       world: this.world,
       hero: this.hero,
@@ -681,6 +681,7 @@ export default class MissionScene extends Scene {
           const u = spawnFromTemplate(this.built, this.data, Number(tid));
           if (!u) break;
           u.dynamic = true;   // criada no meio da missão: o snapshot guarda os dados estáticos
+          this.world.syncCombat(u);   // +0x1a0 no registro
           made++;
         }
         return made;
@@ -1098,6 +1099,7 @@ export default class MissionScene extends Scene {
   private inventoryChanged(equipment: boolean): void {
     refreshHero(this.hero, this.heroState, this.data);
     reapplyGod(this.hero);
+    this.world.syncCombat(this.hero);   // o passo não reescreve o registro (F2 etapa 2)
     this.hero.items = this.inv.mirror();
     this.inv.markSynced(this.hero.items);
     this.refreshSpellUi();
@@ -1113,6 +1115,7 @@ export default class MissionScene extends Scene {
     if (!r.added.length && !r.removed.length) return;
     refreshHero(this.hero, this.heroState, this.data);
     reapplyGod(this.hero);
+    this.world.syncCombat(this.hero);
     if (r.added.length) {
       const names = [...new Set(r.added)].map(id => { const n = r.added.filter(x => x === id).length; return `${n > 1 ? `${n} ` : ""}${this.inv.name(id)}`; });
       this.hud.say(`Picked up ${names.join(", ")}`, 3500);
@@ -1159,6 +1162,7 @@ export default class MissionScene extends Scene {
     this.selectUnit(this.hero);   // mochila e pergaminhos são do herói
     const def = { ...spellDef(spell, this.data.spells?.[String(spell)], power), id: `scroll:${item}`, mana: 0 };
     this.hero.spells.push(def);
+    this.world.syncCombat(this.hero);
     this.scrollCast = { spell: def.id, item };
     this.selectSpell(def.id);
   }
@@ -1167,6 +1171,7 @@ export default class MissionScene extends Scene {
     if (!this.scrollCast) return;
     const id = this.scrollCast.spell;
     this.hero.spells = this.hero.spells.filter(s => s.id !== id);
+    this.world.syncCombat(this.hero);
     this.scrollCast = null;
   }
 

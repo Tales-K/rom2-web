@@ -76,6 +76,7 @@ import { BookSpellRec, PlayerRec, UnitStatsRec, UnitTypeRec } from "./exe/types"
 import { DmgRec, ItemMagicRec, ItemRec, SpellObjRec, SpellPayloadRec, TemplateRec } from "./exe/types";
 import type { SpellObjsJson } from "./exe/recio";
 import { fn_0x52c279 } from "./exe/spells";
+import { unitVt58 } from "./exe/effects";
 import { randInclusive } from "./exe/rand";
 import { vt30 } from "./exe/vtables";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
@@ -406,6 +407,9 @@ export class Unit {
   resume: Order | null = null;
   /** criada durante a missão (invocação): o snapshot guarda os dados estáticos dela */
   dynamic = false;
+  /** o registro veio da criação portada (sim/exe/create.ts, o carregador da 9b) com os atributos-base, o bônus +0xd4.. e a experiência:
+   *  a vtable+0x58 é o recálculo portado (0x51366b/0x5118be), não o `syncCombat` do motor antigo */
+  exeBase = false;
   /** vida do corpo depois da queda = a própria vida +0x94 (continua caindo: sangria, decomposição) — sim/necro.ts */
   get corpseHp(): number { return this.hp; }
   set corpseHp(v: number) { this.hp = v; }
@@ -1518,10 +1522,7 @@ export class World {
     const el = s.elemental;
     d.elA0 = (el?.aBase ?? 0) & 0xff; d.elA1 = (el?.aRange ?? 0) & 0xff; d.elB0 = (el?.bBase ?? 0) & 0xff; d.elB1 = (el?.bRange ?? 0) & 0xff;
     d.elK = (el?.element ?? 0) & 0xff;
-    // habilidades (+0xa8 + 2 × esfera): a base do poder da magia em Spell_Apply 0x519db8 (herói: da experiência; os outros: data.bin)
-    for (const [sch, i] of Object.entries(SPHERE_INDEX)) {
-      d.sk[i] = ((u.heroInfo ? skillFromExp(u.heroInfo.skillExp[sch] ?? 0) : (s.magicSkills?.[sch] ?? 0)) << 16) >> 16;
-    }
+    this.syncSkills(u);
     r.fbe =((this.defenseOf(u) | 0) << 16) >> 16;
     r.fc0 = ((this.absorptionOf(u) | 0) << 16) >> 16;
     r.prot[1] = this.resistOf(u, "fire"); r.prot[2] = this.resistOf(u, "water"); r.prot[3] = this.resistOf(u, "air");
@@ -1564,6 +1565,14 @@ export class World {
       // os efeitos da lista +0x20 do exe (0x51ce12 liga o bit, 0x51cc9f o apaga)
       e |= this.exeFxBits(u);
       r.effects = e >>> 0;
+    }
+  }
+
+  /** Habilidades (+0xa8 + 2 × esfera): a base do poder da magia em Spell_Apply 0x519db8 (herói: da experiência; os outros: data.bin). */
+  private syncSkills(u: Unit): void {
+    const d = u.rec.dmg, s = u.stats;
+    for (const [sch, i] of Object.entries(SPHERE_INDEX)) {
+      d.sk[i] = ((u.heroInfo ? skillFromExp(u.heroInfo.skillExp[sch] ?? 0) : (s.magicSkills?.[sch] ?? 0)) << 16) >> 16;
     }
   }
 
@@ -1645,7 +1654,8 @@ export class World {
     // anterior — no replay (golden) o bloco do pensamento busca a fila do tique − 1
     if (aiTick && this.t16base !== null) this.rng.shift = -1;
     this.exeSyncWorld();
-    for (const u of this.units) this.syncCombat(u);
+    // os atributos de combate ficam no registro entre um tique e outro (F2 etapa 2): o exe só os refaz na vtable+0x58 (gancho `recompute`),
+    // e o motor antigo os escreve (`syncCombat`) só nos eventos dele (nascer, restaurar, buffs, equipamento, experiência)
     // [est] a invisibilidade do ritual da missão 77 (mission/setup.ts, `spell: "ritual"`: "os guardas que aparecem não veem ninguém") não é
     // mecânica do exe — AI_EnemyFilter 0x567a16 só deixa ver o invisível a distância ≤ IA+0x71 de um membro do grupo; enquanto ela dura,
     // as unidades de IA ficam com IA+0x71 = 0
@@ -1705,7 +1715,13 @@ export class World {
     // alvo em exe/spells.ts, golpe da máquina) volta para `dip` antes que o `exeSyncWorld` do próximo passo reescreva a tabela — senão o
     // cajado da maga feria um neutro (o Ogre da missão 10) sem abrir a guerra e ele nunca revidava
     this.syncDiplomacyBack();
+    // a ponte da vtable+0x58 nas unidades sem `exeBase` (`syncCombat` soma os efeitos da lista +0x20) de novo, no fim do passo: 0x51ce12
+    // chama a vtable+0x40 (0x51d436 → vtable+0x58) do efeito novo ANTES de pô-lo na lista, e a soma do gancho não o via
+    if (this.recomputeLater.size) { for (const u of this.recomputeLater) this.syncCombat(u); this.recomputeLater.clear(); }
   }
+
+  /** Unidades sem `exeBase` que passaram pela vtable+0x58 (gancho `recompute`) neste passo. */
+  private readonly recomputeLater = new Set<Unit>();
 
   /** Levanta quem estava morrendo (Heal que passa a vida de 0) [exe 0x510534]: volta ao estado normal com `hp`. */
   revive(u: Unit, hp: number, quiet = false): void {
@@ -2222,10 +2238,21 @@ export class World {
       if (!u.isHero) { this.addLoot(u.cx, u.cy, u.gold + gold, [...u.items]); this.events.push({ type: "loot", x: u.cx, y: u.cy, gold: u.gold + gold }); }
       u.gold = 0; u.items = [];
     },
-    effectsOnDie: r => { const u = this.unitByAddr(r.addr); if (u) u.buffs = []; },
-    // vtable+0x58 (0x51366b, portado e provado em exe/effects.ts): no mundo os atributos ainda são do motor antigo (`syncCombat`, que soma
-    // os efeitos da lista +0x20 em `buffSum`)
-    recompute: r => { const u = this.unitByAddr(r.addr); if (u) this.syncCombat(u); },
+    // os bits +0x144 dos `buffs` saem com eles (o `syncCombat` não roda no meio de Unit_Die: o registro é do exe aqui)
+    effectsOnDie: r => {
+      const u = this.unitByAddr(r.addr);
+      if (!u) return;
+      if (u.buffs.length && !this.exeExact) r.effects = this.exeFxBits(u);
+      u.buffs = [];
+    },
+    // vtable+0x58 (0x51366b humano/herói, 0x5118be monstro; exe/effects.ts): a porta na unidade com o registro da criação portada
+    // (`exeBase`: atributos-base, bônus, experiência); nas outras os atributos são do motor antigo (`syncCombat`, que soma os efeitos da
+    // lista +0x20 em `buffSum`)
+    recompute: r => {
+      const u = this.unitByAddr(r.addr);
+      if (u?.exeBase) unitVt58(this.exeWorld, r);
+      else if (u) { this.syncCombat(u); this.recomputeLater.add(u); }
+    },
     clientEffect: (r, id, type, v, on) => {
       const u = this.unitByAddr(r.addr);
       if (!u) return;
@@ -2895,6 +2922,7 @@ export class World {
             v.buffs.push({ kind: e.kind, amount: e.amount, until: this.tick + dur, spell: a.spell, from: a.owner });
           }
         }
+        if (a.effects.length) this.syncCombat(v);
       }
     }
   }
@@ -2966,7 +2994,7 @@ export class World {
     info.skillExp[skill] = cur + xp;
     a.exp += xp;
     this.events.push({ type: "exp", unit: a.id, amount: xp });
-    if (skillFromExp(cur + xp) > v) this.events.push({ type: "levelup", unit: a.id });
+    if (skillFromExp(cur + xp) > v) { this.events.push({ type: "levelup", unit: a.id }); this.syncSkills(a); }
   }
 
   /** Magia de suporte lançada: int(nível × 0,5 + 0,5) de experiência na escola. */
@@ -2977,6 +3005,7 @@ export class World {
     u.heroInfo.skillExp[s.element] = (u.heroInfo.skillExp[s.element] ?? 0) + xp;
     u.exp += xp;
     this.events.push({ type: "exp", unit: u.id, amount: xp });
+    this.syncSkills(u);
   }
 
   /** >0 enquanto uma magia de área (explosão, jato, campo) aplica dano */

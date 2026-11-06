@@ -281,7 +281,7 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
     // o tipo +0xe do registro criado: o modelo de herói no mapa (Dina/10230 na 40) vira o tipo de herói 0x21..0x24 (0x5145d1)
     const u = world.spawn({ kind, typeId: tpl?.kind === "hero" && created ? created.rec.f0e : mu.kind, player: mu.player, x: mu.x, y: mu.y, stats, exactCell: true,
       timing: timingFor(am, stats, (tpl?.dyingTime as number | undefined)), scriptId, npc, name: NPC_NAMES[npc] ?? stats.name });
-    if (created) { applyCreatedRec(u.rec, created.rec); if (hp0 !== undefined && mu.hp !== 0) u.hp = hp0; }
+    if (created) { applyCreatedRec(u.rec, created.rec); u.exeBase = true; if (hp0 !== undefined && mu.hp !== 0) u.hp = hp0; }
     host.bindUnit(scriptId, u);
     // vida 0 no mapa: unidade inconsciente de verdade (refém ogro da 50, druida chefe moribundo da 101): vida exatamente 0, deitada, estável;
     // acorda ao chegar alguém do jogador perto ou com Heal (vida >= 25% para o script: mission/host.ts `wake`). No tique 0 do original
@@ -338,6 +338,7 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
       if (u.player !== 1 || !u.alive || Math.hypot(u.x - 48, u.y - 25) > 12) continue;
       u.buffs = u.buffs.filter(b => b.kind !== "invisible");
       u.buffs.push({ kind: "invisible", amount: 999, until: world.tick + 16 * TICKS_PER_SEC, spell: "ritual" });
+      world.syncCombat(u);
     }
   };
   // herói no ponto de entrada

@@ -24,8 +24,8 @@
  * Lote 5: os outros `case` de carga "Effect" de Spell_Apply (`spellApplyEffect`: proteções 4/8/0xd/0x13, Poison 6, Invisibility 0xc,
  * Light/Darkness 0xf/0xe, Stone Curse 0x12, Bless/Curse 0x14/0x1c, Haste/Slow 0x15/0x1d; durações pow(1,025, poder) do assembly) e o
  * recálculo do monstro 0x5118be; provados por pares sintéticos (tools/re/oracle/synth_spells.py: o poder 0..255 em cada `case`).
- * Com gancho: vtable+0x58 `recompute` (no mundo o motor antigo ainda é dono dos atributos: `syncCombat` a cada tique); sem gancho, 0x51366b
- * (humano/herói) ou 0x5118be (monstro, lote 5). teachSpell (0x2a: 0x51906d/Unit_AddSpellToBook 0x51c29e, exec 0): NotPorted.
+ * Com gancho: vtable+0x58 `recompute` (no mundo: a porta nas unidades da criação portada, o `syncCombat` do motor antigo nas outras;
+ * F2 etapa 2); sem gancho, 0x51366b (humano/herói) ou 0x5118be (monstro, lote 5). teachSpell (0x2a: 0x51906d/Unit_AddSpellToBook 0x51c29e, exec 0): NotPorted.
  */
 import { fn_0x53a5a0 } from "./action";
 import { aiInBattle, type CombatHooks } from "./combat";
@@ -290,9 +290,14 @@ export function fn_0x5118be(u: UnitRec): void {
   u.fa0 = s16(Math.trunc(Math.imul(u.owner.fa5c | 0, s16(u.f9c)) / 100));
 }
 
-/** vtable+0x58 da unidade: 0x51366b (humano/herói), 0x5118be (monstro). No mundo: gancho `recompute`. */
+/** vtable+0x58 da unidade: 0x51366b (humano/herói), 0x5118be (monstro). No mundo: gancho `recompute` (a porta, `unitVt58`, nas unidades
+ *  com o registro da criação portada; o `syncCombat` do motor antigo nas outras). */
 export function vt58(wd: WorldRec, u: UnitRec, h: CombatHooks): void {
   if (h.recompute) { h.recompute(u); return; }
+  unitVt58(wd, u);
+}
+/** vtable+0x58 sem gancho: o slot da vtable do registro. */
+export function unitVt58(wd: WorldRec, u: UnitRec): void {
   switch (u.vtbl) {
     case VT_HUMAN: case VT_HERO: unitRecompute(wd, u); return;
     case VT_MONSTER: fn_0x5118be(u); return;

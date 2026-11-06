@@ -106,6 +106,7 @@ export function summonCreature(w: World, u: Unit, s: SpellDef): Unit | undefined
   m.summoner = u.id;
   m.home = { x: m.cx, y: m.cy };
   m.ai = { type: "guard", range: MINIMAL_GUARD_RANGE };
+  w.syncCombat(m);   // +0x1a0 e +0x148 no registro (o passo não os reescreve)
   w.events.push({ type: "summon", unit: m.id, by: u.id });
   return m;
 }
@@ -144,6 +145,7 @@ export function raiseDead(w: World, u: Unit, s: SpellDef, t: Unit | undefined, x
   m.dynamic = true; w.exeWorld.lists.magic.addTail(m.rec.addr);   // [0x672f64]+4
   m.home = { x: m.cx, y: m.cy };
   m.ai = { type: "hold" };
+  w.syncCombat(m);   // +0x1a0 no registro
   w.events.push({ type: "summon", unit: m.id, by: u.id });
   return m;
 }

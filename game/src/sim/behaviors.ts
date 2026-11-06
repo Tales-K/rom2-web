@@ -90,6 +90,8 @@ export function installMissionAi(world: World, opts: MissionAiOptions = {}): voi
       u.wimpyHp = opts.difficulty === "easy" ? Math.floor((u.stats.wimpy ?? 0) / 2) : u.stats.wimpy ?? 0;
     }
   }
+  // o livro mudou (bit 4 de +0x4c, conjurador): os registros, que o passo não reescreve (F2 etapa 2)
+  for (const u of world.units) world.syncCombat(u);
   applyAiSettings(world, opts.settings ?? {}, world.humanPlayer);
 }
 

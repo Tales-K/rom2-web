@@ -176,6 +176,7 @@ console.log("\n[magia de chance] Troll.4 (Hydun): Stone Curse 10% no lugar do go
   // lote 5 da 8b: a Stone Curse é a da porta, com o poder do conjurador (0x519db8: habilidade de terra + Mind − 30, 0..255; poder 0 =
   // duração 0 = sem efeito); o modelo genérico do teste não tem habilidade nem Mind
   troll.stats = { ...troll.stats, mind: 30, magicSkills: { ...(troll.stats.magicSkills ?? {}), earth: 60 } };
+  w.syncCombat(troll); w.syncCombat(h);   // o passo não reescreve o registro (F2 etapa 2)
   check(troll.procSpells.length === 1 && troll.procSpells[0]!.chance === 10, "Troll.4 tem Stone Curse com 10%");
   let stoned = false;
   run(w, sec(90), ev => { if (ev.some(e => e.type === "effect" && e.unit === h.id && e.kind === "stone" && e.on)) stoned = true; return stoned; });

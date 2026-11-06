@@ -18,7 +18,7 @@
 import type { ScriptRuntimeState } from "../script";
 import type { HostState } from "../mission/host";
 import { Unit, type Loot, type PlayerAi, type Projectile, type SpellArea, type SpellDef, type Trap, type UnitInit, type World } from "./world";
-import { mapRecFromJson, mapRecToJson, scalarFields, structsFromJson, unitRecFromJson, unitRecToJson, type ExeGroupsJson, type MapRecJson, type SpellObjsJson, type UnitRecJson } from "./exe/recio";
+import { mapRecFromJson, mapRecToJson, scalarFields, structsFromJson, unitCombatFromJson, unitRecFromJson, unitRecToJson, type ExeGroupsJson, type MapRecJson, type SpellObjsJson, type UnitRecJson } from "./exe/recio";
 
 export const SNAPSHOT_VERSION = 2;
 /** Menor versão que ainda sabemos ler. */
@@ -260,6 +260,8 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   world.groupState.clear();
   for (const [g, v] of s.groupState ?? []) world.groupState.set(g, { ...v });
   world.syncRecs();   // campos derivados dos registros do exe (atributos de combate, modelo, dono), como depois de um passo
+  // ... e os atributos de combate salvos por cima: o passo não os reescreve (F2 etapa 2), o registro é que vale
+  for (const su of s.units) { const u = world.get(su.id); if (u && su.rec) unitCombatFromJson(u.rec, su.rec); }
   // o `exeSyncWorld` do syncRecs já normaliza a ordem das listas (herói à frente, quem entrou vai para o fim), o que o mundo salvo só
   // faz no começo do passo seguinte: a ordem volta a ser a do retrato (missão 103: a tartaruga invocada morrendo ia para o fim)
   if (ls) {
