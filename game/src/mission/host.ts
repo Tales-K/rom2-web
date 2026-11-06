@@ -158,11 +158,14 @@ export class MissionHost implements ScriptHost {
   }
   unitHasItem(ref: number, item: number): boolean { const id = gameItem(item); return !!this.carrier(ref, id)?.items.includes(id); }
   unitPlayer(ref: number): number { return this.u(ref)?.player ?? 0; }
-  groupUnitCount(g: number): number { return (this.groups.get(g) ?? []).filter(u => u.alive).length; }
+  /** valores 1 e "unidades do jogador": a unidade sai do grupo e da lista do dono só na morte consumada (0x52b459: ação 0x10 → 0x51618e →
+   *  0x52afd2 / 0x53afb0) — a caída (ação < 0x10, vida < 0) ainda conta */
+  private listed(u: Unit): boolean { return !u.bodyDead; }
+  groupUnitCount(g: number): number { return (this.groups.get(g) ?? []).filter(u => this.listed(u)).length; }
   groupUnits(g: number): number[] {
     return (this.groups.get(g) ?? []).filter(u => u.alive).map(u => u.scriptId).filter(id => id > 0);
   }
-  playerUnitCount(p: number): number { return this.world.units.filter(u => u.player === p && u.alive).length; }
+  playerUnitCount(p: number): number { return this.world.units.filter(u => u.player === p && this.listed(u)).length; }
   playerBuildingCount(): number { return 0; }
   nearestPlayerUnitDistance(p: number, x: number, y: number): number {
     let best = FAR_AWAY;
