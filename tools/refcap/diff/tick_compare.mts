@@ -516,7 +516,9 @@ async function main(): Promise<void> {
     const imp = await worldFromState(E.base);
     const t0 = Date.now();
     const agg = await runResync(E, imp, opt, show);
-    const free = opt.resync && show === null ? await runFree(E, imp, opt) : null;
+    // a corrida livre num mundo NOVO: o `resetWorld` sobre o mundo da reancorada guardava campos da última janela (IA+0x20 e outros; a
+    // 1.ª divergência mudava com o --max — notes/bugs-2026-10-31-fase1.md D), como tools/refcap/mirror/free_run.mts
+    const free = opt.resync && show === null ? await runFree(E, await worldFromState(E.base), opt) : null;
     report(E, agg, free, opt);
     summary.push(`${id}: idêntico ${pct(agg.whole, agg.n)}; sem ressinc. 1º=${free?.first ?? "-"} mediana/unid.=${free ? median([...free.perUnit.values()]) : "-"} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   }
