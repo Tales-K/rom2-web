@@ -2127,7 +2127,8 @@ export class World {
         // `task|hero` (m10_mage_s14 800: o herói segue com classe 3 e o mesmo alvo) e `target|t75` (m10_mage_s603 512: o aliado da
         // guarda do script segue no alvo morto até o pensamento e só então volta ao posto)
         // (com uma ordem para retomar — a guarda/patrulha do motor antigo que pôs este ataque — ela volta como antes)
-        if (o.type === "attack" && t && !t.targetable && u.exeTask && !this.isAiPlayerUnit(u) && !u.resume) return;
+        // (a IA também: a tarefa 5 do pensamento portado segue no caído até a ação 0x10 dele — o morcego da m10 bate na maga caída)
+        if (o.type === "attack" && t && !t.targetable && u.exeTask && (this.isAiPlayerUnit(u) || !u.resume)) return;
         if (o.type === "attack" && (!t || !t.targetable)) { this.resumeOrNone(u); this.stop(u); return; }
         // lado humano: a ordem nova espera o pensamento 1×/s (termina o passo em curso e fica parado até lá)
         if (!u.orderArmed) { this.stop(u); return; }
@@ -2137,7 +2138,9 @@ export class World {
         const spell = o.type === "cast" ? u.spells.find(s => s.id === o.spell) ?? u.procSpells.find(p => p.spell.id === o.spell)?.spell : undefined;
         if (o.type === "cast" && !spell) { this.command(u, { type: "none" }); return; }
         // Heal pode mirar quem ainda está morrendo (sangrando): levanta se a vida passar de 0 [exe 0x51a2b8] (sim/necro.ts)
-        if (o.type === "cast" && t && !t.active && !(spell!.kind === "heal" && canRevive(this, u, t))) { this.command(u, { type: "none" }); this.stop(u); return; }
+        // (a da tarefa 8 do exe não: o despachante só a larga com o alvo em ação 0x10, 0x569308 → 0x56dbc6; o Hydun da m10 lança a Stone
+        // Curse na maga caída)
+        if (o.type === "cast" && !o.exe && t && !t.active && !(spell!.kind === "heal" && canRevive(this, u, t))) { this.command(u, { type: "none" }); this.stop(u); return; }
         if (t) {
           // alvo unidade: a tarefa do exe decide golpe/magia ou perseguição — 5 atacar (0x56eab5: de frente e ao alcance de
           // AI_AttackRange → golpe 0x56e8c3; senão 0x56ea52) ou 8 magia na unidade (0x56ebc0 → 0x56e906); o efeito do golpe/da magia
@@ -2145,7 +2148,9 @@ export class World {
           // pensamento 0x56acc8 e 0x56d969 o põem); nem magia nem golpe à distância pedem linha de visão (0x50f12c → 0x519998 só
           // confere mana; o Skrakan do original lança no herói de trás da torre, sonda c2)
           if (o.type === "attack") { if (!this.exeExact || r.ai.task !== 5) { r.ai.task = 5; r.ai.f0c = t.rec.addr; r.ai.range = this.attackRange(u) & 0xff; } }
-          else if (!this.exeExact || r.ai.task !== 8) { r.ai.task = 8; r.ai.f28 = t.rec.addr; r.ai.range = spell!.range & 0xff; r.ai.f30 = this.spellAddr(spell!); }
+          // a da tarefa 8 do pensamento do exe (AI_CastAtTarget 0x56c72b) já vem escrita: IA+0x14 = o alcance da instância do livro (+9), não o
+          // do motor antigo
+          else if (!(o.type === "cast" && o.exe && (r.ai.task & 0xff) === 8) && (!this.exeExact || r.ai.task !== 8)) { r.ai.task = 8; r.ai.f28 = t.rec.addr; r.ai.range = spell!.range & 0xff; r.ai.f30 = this.spellAddr(spell!); }
           this.machine(u);
           // lado humano pelo porte: a magia começou (0x56e906 com +0x60 = 0 → 0x56dbc6, Stand ground: classe 0xd → 0xc, posto = a
           // célula) — a ordem apresentada acaba no mesmo tique, como a de andar (medido: herói da m10_mage, T=241→242)
