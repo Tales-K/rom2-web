@@ -100,7 +100,8 @@ export interface WorldSnapshot {
   loot: Loot[];
   /** unidades de vida 0 do mapa ainda por cair no 1.º passo (`World.knockOutAtFirstStep`; ausente = nenhuma) */
   knockOutAtFirstStep?: number[];
-  killsByType: [number, number][];
+  /** saves antigos: os abates por tipo do motor antigo (hoje no registro, unidade+0x1a8 — exe/xp.ts) */
+  killsByType?: [number, number][];
   /** ocupação da grade: pares [índice da célula, id da unidade] (só células ocupadas) */
   occ: [number, number][];
   /** estado do MapRec do exe (memória que difere do mapa sem unidades, ocupação) — ausente em saves antigos: refeito das unidades */
@@ -160,7 +161,6 @@ export function snapshotWorld(world: World): WorldSnapshot {
     }),
     loot: world.loot.map(l => ({ ...l, items: [...l.items] })),
     knockOutAtFirstStep: [...world.knockOutAtFirstStep],
-    killsByType: [...world.killsByType],
     occ,
     exe: mapRecToJson(world.exe, world.exeBase),
     exeWorld: { evt: hex(world.exeWorld.evt), events: world.exeWorld.events.values().map(hex), cand: world.exeWorld.cand.values(), dead: world.exeWorld.dead.values(), friends: world.exeWorld.friends.values(), foes: world.exeWorld.foes.values(), dip: hex(world.exeWorld.dipTable), f: scalarFields(world.exeWorld),
@@ -217,8 +217,6 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   world.knockOutAtFirstStep = [...(s.knockOutAtFirstStep ?? [])];
   world.loot.length = 0;
   for (const l of s.loot) world.loot.push({ ...l, items: [...l.items] });
-  world.killsByType.clear();
-  for (const [k, v] of s.killsByType) world.killsByType.set(k, v);
   world.grid.occ.fill(0);
   for (const [i, id] of s.occ) if (i >= 0 && i < world.grid.occ.length) world.grid.occ[i] = id;
   for (const a of world.areas) if (a.kind === "wall") world.applyWall(a, false);

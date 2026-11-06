@@ -77,6 +77,7 @@ import { DmgRec, ItemMagicRec, ItemRec, SpellObjRec, SpellPayloadRec, TemplateRe
 import type { SpellObjsJson } from "./exe/recio";
 import { fn_0x52c279 } from "./exe/spells";
 import { unitVt58 } from "./exe/effects";
+import { fn_0x512fcb, fn_0x5131ef, fn_0x542770, unitXpOnHit } from "./exe/xp";
 import { randInclusive } from "./exe/rand";
 import { vt30 } from "./exe/vtables";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
@@ -197,6 +198,9 @@ export const UNIT_GUARD_RADIUS = 5;
 /** Tipo de arma (+0xb6 do exe = índice na tabela de 6 resistências físicas +0xce..): 0 sem arma (garras/mordidas), 1..5 as habilidades. */
 const WTYPE_KEYS = ["none", "blade", "axe", "bludgeon", "pike", "shooting"] as const;
 const WTYPE_INDEX: Record<string, number> = { none: 0, blade: 1, axe: 2, bludgeon: 3, pike: 4, shooting: 5 };
+/** As escolas do herói nos índices 1..5 de +0x23c/+0xa8 (exe/xp.ts): esferas (mago) e armas (lutador, a ordem de +0xb6). */
+const HERO_SPHERES = ["fire", "water", "air", "earth", "astral"] as const;
+const HERO_WEAPONS = ["blade", "axe", "bludgeon", "pike", "shooting"] as const;
 /** Elemento do dano B (+0xbb do exe; proteções +0xc4..+0xcc): 1 fogo, 2 água, 3 ar, 4 terra, 5 astral. */
 const ELEMENT_INDEX: Record<string, number> = { fire: 1, water: 2, air: 3, earth: 4, astral: 5 };
 /** a máquina de ação já rodou neste `World.act` (roda exatamente uma vez por tique por unidade, como no exe); rascunho do módulo */
@@ -389,7 +393,7 @@ export class Unit {
   /** efeitos temporários (Shield, Bless, Haste, Slow, Curse, Stone Curse, Invisibility, proteções, veneno...) */
   buffs: Buff[] = [];
   /** só o herói: alinhamento e experiência acumulada por habilidade (arma/escola) */
-  heroInfo?: { mage: boolean; alignment: string; skillExp: Record<string, number> };
+  heroInfo?: { mage: boolean; alignment: string; skillExp: Record<string, number>; female?: boolean };
   /** classe de IA (recuo): 0 corpo a corpo, 1 à distância, 2 conjurador [exe 0x57382c] */
   aiClass: AiClass = 0;
   /** vida (absoluta) abaixo da qual recua de inimigos a ≤ 2 células (Withdraw) [exe 0x56cd11] */
@@ -1550,11 +1554,22 @@ export class World {
     const rp = s.resistPhysical;
     for (let i = 0; i < WTYPE_KEYS.length; i++) r.resist[i] = rp ? Math.min(100, rp[WTYPE_KEYS[i]!] ?? 0) & 0xff : 0;
     r.f4c = (r.f4c & ~0x14) | (s.alwaysHit ? 0x10 : 0) | (u.spells.length ? 4 : 0);   // bit 4 = tem livro de magias (0x53a5a0: conjurador)
-    r.f04 = (u.regenSlot ?? u.id) >>> 0; r.f0e = u.typeId & 0xffff;   // +4 = id do original nos estados importados (trava % 4 da regeneração)
+    // bit 2 = humano com mana (a criação 0x5145d1 o liga com modelo[0x30] > 0: exe/create.ts; o herói mago do oráculo tem +0x4c = 6):
+    // Spell_Apply só chama a vtable+0x70 (experiência pela magia, 0x5131ef) com ele (0x543130)
+    if (!u.exeBase && (u.isHero || (u.typeId > 0 && u.typeId < 0x40))) r.f4c = (u.maxMana > 0 ? r.f4c | 2 : r.f4c & ~2) & 0xff;
+    r.f04 = (u.regenSlot ?? u.id) >>> 0;
+    // o herói: modelo 0x21..0x24 (0x5128cb só dá experiência a 0x21..0x3f; heroínas 0x22/0x24 em 0x53a5c0; a Dina, maga, é 0x24 —
+    // exe/create.ts) [est: 0x21 + 2 × mago + mulher]
+    r.f0e = (u.heroInfo ? 0x21 + (u.heroInfo.mage ? 2 : 0) + (u.heroInfo.female ? 1 : 0) : u.typeId) & 0xffff;   // +4 = id do original nos estados importados (trava % 4 da regeneração)
     r.vtbl = u.isHero || (u.typeId > 0 && u.typeId < 0x40) ? 0x5d0fb8 : 0x5d0eb0;   // humanos/herói × monstros (os testes mudam `isHero` depois do spawn)
     { const mv = s.movement ?? (u.flying ? 3 : 1); r.kind = u.flying && mv < 2 ? 3 : mv; }   // +0x4a (> 1: some ao morrer); os testes mudam `flying` depois do spawn
     r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (0x516ceb: distância ≤ alcance; AI_AttackRange 0x56ac5b sem magia escolhida)
-    r.f1a0 = u.dynamic ? 1 : 0; r.f148 = u.summoner && !u.bodyDead ? unitAddr(u.summoner) : 0;   // Unit_Die 0x510a70 zera +0x148
+    // +0x1a0: invocada/levantada, ou a bandeira 8 (sem experiência) da unidade do .alm (0x561bf9: unidade+0x1a0 = flags & 8; o Hydun e os
+    // morcegos da m10 com 1 no oráculo): sem saque (0x510a70) e sem experiência (0x5128cb)
+    r.f1a0 = u.dynamic || u.stats.noXp ? 1 : 0; r.f148 = u.summoner && !u.bodyDead ? unitAddr(u.summoner) : 0;   // Unit_Die 0x510a70 zera +0x148
+    // a experiência (exe/xp.ts) nas unidades do motor antigo: o valor +0x1c (modelo[0x25], `stats.exp`) e o Mind +0x88 (que o
+    // exeSyncGroups também escreve no começo do passo); as da criação portada já os trazem
+    if (!u.exeBase) { r.f1c = (s.exp ?? 0) | 0; r.f88 = ((s.mind ?? 0) << 16) >> 16; }
     // regeneração (0x50fc5a): períodos +0x98/+0x9e dos dados (0 = não regenera), bônus +0xde/+0xe2 (não há nos `stats`); os restos
     // +0xa2/+0xa3 são do registro. No estado importado do oráculo vêm do despejo.
     if (!this.exeExact) { r.f98 = ((s.healthRegen ?? 0) << 16) >> 16; r.f9e = ((s.manaRegen ?? 0) << 16) >> 16; r.fde = 0; r.fe2 = 0; }
@@ -1588,12 +1603,50 @@ export class World {
     }
   }
 
-  /** Habilidades (+0xa8 + 2 × esfera): a base do poder da magia em Spell_Apply 0x519db8 (herói: da experiência; os outros: data.bin). */
+  /** Habilidades (+0xa8 + 2 × índice): a base do poder da magia em Spell_Apply 0x519db8 (os que não são herói: data.bin). No herói do
+   *  motor antigo, o registro da experiência do exe (exe/xp.ts) a partir da `heroInfo`: +0x23c[1..5] (mago pelas esferas, lutador pelas
+   *  armas de +0xb6), +0x23c[0] a principal, níveis em +0xa8 e +0x116, total em +0x130. */
   private syncSkills(u: Unit): void {
-    const d = u.rec.dmg, s = u.stats;
-    for (const [sch, i] of Object.entries(SPHERE_INDEX)) {
-      d.sk[i] = ((u.heroInfo ? skillFromExp(u.heroInfo.skillExp[sch] ?? 0) : (s.magicSkills?.[sch] ?? 0)) << 16) >> 16;
+    const r = u.rec, d = r.dmg, s = u.stats;
+    if (!u.heroInfo) {
+      for (const [sch, i] of Object.entries(SPHERE_INDEX)) d.sk[i] = ((s.magicSkills?.[sch] ?? 0) << 16) >> 16;
+      return;
     }
+    const names = World.heroSchools(u), x = u.heroInfo.skillExp;
+    for (let i = 1; i < 6; i++) {
+      const e = (x[names[i - 1]!] ?? 0) | 0;
+      r.f23c[i] = e;
+      d.sk[i] = r.skBase[i] = (skillFromExp(e) << 16) >> 16;
+    }
+    r.f23c[0] = names.indexOf(u.heroInfo.alignment) + 1;
+    r.f130 = Object.values(x).reduce((a, b) => a + (b | 0), 0) | 0;
+  }
+  /** As escolas nos índices 1..5 de +0x23c/+0xa8 do herói: mago pelas esferas, lutador pelas armas (+0xb6). */
+  static heroSchools(u: Unit): readonly string[] {
+    return u.heroInfo?.mage ? HERO_SPHERES : HERO_WEAPONS;
+  }
+  /** A experiência do registro (exe/xp.ts) de volta à `heroInfo` do motor antigo; devolve o ganho total. */
+  private heroExpFromRec(u: Unit): number {
+    if (!u.heroInfo) return 0;
+    const names = World.heroSchools(u), x = u.heroInfo.skillExp;
+    let gain = 0;
+    for (let i = 1; i < 6; i++) {
+      const k = names[i - 1]!, e = u.rec.f23c[i]! | 0;
+      if (e !== ((x[k] ?? 0) | 0)) { gain += e - ((x[k] ?? 0) | 0); x[k] = e; }
+    }
+    return gain;
+  }
+  /** Uma chamada da experiência do exe (exe/xp.ts) no registro de `r`: antes, o registro da `heroInfo`; depois, de volta a ela, com os
+   *  eventos de HUD (experiência e subida de nível). */
+  private exeXp(r: UnitRec, f: () => void): void {
+    const u = this.unitByAddr(r.addr);
+    if (u?.heroInfo) this.syncSkills(u);
+    const lv = u?.heroInfo ? [...r.skBase] : null;
+    f();
+    if (!u?.heroInfo) return;
+    const gain = this.heroExpFromRec(u);
+    if (gain > 0) { u.exp += gain; this.events.push({ type: "exp", unit: u.id, amount: gain }); }
+    if (lv && lv.some((v, i) => (r.skBase[i]! | 0) > (v | 0))) this.events.push({ type: "levelup", unit: u.id });
   }
 
   /** Os campos derivados dos registros de todas as unidades (atributos de combate, modelo, dono): depois de um restore. */
@@ -2217,14 +2270,15 @@ export class World {
     // Spell_Apply 0x519db8 portado (exe/spells.ts) na cura e no dano preso ao alvo; os outros `case` ainda são o motor antigo
     spellApply: (sp, r, t, x, y) => this.hookRelease(sp, r, t, x, y),
     spellPrismatic: (sp, r, t, x, y) => { this.hookCastStart(sp, r, t, x, y); this.hookRelease(sp, r, t, x, y); },
-    xpOnCast: (r, _t, id) => this.hookXpOnCast(r, id),
+    // vtable+0x70 / +0x6c dos humanos (exe/xp.ts: 0x5131ef, 0x513128 → 0x5128cb); no herói, a experiência volta à `heroInfo`
+    xpOnCast: (r, t, id) => this.exeXp(r, () => fn_0x5131ef(this.exeWorld, r, t, id, this.exeHooks)),
     revive: r => { const u = this.unitByAddr(r.addr); if (u && !u.alive) this.revive(u, u.hp); },
     clientHeal: (t, amount) => { const u = this.unitByAddr(t.addr); if (u) this.events.push({ type: "heal", unit: u.id, amount }); },
     clientSpellHit: (a, t, dmg, id) => this.hookSpellHit(a, t, dmg, id),
     clientMissile: (sp, r, t, ticks) => this.hookMissile(sp, r, t, ticks),
     clientArea: o => this.hookArea(o),
     clientHit: (a, t, dmg) => this.hookHit(a, t, dmg),
-    xpOnHit: (a, t, dmg, p3) => this.hookXp(a, t, dmg, p3),
+    xpOnHit: (a, t, dmg, p3) => this.exeXp(a, () => unitXpOnHit(this.exeWorld, a, t, dmg, p3, this.exeHooks)),
     fell: r => this.hookFell(r),
     actionDone: r => this.hookDone(r),
     thinkAfterDispatch: r => this.hookStrikeBorn(r),
@@ -2260,7 +2314,7 @@ export class World {
     recompute: r => {
       const u = this.unitByAddr(r.addr);
       if (u?.exeBase) unitVt58(this.exeWorld, r);
-      else if (u) { if (u.heroInfo) this.heroRecompute?.(u); this.syncCombat(u); this.recomputeLater.add(u); }
+      else if (u) { if (u.heroInfo) { this.heroExpFromRec(u); this.heroRecompute?.(u); } this.syncCombat(u); this.recomputeLater.add(u); }
     },
     clientEffect: (r, id, type, v, on) => {
       const u = this.unitByAddr(r.addr);
@@ -2405,23 +2459,6 @@ export class World {
     this.events.push({ type: "hit", unit: a.id, target: t.id, amount: dmg, element: undefined });
     if (t.hp <= 0) t.felledBy = a.id;
     else if (a.player !== t.player && t.alive) this.alertGroup(t, a);
-  }
-  /** 0x513128 Unit_XPOnHit (motor antigo): experiência do herói pelo golpe ou pela magia `id` (`gainExp` na escola dela); `dmg` já saiu
-   *  da vida. */
-  private hookXp(ar: UnitRec, tr: UnitRec, dmg: number, id = 0): void {
-    const a = this.unitByAddr(ar.addr), t = this.unitByAddr(tr.addr);
-    if (!a || !t || !a.heroInfo) return;
-    const hpBefore = t.hp + dmg;
-    if (t.alive && !t.stats.noXp && !t.dynamic && t.player !== a.player && !t.isHero) {
-      const skill = id ? String(this.spellTable?.[String(id)]?.school ?? "").toLowerCase() : a.heroInfo.mage ? "" : (a.stats.attackType ?? "");
-      if (skill) this.gainExp(a, skill, Math.floor(t.stats.exp * 0.5 * Math.min(dmg, Math.max(0, hpBefore)) / t.maxHp + 1), t.typeId);
-    }
-  }
-  /** 0x5131ef (vtable+0x70 dos humanos, motor antigo [est]): a experiência de apoio da magia lançada (`supportExp`, só nas defensivas). */
-  private hookXpOnCast(r: UnitRec, id: number): void {
-    const u = this.unitByAddr(r.addr);
-    const s = u ? [...u.spells, u.castSpell, u.weaponSpell].find(x => !!x && Number(x.base ?? x.id) === id) : undefined;
-    if (u && s && s.defensive) this.supportExp(u, s);
   }
   /** 0x504b1d 's' ao cliente depois do dano da magia (0x51e65b portado; a vida já caiu): evento de HUD, agressor, alerta do grupo. */
   private hookSpellHit(ar: UnitRec | null, tr: UnitRec, dmg: number, id: number): void {
@@ -2975,53 +3012,21 @@ export class World {
     this.syncDiplomacyBack();
     if (dmg <= 0) { this.events.push({ type: "miss", unit: a.id, target: t.id }); this.provoke(a, t); return; }
     // unidade invocada/levantada (+0x1a0) não dá experiência [exe 0x512900]
-    if (a.heroInfo && t.alive && !t.stats.noXp && !t.dynamic && t.player !== a.player && !t.isHero) {   // golpe em quem já caiu não dá experiência
-      const skill = spell.element;
-      if (skill) this.gainExp(a, skill, Math.floor(t.stats.exp * 0.5 * Math.min(dmg, Math.max(0, t.hp)) / t.maxHp + 1), t.typeId);
-    }
-    const dealt = Math.min(dmg, Math.max(0, t.hp));
+    const dealt = Math.min(dmg, Math.max(0, t.hp)), up0 = t.hp > 0;
     this.damage(a, t, dmg, spell.element);
+    // a experiência do dano da magia (0x51e65b: vida > -10 depois do dano → vtable+0x6c, 0x513128) nas magias que o motor antigo resolve
+    if (up0 && t.hp > -10) this.exeXp(a.rec, () => unitXpOnHit(this.exeWorld, a.rec, t.rec, dmg, Number(spell.base ?? spell.id) | 0, this.exeHooks));
     if (spell.kind === "drain" && a.active && dealt > 0) {
       a.hp = Math.min(a.maxHp, a.hp + dealt);
       this.events.push({ type: "heal", unit: a.id, amount: dealt });
     }
   }
 
-  /** Abates por tipo de monstro (a experiência cai com 10/(n+10)). */
-  readonly killsByType = new Map<number, number>();
-
-  /** Experiência [exe 0x513128]: base × (Mind/30 + 0,25) × 10/(n+10); ÷8 (arred. p/ cima) fora do alinhamento (exceto Astral e Shooting);
-   *  limitada a exp(skill+1) − exp(skill) por evento. Guerreiros só ganham com a arma, magos só com magias. */
-  private gainExp(a: Unit, skill: string, base: number, typeId: number): void {
-    const info = a.heroInfo!;
-    const n = this.killsByType.get(typeId) ?? 0;
-    let xp = base * ((a.stats.mind ?? 0) / 30 + 0.25) * 10 / (n + 10);
-    if (skill !== info.alignment && skill !== "astral" && skill !== "shooting") xp = Math.ceil(xp / 8);
-    const cur = info.skillExp[skill] ?? 0, v = skillFromExp(cur);
-    xp = Math.floor(Math.min(xp, skillExp(v + 1) - skillExp(v)));
-    if (xp <= 0) return;
-    info.skillExp[skill] = cur + xp;
-    a.exp += xp;
-    this.events.push({ type: "exp", unit: a.id, amount: xp });
-    if (skillFromExp(cur + xp) > v) this.heroSkillUp(a);
-  }
-
-  /** Subiu o nível de uma habilidade (0x5128cb): +1 em +0xa8 e a vtable+0x58 — vida/mana máximas pela experiência +0x130 (0x51366b). */
-  private heroSkillUp(a: Unit): void {
-    this.events.push({ type: "levelup", unit: a.id });
-    if (this.heroRecompute) { this.heroRecompute(a); this.syncCombat(a); } else this.syncSkills(a);
-  }
-
-  /** Magia de suporte lançada: int(nível × 0,5 + 0,5) de experiência na escola. */
+  /** Spell_Apply 0x519db8 → vtable+0x70 (0x5131ef, exe/xp.ts) nas magias que o motor antigo ainda resolve (8b): a experiência pela
+   *  magia lançada; o pergaminho é item em uso (+0x68) e o exe não chama a vtable+0x70 */
   private supportExp(u: Unit, s: SpellDef): void {
-    if (!u.heroInfo || !u.heroInfo.mage || s.mana <= 0) return;
-    const xp = Math.floor(s.level * 0.5 + 0.5);
-    if (xp <= 0) return;
-    const cur = u.heroInfo.skillExp[s.element] ?? 0;
-    u.heroInfo.skillExp[s.element] = cur + xp;
-    u.exp += xp;
-    this.events.push({ type: "exp", unit: u.id, amount: xp });
-    if (skillFromExp(cur + xp) > skillFromExp(cur)) this.heroSkillUp(u);
+    if (String(s.id).startsWith("scroll:")) return;
+    this.exeXp(u.rec, () => fn_0x5131ef(this.exeWorld, u.rec, null, Number(s.base ?? s.id) | 0, this.exeHooks));
   }
 
   /** >0 enquanto uma magia de área (explosão, jato, campo) aplica dano */
@@ -3133,7 +3138,12 @@ export class World {
     const killer = t.felledBy ? this.get(t.felledBy) : undefined;
     if (t.silentFall) { t.silentFall = false; this.onDeath?.(t, killer); }   // caiu por "vida 0" do script (knockOut): as regras de falha só agora
     this.events.push({ type: "death", unit: t.id, killer: t.felledBy });
-    if (killer?.isHero) this.killsByType.set(t.typeId, (this.killsByType.get(t.typeId) ?? 0) + 1);
+    // 0x52b459 (ação 0x10): o matador +0x40 humano (modelo 0x21..0x3f) e de pé → vtable+0x50 (0x51327b: ouro pela morte com
+    // [0x6044c4]+0x74; não portado) e vtable+0x68 (0x512fcb: experiência e a tabela de abates), com o byte +0x48 da vítima
+    const kr = (t.rec.f40 >>> 0) !== 0 ? this.unitByAddr(t.rec.f40) : undefined, kt = kr ? kr.rec.f0e & 0xffff : 0;
+    if (kr && kt > 0x20 && kt < 0x40 && !fn_0x542770(kr.rec)) {
+      this.exeXp(kr.rec, () => fn_0x512fcb(this.exeWorld, kr.rec, t.rec, (t.rec.f48 << 24) >> 24, this.exeHooks));
+    }
   }
 
   private autoPickup(u: Unit): void { if (u.isHero) this.pickupAt(u); }

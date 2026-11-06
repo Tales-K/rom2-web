@@ -418,12 +418,16 @@ export class UnitRec {
   pathDynamic = new CListWord();           // +0x1e4 CList<WORD> caminho dinâmico (0x54e886)
   /** +0x23c i32[6]: [0] habilidade principal do modelo de herói (0x514cf2), [1..5] experiência de cada habilidade (0x513497 ← 0x5128ac) */
   f23c = new Int32Array(6);
+  /** +0x1a8 CDWordArray (dados +4, tamanho +8): abates por tipo, cada elemento = tipo +0x14c da vítima | contagem << 16; no máximo 5
+   *  (o 6.º tira o mais antigo) — 0x512fcb põe, 0x5128cb lê (experiência × 10 ÷ (contagem + 10)) */
+  kills: number[] = [];
 }
 
 /** Objeto global [0x6044c4] (jogo/servidor): +0 contador de 1/s (lido como int em 0x50fc5a/0x5110b8, short em 0x54d76e; vira no fim do
- *  tique com relógio ≡ 0xf), +4 relógio de 16/s (0x56e6b8, 0x50fc3e, 0x5040c4), +0x74 ≠ 0 = jogo local (0x50f12c, 0x510a70). A World
+ *  tique com relógio ≡ 0xf), +4 relógio de 16/s (0x56e6b8, 0x50fc3e, 0x5040c4), +0x74 (0x50f12c, 0x510a70, 0x512f44, 0x52c279): 0 no
+ *  jogo de um jogador (lido nos pares do 0x512f44 dos 4 episódios do oráculo; o 1 de antes era suposição: o teto da experiência saía ÷ 5). A World
  *  escreve antes de cada chamada da máquina; o teste lê da memória. */
-export const EXE_GLOBALS = { w6044c4: 0, clock16: 0, f74: 1 };
+export const EXE_GLOBALS = { w6044c4: 0, clock16: 0, f74: 0 };
 
 /** Objeto de busca de caminho (o `this` de 0x557f08 / 0x55f970). */
 export interface PathRec {

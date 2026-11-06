@@ -82,6 +82,8 @@ export interface UnitRecJson {
   i68?: number;
   /** o golpe +0xa6.. (com as habilidades +0xa8), as proteções +0xc2.. e as resistências +0xce.. — ausente em saves antigos */
   cb?: { d: Record<string, number>; ds: number[]; p: number[]; r: number[] };
+  /** experiência (exe/xp.ts): +0x23c[0..5] e os abates +0x1a8 — ausente em saves antigos */
+  xp?: { e: number[]; k: number[] };
 }
 
 /** Os campos escalares que `World.syncCombat` escreve a partir do motor antigo: no restore voltam aos salvos depois dele (`unitCombatFromJson`). */
@@ -100,6 +102,7 @@ export function unitRecToJson(r: UnitRec): UnitRecJson {
     fx: r.fx.values(),
     bx: { d: scalarFields(r.bdmg), ds: [...r.bdmg.sk], e: scalarFields(r.bdef), ep: [...r.bdef.prot], er: [...r.bdef.resist], sb: [...r.skBase] },
     cb: { d: scalarFields(r.dmg), ds: [...r.dmg.sk], p: [...r.prot], r: [...r.resist] },
+    xp: { e: [...r.f23c], k: [...r.kills] },
   };
 }
 
@@ -129,6 +132,7 @@ export function unitRecFromJson(r: UnitRec, j: UnitRecJson): void {
   Object.assign(r.walk, j.w); Object.assign(r.ai, j.a);
   listSet(r.pathStatic, j.ps); listSet(r.pathDynamic, j.pd); listSet(r.ai.patrol, j.pt ?? []);
   r.book.last = j.bl ?? 0;
+  if (j.xp) { r.f23c.set(j.xp.e); r.kills = [...j.xp.k]; }
   r.book.keep = j.bi ?? null;
   // +0x68: a arma em uso volta como o mesmo objeto de +0x74 (a World o preenche em syncCombat); outro item em uso não é salvo [est]
   r.f68 = j.i68 === 1 ? (r.f74 ??= new ItemRec()) : null;

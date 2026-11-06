@@ -499,6 +499,10 @@ export function unitFrom(cm: CallMem, a: number, memo: Map<number, UnitRec>): Un
   { const p7c = cm.u32(a + 0x7c); if (p7c !== 0) { u.f7c = new Obj7cRec(); u.f7c.addr = p7c; u.f7c.f20 = cm.u32(p7c + 0x20) | 0; } }
   u.fx = ptrListFrom(cm, a + FX_OFF);
   u.f130 = cm.u32(a + 0x130) | 0;   // experiência: só lida (a escrita é do gancho de experiência, fora da conferência)
+  // experiência (exe/xp.ts, conferida em test/exe_xp.ts): o valor +0x1c, +0x23c[0..5] e os abates +0x1a8 (CDWordArray: dados +4, tamanho +8)
+  u.f1c = cm.u32(a + 0x1c) | 0;
+  for (let i = 0; i < 6; i++) u.f23c[i] = cm.u32(a + 0x23c + 4 * i) | 0;
+  { const p = cm.u32(a + 0x1a8 + 4), n = cm.u32(a + 0x1a8 + 8) | 0; u.kills = []; for (let i = 0; i < n && i < 64; i++) u.kills.push(cm.u32(p + 4 * i) >>> 0); }
   for (let i = 0; i < 6; i++) { u.prot[i] = cm.u16(a + PROT_OFF + 2 * i); u.resist[i] = cm.u8(a + RESIST_OFF + i); }
   u.type = groupFrom(cm, cm.u32(a + 0x70));
   u.hasBook = cm.u32(a + 0x140) !== 0;
@@ -713,7 +717,8 @@ export function checkUnit(cm: CallMem, d: Pair, a: number, u: UnitRec): string |
         if ((x >= a + BONUS_OFF && x < a + BONUS_OFF + BONUS_SIZE) || (x >= a + FX_OFF && x < a + FX_OFF + 0x1c)) continue;
         if (x >= a + 0x114 && x < a + 0x154) continue;   // tabela por jogador do cliente (0x503672 's', 0x5039e2): fora do espelho
         // experiência do herói pelo golpe (0x513128 → 0x5128cb, motor antigo: gancho `xpOnHit`): +0x18, habilidades +0xa8.., +0x130, +0x240
-        if ((x >= a + 0x18 && x < a + 0x1a) || (x >= a + 0xa8 && x < a + 0xb4) || (x >= a + 0x130 && x < a + 0x134) || (x >= a + 0x240 && x < a + 0x244)) continue;
+        if ((x >= a + 0x18 && x < a + 0x1a) || (x >= a + 0xa8 && x < a + 0xb4) || (x >= a + 0x130 && x < a + 0x134) || (x >= a + 0x23c && x < a + 0x254)) continue;
+        if (x >= a + 0x1a8 && x < a + 0x1bc) continue;   // abates +0x1a8 (CDWordArray; test/exe_xp.ts confere)
         return `escrita do original em unidade+0x${(x - a).toString(16)} não espelhada`;
       }
       if (x >= own && x < own + 0xb00 && !covered(own, PLAYER_FIELDS, x) && !(x >= own + 0xad8 && x < own + 0xae0) && !(x >= own + 0xaa0 && x < own + 0xaa4)) return `escrita do original em dono+0x${(x - own).toString(16)} não espelhada`;   // +0xaa0, +0xad8/+0xadc: estatísticas do cliente (Server_Event)
@@ -799,12 +804,12 @@ export function worldRec(c: Ctx, w: number, m: MapRec): WorldRec {
   }
   const uc = c.cm.u32(0x68d2dc);
   if (uc !== 0) wr.lists = listsFrom(c.cm, uc);
-  // o objeto global [0x6044c4]: contador de 1/s (+0), relógio de 16/s (+4), jogo local (+0x74), registro dos objetos (+0x7c: +4 fixos)
+  // o objeto global [0x6044c4]: contador de 1/s (+0), relógio de 16/s (+4), +0x74 (0 no jogo de um jogador), registro dos objetos (+0x7c: +4 fixos)
   const g = c.cm.u32(0x6044c4);
   if (g !== 0) {
     if (c.cm.has(g)) EXE_GLOBALS.w6044c4 = c.cm.u16(g);
     if (c.cm.has(g + 4)) EXE_GLOBALS.clock16 = c.cm.u32(g + 4);
-    EXE_GLOBALS.f74 = c.cm.has(g + 0x74) ? c.cm.u32(g + 0x74) : 1;
+    EXE_GLOBALS.f74 = c.cm.has(g + 0x74) ? c.cm.u32(g + 0x74) : 0;
     const reg = c.cm.u32(g + 0x7c);
     if (reg !== 0 && c.cm.has(reg + 4)) { c.spellListAddr = c.cm.u32(reg + 4) + 4; wr.lists.spellObjs = ptrListFrom(c.cm, c.spellListAddr); }
   }

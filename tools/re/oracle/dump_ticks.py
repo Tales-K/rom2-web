@@ -211,6 +211,12 @@ class ExeTracker:
                           "f9e": struct.unpack_from("<h", b, 0x9E)[0], "fa2": b[0xA2], "fa3": b[0xA3],
                           "fde": struct.unpack_from("<h", b, 0xDE)[0], "fe2": struct.unpack_from("<h", b, 0xE2)[0],
                           "f138": struct.unpack_from("<I", b, 0x138)[0],
+                          # experiência (sim/exe/xp.ts): +0x23c[0..5] (principal, experiência por habilidade) e os abates +0x1a8 (CDWordArray:
+                          # dados +4, tamanho +8; tipo +0x14c da vítima | contagem << 16)
+                          # (só humanos/herói, vtables 0x5d0f40/0x5d0fb8: o registro do monstro é menor)
+                          "xp": list(struct.unpack_from("<6i", bytes(o.read(a + 0x23C, 24)))) if vt in (0x5D0F40, 0x5D0FB8) else None,
+                          "kl": [o.u32(struct.unpack_from("<I", b, 0x1AC)[0] + 4 * i)
+                                 for i in range(min(struct.unpack_from("<i", b, 0x1B0)[0], 64))] if vt in (0x5D0F40, 0x5D0FB8) else None,
                           # etapa 8b (magias): alvo +0x5c e magia em curso +0x64, o livro +0x140 como [id, endereço] — os ponteiros de magia do
                           # registro (IA+0x30, +0x44, +0x64) são endereços de BookSpellRec; o importador os traduz para os nossos
                           "f5c": struct.unpack_from("<I", b, 0x5C)[0], "f64": struct.unpack_from("<I", b, 0x64)[0],

@@ -10,7 +10,7 @@
 import type { HeroState } from "../../core/state";
 import { defaultHero, spawnFromTemplate, spellDef } from "../../mission/setup";
 import { snapshotMission, restoreMission, type MissionSnapshot } from "../snapshot";
-import { thinkPhaseFor, type Unit, type World } from "../world";
+import { thinkPhaseFor, World, type Unit } from "../world";
 import { TICKS_PER_SEC } from "../types";
 import { CellStructRec, MapObjRec, MapRec, SpellObjRec, SpellPayloadRec, UnitRec, VT_DIRECT_DAMAGE, VT_POINT_EFFECT, VT_TRANSPORT, type WorldRec } from "../exe/types";
 import { CMapShortOcc } from "../exe/mfc";
@@ -46,6 +46,8 @@ export interface OrigUnitRec {
   f98?: number; f9c?: number; f9e?: number; fa2?: number; fa3?: number; fde?: number; fe2?: number; f138?: number;
   /** etapa 8b: magia em curso +0x64 e o livro +0x140 como [id, endereço] (os ponteiros de magia do registro são do original) */
   f5c?: number; f64?: number; book?: [number, number][];
+  /** experiência (sim/exe/xp.ts): +0x23c[0..5] e os abates +0x1a8 — ausentes em despejos antigos */
+  xp?: number[]; kl?: number[];
   /** etapa 8b, lote 4: os efeitos com duração da lista +0x20 (bytes da carga "Effect" e do objeto de mapa), na ordem da lista */
   fx?: { a: number; b: string; mo: string }[];
 }
@@ -541,6 +543,13 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     }
   }
   // unidades nossas sem par no original (ex.: invocação que o original não tem): ficam como estão
+  // experiência (sim/exe/xp.ts): +0x23c[1..5] do despejo na `heroInfo` do herói (o syncSkills monta o registro dela) e os abates +0x1a8
+  for (const o of st.units) {
+    const u = byOrig.get(o.id), xp = o.exe?.xp;
+    if (!u || !o.exe) continue;
+    if (o.exe.kl) u.rec.kills = [...o.exe.kl];
+    if (u.heroInfo && xp) { const names = World.heroSchools(u); for (let i = 1; i < 6; i++) u.heroInfo.skillExp[names[i - 1]!] = xp[i]! | 0; }
+  }
   // os atributos de combate do registro a partir dos `stats` importados (o passo não os reescreve mais: F2 etapa 2)
   for (const u of w.units) w.syncCombat(u);
   return { missing, dead };

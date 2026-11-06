@@ -578,7 +578,7 @@ export function spellCasterPower(s: BookSpellRec, u: UnitRec): void {
   spellInstance(s, p & 0xff);
 }
 /** 0x51c3e4 (thiscall; livro, unidade): as magias do livro (índices 1..tamanho − 1) refeitas pelo poder de quem lança. */
-function fn_0x51c3e4(u: UnitRec): void {
+export function fn_0x51c3e4(u: UnitRec): void {
   for (let local_8 = 1; local_8 < u.book.spells.length; local_8++) {
     const s = u.book.spells[local_8];
     if (s) spellCasterPower(s, u);

@@ -348,7 +348,7 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   h.weaponSpell = sp.weaponSpell;
   h.dir = 8; // o herói do original começa virado para o norte (quadro parado 8)
   h.exp = 0;
-  h.heroInfo = { mage: hero.heroClass === "mage", alignment: heroAlignment(hero), skillExp: heroSkillExp(hero, data) };
+  h.heroInfo = { mage: hero.heroClass === "mage", alignment: heroAlignment(hero), skillExp: heroSkillExp(hero, data), female: hero.sex === "female" };
   world.heroRecompute = u => recomputeHero(u, hero, data);
   h.ai = { type: "hold" };
   host.bindUnit(h.scriptId, h);

@@ -14,7 +14,7 @@
  * Lote 3 (a aplicação e os objetos de magia):
  *  - Spell_Apply 0x519db8 (thiscall; magia, unidade, alvo ou 0, x, y): poder = habilidade da esfera (definição[2]; unidade+0xa8 +
  *    2 × esfera) + Mind (+0x88) − 30 em 0..255, ou o do item em uso (0x5238c5: efeito 0x29 da lista item+0x20, +0x42); Spell_Instance;
- *    experiência pela magia (vtable+0x70, sem item e sem o bit 2 de +0x4c, 0x543130); o ponto alvo (0x54f955/0x54f9b9 ou 0x54feae +
+ *    experiência pela magia (vtable+0x70, sem item e com o bit 2 de +0x4c, 0x543130); o ponto alvo (0x54f955/0x54f9b9 ou 0x54feae +
  *    0x54ff06 e, lado > 1, o centro − 1 por 0x54fc41); alvo imune (vtable+0x2c e bit 8 de +0x4c) → nada. Portados: o objeto de dano
  *    (dano da instância ≠ 0 e id ≠ 0x18/0x1a: Spell_DamageObject 0x51e505 + 0x543040/0x543070/0x5430a0/0x5430d0/0x543100 pela esfera),
  *    preso ao alvo (definição[8] = 1: Spell_AttachToTarget 0x5178d4) e entregue já (definição[5] = 1) ou por projétil (2: 0x518d1e; voo
