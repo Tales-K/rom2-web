@@ -269,7 +269,7 @@ export async function worldFromState(st: OrigState): Promise<Imported> {
   const r = startRun(data, heroFromState(st));
   // o estado exportado é de DEPOIS do 1º ciclo do script (gatilhos "Start": patrulhas, guardas, swarm): roda-o antes do retrato do
   // tique 0, senão cada janela o repete (a patrulha dos camponeses da m20 recomeçava na posição da janela)
-  r.b.runtime?.update(0);
+  r.b.runtime?.runCycle();   // os ciclos do script vêm do pensamento (0x57485b): `update` não roda mais o 1.º
   const w = r.b.world;
   // passo por célula do original no tique 0 (MapRec+0): o nosso mapa (sim/exe/mapbuild.ts) não tem o passo padrão 6 que 0x550a96
   // põe nas células livres do pé das estruturas

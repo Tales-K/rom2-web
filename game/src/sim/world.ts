@@ -1498,8 +1498,6 @@ export class World {
   /** grupos sempre acordados (`+0x3c+0x48`, posto pelos gatilhos do script 0x562745 nos grupos que eles citam). `null` = não modelado:
    *  todos acordados (o jogo normal: `f48` = 1 em todos; o importador do diferencial deduz do estado exportado: ação 0x1b = dormindo) */
   alwaysAwake: Set<number> | null = null;
-  /** há invisibilidade do ritual da missão 77 neste tique (ver `step`) */
-  private ritualHidden = false;
   /** a unidade pertence a um grupo acordado (`+0x3c+0x45`, escrito pelo pensamento: 0x55b5f1 a cada 1 s; com mundo+0xbbe8 ≠ 0 todos) */
   awake(u: Unit): boolean { return (this.exeWorld.fbbe8 | 0) !== 0 || (u.rec.type.stats.f45 & 0xff) !== 0; }
 
@@ -1582,7 +1580,7 @@ export class World {
     if (!this.exeExact) {
       let e = 0;
       for (const b of u.buffs) { const id = Number(b.spell); if (id >= 1 && id < 32) e |= 1 << id; }
-      // a invisibilidade dada pelo script (missão 77, `spell: "ritual"`) também é o efeito 0xc (AI_EnemyFilter 0x567a16 testa 0x1000)
+      // a invisibilidade dos `buffs` do motor antigo também é o efeito 0xc (AI_EnemyFilter 0x567a16 testa 0x1000)
       if (u.buffs.some(b => b.kind === "invisible")) e |= 1 << SPELL.Invisibility;
       // os efeitos da lista +0x20 do exe (0x51ce12 liga o bit, 0x51cc9f o apaga)
       e |= this.exeFxBits(u);
@@ -1678,14 +1676,6 @@ export class World {
     this.exeSyncWorld();
     // os atributos de combate ficam no registro entre um tique e outro (F2 etapa 2): o exe só os refaz na vtable+0x58 (gancho `recompute`),
     // e o motor antigo os escreve (`syncCombat`) só nos eventos dele (nascer, restaurar, buffs, equipamento, experiência)
-    // [est] a invisibilidade do ritual da missão 77 (mission/setup.ts, `spell: "ritual"`: "os guardas que aparecem não veem ninguém") não é
-    // mecânica do exe — AI_EnemyFilter 0x567a16 só deixa ver o invisível a distância ≤ IA+0x71 de um membro do grupo; enquanto ela dura,
-    // as unidades de IA ficam com IA+0x71 = 0
-    if (!this.exeExact) {
-      const ritual = this.units.some(v => v.alive && v.buffs.some(b => b.kind === "invisible" && b.spell === "ritual"));
-      if (ritual || this.ritualHidden) for (const u of this.units) u.rec.ai.f71 = (ritual && this.isAiPlayerUnit(u) ? 0 : u.stats.seeInvisible ?? 0) & 0xff;
-      this.ritualHidden = ritual;
-    }
     if (aiTick) {
       // em tiques de 16/s: a ordem precisa ter chegado ≥ 2 tiques antes do pensamento (a do tique anterior só vale no tique dele)
       const s16 = (t: number) => Math.round(t * SERVER_TICKS_PER_SEC / TICKS_PER_SEC);
@@ -1970,9 +1960,6 @@ export class World {
     // qualquer ordem; a máquina de ação (0x50f12c = o golpe/a magia do motor antigo, `progressAttack`) roda depois dele no mesmo
     // tique. No fim (pronto = 1 no tique E) o despachante solta o pedido em E + 1 (ação 0) e a tarefa volta em E + 2 (sonda c1/c2:
     // Skrakan, Lightning a cada charge + relax + nível + rand(0..3) + 2 = 24–27 tiques)
-    // [est] quem faz o ritual da missão 77 (invisibilidade `spell: "ritual"`, mission/setup.ts) só o faz: o Stand ground portado
-    // (0x56a1fb) o mandaria golpear o guarda que aparece ao lado e o golpe tiraria a invisibilidade (0x516b2f) — falha 7
-    if (u.exeTask && r.ai.sub === 0 && u.buffs.some(b => b.kind === "invisible" && b.spell === "ritual")) { this.stop(u); return; }
     if (r.ai.sub !== 0) { this.machine(u); return; }
     const o = u.order;
     switch (o.type) {

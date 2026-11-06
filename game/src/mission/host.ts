@@ -166,7 +166,7 @@ export class MissionHost implements ScriptHost {
   playerBuildingCount(): number { return 0; }
   nearestPlayerUnitDistance(p: number, x: number, y: number): number {
     let best = FAR_AWAY;
-    for (const u of this.world.units) if (u.player === p && u.active) best = Math.min(best, Math.hypot(Math.floor(u.x) - x, Math.floor(u.y) - y));
+    for (const u of this.world.units) if (u.player === p && u.active) best = Math.min(best, Math.max(Math.abs(Math.floor(u.x) - x), Math.abs(Math.floor(u.y) - y)));   // Grid_ChebyshevDist (valor 15: 0x57745b)
     return best;
   }
   diplomacy(a: number, b: number): number { return this.world.diplomacyValue(a, b); }

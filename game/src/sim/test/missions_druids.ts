@@ -619,7 +619,7 @@ async function m63(): Promise<void> {
   at(r, h, 104, 126); w.command(h, { type: "pickup", x: 104, y: 124 }); run(r, 60);
   check(h.items.includes("3668"), `herói pega o amuleto (itens ${h.items.join(",")})`);
   check(!has(r, 9), "o amuleto ainda não está com Xara");
-  at(r, xara, 50, 50); at(r, h, 51, 51); settle(r, 25);
+  at(r, xara, 50, 50); at(r, h, 51, 51); settle(r, 40);   // 2 ciclos do script (o que liga v73 e o que fala), 1×/s no pensamento: 2 × 16 tiques + folga
   check(has(r, 9) && sub(r, 1) === 2 && sub(r, 2) === 1, "amuleto devolvido a Xara: msg 9, sub 1 cumprido, sub 2 ativo");
   check(!h.items.includes("3668") && !w.loot.some(l => l.items.includes("3668")), "amuleto retirado de todos (item 60)");
   // torre (40,18): precisa do bando 16 morto

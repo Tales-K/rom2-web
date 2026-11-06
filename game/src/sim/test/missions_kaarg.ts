@@ -224,7 +224,8 @@ async function m32(): Promise<void> {
   const brigands = group(r, 1);
   check(brigands.length === 5, "grupo 1 = 5 bandidos");
   at(r, h, 25, 36); settle(r);
-  check(brigands.every(b => b.ai?.type === "guard"), "bandidos em alerta (enxame) quando o herói chega ao ponto (28,33)");
+  // o gatilho é a menor distância de Chebyshev (0x57745b) ≤ 4: (25,36) está a 3 (a euclidiana dava 4,24 e o gatilho não disparava)
+  check(brigands.every(b => b.ai?.type === "swarm"), "bandidos em alerta (enxame) quando o herói chega ao ponto (28,33)");
   killAll(r, brigands.slice(0, 3)); settle(r);
   check(sword.ai?.type === "swarm", `espadachim começa a correr (ai ${JSON.stringify(sword.ai)})`);
   // o herói ainda tem tempo: pula para perto e mata o espadachim de verdade (duelo)
@@ -335,7 +336,7 @@ async function m41(): Promise<void> {
   w.kill(mage, h); settle(r);
   check(has(r, 2) && sub(r, 1) === 2 && sub(r, 2) === 1, "mago morto: msg 2, subobjetivo 1 cumprido, subobjetivo 2 ativo");
   check(amb.every(u => u.phased), "mago morto: emboscada some");
-  at(r, h, 28, 16); settle(r);
+  at(r, h, 30, 17); settle(r);   // a 7 do dragão (≤ 12) e a 6 da torre (> 4; Chebyshev como o exe, 0x57714d)
   check(has(r, 3), "perto do dragão: msg 3");
   const d2 = unit(r, 131);
   w.kill(d2, h);

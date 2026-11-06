@@ -421,11 +421,12 @@ async function m85(): Promise<void> {
   check(w.diplomacyValue(2, 1) === 0 && w.diplomacyValue(5, 4) === 1 && w.diplomacyValue(5, 1) === 1, "aldeões em paz com o herói; lobos atacantes hostis a ovelhas e ao herói");
   settle(r, 20 * 20);
   check(has(r, 1) && !r.outcome && !has(r, 2) && !swarming(r), "20 s no ponto de partida: msg 1, os lobos não se mexem (contador parado)");
-  // contador do círculo de iniciativa (39,10): o grupo inteiro a >= 15 células -> 16 ciclos depois os lobos marcham
+  // contador do círculo de iniciativa (39,10): o grupo inteiro a >= 15 células -> v72 = 1, +1 por ciclo do script (1×/s, 0x57485b); os
+  // lobos marcham com v72 > 15 (~15 s)
   away(r); settle(r, 20 * 3);
   check(!swarming(r) && !has(r, 2), "grupo fora do círculo há 3 s: contador correndo, lobos ainda parados");
-  settle(r, 20 * 8);
-  check(swarming(r), "8 s depois: lobos atacantes marcham (grupos 3 e 4, swarm)");
+  settle(r, TICKS_PER_SEC * 14);
+  check(swarming(r), "~15 s depois: lobos atacantes marcham (grupos 3 e 4, swarm)");
   check(noUnsupported(r), "script sem ações sem suporte (Distance to nearest units of player)");
   // só o herói sair do círculo não basta (Igles e Dina ficam perto de (39,10))
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
@@ -440,8 +441,8 @@ async function m85(): Promise<void> {
   check(has(r, 2) && !has(r, 3) && !swarming(r), "herói com o líder: msg 2 (v70 = 1) e o contador começa");
   beside(r, unit(r, 10002), 8); settle(r, 20 * 3);
   check(!has(r, 3) && !swarming(r), "Igles depois: o líder não repete a fala (v70)");
-  settle(r, 20 * 6);
-  check(swarming(r), "~8 s depois da conversa: lobos marcham");
+  settle(r, TICKS_PER_SEC * 13);
+  check(swarming(r), "~15 s depois da conversa: lobos marcham");
   // vitória: lobos mortos + herói de novo com o líder -> msg 5 e Mission Complete
   check(!r.outcome, "lobos vivos: sem desfecho");
   const wl = wolves(r);

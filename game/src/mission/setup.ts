@@ -330,20 +330,12 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   const exitDist = exit && data.script?.values.get(exit.value);
   if (exit && exitDist?.params[1] && exitDist.params[2]) { exitDist.params[1].value = exit.x; exitDist.params[2].value = exit.y; }
   if (data.id === 72) host.heroItemsCountForCompanions = true; // runas: ver MissionHost.heroItemsCountForCompanions
-  // missão 77 (túmulo (48,25)): na fala 10 o bom necromante "cobre" o grupo com invisibilidade (o script só espera que os guardas que aparecem durante o
-  // ritual não vejam ninguém — "Skeleton attack" = falha 7); o original faz isso por magia dele, sem ação no script [est]
-  if (data.id === 77) host.onMessage = n => {
-    if (n !== 10) return;
-    for (const u of world.units) {
-      if (u.player !== 1 || !u.alive || Math.hypot(u.x - 48, u.y - 25) > 12) continue;
-      u.buffs = u.buffs.filter(b => b.kind !== "invisible");
-      u.buffs.push({ kind: "invisible", amount: 999, until: world.tick + 16 * TICKS_PER_SEC, spell: "ritual" });
-      world.syncCombat(u);
-    }
-  };
   // herói no ponto de entrada
   let runtime: ScriptRuntime | undefined;
-  if (data.script) runtime = new ScriptRuntime(data.script, host, { cyclePeriod: 0.5 });
+  // o script roda no pensamento do servidor (0x56fe4d → 0x57485b, 1×/s: exec 180 no corpus de 3 × 60 s) com as distâncias de Chebyshev
+  // de Grid_ChebyshevDist (valores 6, 7 e 15: 0x577268, 0x57714d, 0x57745b)
+  if (data.script) runtime = new ScriptRuntime(data.script, host, { external: true, distance: "chebyshev" });
+  if (runtime) { const rt = runtime; world.scriptThink = () => rt.runCycle(); }
   const drop = map.heroEntry?.[0] ?? runtime?.dropLocation ?? { x: Math.floor(map.w / 2), y: Math.floor(map.h / 2) };
   const hkind = heroSpriteKey(hero, data.anim, data.items);
   const hs = heroStats(hero, data);

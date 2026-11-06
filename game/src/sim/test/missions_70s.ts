@@ -429,7 +429,8 @@ async function m74(): Promise<void> {
   w.kill(unit(r, 32), h); settle(r, 20);
   check(w.diplomacyValue(1, 3) === 1 && w.diplomacyValue(3, 1) === 1, "ogro 32 morto: ogros hostis de novo (Ogre dead)");
   r = start(); w = r.b.world; h = r.b.hero;
-  settle(r, 5); w.revive(unit(r, 35), Math.ceil(unit(r, 35).maxHp * 0.3), true); settle(r, 30);   // cura (os ogros são hostis ao herói: o Heal do jogador não vale; aqui o script/cura de fora)
+  // o 1.º ciclo do script (gatilho Start: "Ogre health to 0") é o do 1.º pensamento (0x56fe4d → 0x57485b, relógio ≡ 7), não o 1.º tique
+  settle(r, TICKS_PER_SEC + 4); w.revive(unit(r, 35), Math.ceil(unit(r, 35).maxHp * 0.3), true); settle(r, 30);   // cura (os ogros são hostis ao herói: o Heal do jogador não vale; aqui o script/cura de fora)
   check(has(r, 2) && w.diplomacyValue(1, 3) === 0, "ogro curado (vida >= 25%) acorda mesmo sem ninguém perto");
   r = start(); w = r.b.world; h = r.b.hero;
   settle(r, 5); at(r, h, 66, 125); settle(r, 60);
@@ -651,19 +652,30 @@ async function m77(): Promise<void> {
   at(r, good, 18, 117); settle(r);
   check(has(r, 9) && sub(r, 2) === 2 && friend.player === 1, `bom necromante com o amigo (175): msg 9, sub 2 cumprido e ele passa para o jogador (jogador ${friend.player})`);
   check(group(r, 24).every(u => !u.active), "guarda continua fora de fase");
-  // ritual no túmulo: contador v73 sobe a cada ciclo (0,5 s); aos 10 a guarda aparece, aos 20 some
+  // ritual no túmulo: o contador v73 sobe 1 por ciclo do script (1×/s, no pensamento 0x57485b); aos 10 a guarda (grupo 24) entra em
+  // volta do túmulo, aos 20 sai. O script não esconde ninguém (não há ação de invisibilidade; o exe só a dá pela magia, e o autocast
+  // 0x56bc7b só lança Invisibility no nível 3 do AutoCasting): o jogador afasta os dois a <= 15 do túmulo, fora da vista da guarda
+  // (8–10), e traz o bom necromante de volta depois que ela sai (falas 11 e 13 com v73 > 20)
   at(r, h, 100, 14); at(r, good, 48, 26); at(r, friend, 47, 26); hold(r, good); hold(r, friend); settle(r, TICKS_PER_SEC); // o jogador manda os dois ficarem no túmulo
   check(has(r, 10), "os dois no túmulo: msg 10 (contador do ritual)");
   const guard = group(r, 24);
-  const keep = (): void => { for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp; };
-  check(good.buffs.some(b => b.kind === "invisible") && friend.buffs.some(b => b.kind === "invisible"), "msg 10: o bom necromante cobre o grupo com invisibilidade (os guardas que aparecem não veem ninguém)");
-  const trace: string[] = [];
-  for (let i = 0; i < 16 && !r.outcome; i++) { run(r, TICKS_PER_SEC, keep); trace.push(guard.filter(u => u.active).length === 8 ? "A" : guard.some(u => u.active) ? "?" : "."); }
-  console.log(`  info: guarda em fase por segundo (A = os 8 presentes): ${trace.join("")}`);
-  check(trace.slice(3, 8).every(c => c === "A") && trace[0] === "." && trace[12] === ".", "contador do ritual: a guarda (8) aparece ~4 s depois da fala 10 e some ~5 s depois");
-  check(!r.outcome && !guard.some(u => u.state === "attack"), "invisíveis, o grupo não é atacado pela guarda: sem falha 7");
+  // a espera do ritual é longa (~25 s): os bichos (jogador 4) perto do herói derrubam a Dina (26 de vida) num golpe — vida alta só aqui
+  const keep = (): void => { for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp = Math.max(u.maxHp, 5000); };
+  const v73 = (q: Run): number => q.b.runtime!.getVariable(73);
+  at(r, good, 48, 40); at(r, friend, 47, 40); hold(r, good); hold(r, friend);
+  const trace: [number, number][] = [];
+  let back = false;
+  for (let i = 0; i < 30 && !r.outcome && !has(r, 13); i++) {
+    run(r, TICKS_PER_SEC, keep); trace.push([v73(r), guard.filter(u => u.active).length]);
+    if (!back && v73(r) > 20) { back = true; at(r, good, 48, 26); hold(r, good); }
+  }
+  console.log(`  info: (v73, guarda em fase) por segundo: ${trace.map(([a, b]) => `${a}:${b}`).join(" ")}`);
+  const shown = trace.filter(([, n]) => n === 8).length;
+  check(trace.every(([a, n]) => (a > 10 && a < 20 ? n === 8 : a < 10 || a > 20 ? n === 0 : true)) && shown >= 9 && shown <= 11,
+    `contador do ritual: a guarda (8) fica em campo enquanto 10 <= v73 < 20, ~10 s a 1 ciclo/s (${shown} s)`);
+  check(!r.outcome && !guard.some(u => u.state === "attack"), "escondidos a 15 do túmulo, fora da vista da guarda: sem falha 7");
   check(has(r, 11) && has(r, 13) && !has(r, 12), "bom necromante a <= 15 do túmulo: msg 11 (viu o feitiço) e msg 13 (fala com o fantasma)");
-  beside(r, h, 144); settle(r, 30);
+  beside(r, h, 144); settle(r);
   check(has(r, 14) && r.outcome?.ok === true, `herói com o bom necromante: msg 14 + Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r), "script sem ações sem suporte");
   check(messagesHaveText(r, hero0()), "todas as falas disparadas têm texto para o mago");
@@ -672,13 +684,16 @@ async function m77(): Promise<void> {
   console.log("[77] variantes, Igles/Dina e falhas");
   /** cadeia curta por teletransporte: chefe -> bom necromante -> túmulo -> amigo -> ritual -> fala final com `who` */
   const quick = (hero: HeroState, who = 10001): Run => {
-    const q = start(hero); const qk = (): void => { for (const u of q.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp; };
+    const q = start(hero); const qk = (): void => { for (const u of q.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp = Math.max(u.maxHp, 5000); };   // ver o ritual
     const qw = unit(q, who), qg = unit(q, 144), qf = unit(q, 175);
     settle(q, 5);
     beside(q, qw, 139); settle(q); beside(q, qw, 144); settle(q);
     at(q, qw, 80, 20); at(q, qg, 48, 26); settle(q); at(q, qg, 18, 117); settle(q);
-    at(q, qw, 100, 14); at(q, qg, 48, 26); at(q, qf, 47, 26); hold(q, qg); hold(q, qf); run(q, TICKS_PER_SEC * 16, qk);
-    beside(q, qw, 144); run(q, 30, qk);
+    at(q, qw, 100, 14); at(q, qg, 48, 26); at(q, qf, 47, 26); hold(q, qg); hold(q, qf); run(q, TICKS_PER_SEC, qk);
+    at(q, qg, 48, 40); at(q, qf, 47, 40); hold(q, qg); hold(q, qf);   // escondidos da guarda (ver o ritual acima)
+    run(q, TICKS_PER_SEC * 30, () => { qk(); return q.b.runtime!.getVariable(73) > 20; });
+    at(q, qg, 48, 26); hold(q, qg); run(q, TICKS_PER_SEC * 3, qk);
+    beside(q, qw, 144); run(q, Math.round(2.25 * TICKS_PER_SEC), qk);
     return q;
   };
   for (const v of VARIANTS) {
@@ -694,7 +709,7 @@ async function m77(): Promise<void> {
   r = start(); settle(r, 5); beside(r, r.b.hero, 139); settle(r); beside(r, r.b.hero, 144); settle(r);
   at(r, unit(r, 144), 48, 26); settle(r); at(r, unit(r, 144), 18, 117); settle(r); at(r, unit(r, 144), 48, 26); at(r, unit(r, 175), 47, 26); settle(r, TICKS_PER_SEC);
   // (a 16/s um aliado do mapa, tipo 23, morria num tique para o morto-vivo 47 e a falha 4 saía antes da 8: vida alta só aqui)
-  at(r, unit(r, 144), 100, 90); at(r, unit(r, 175), 99, 90); run(r, TICKS_PER_SEC * 16, () => { for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp = Math.max(u.maxHp, 5000); });
+  at(r, unit(r, 144), 100, 90); at(r, unit(r, 175), 99, 90); run(r, TICKS_PER_SEC * 26, () => { for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp = Math.max(u.maxHp, 5000); });
   check(failCause(r) === 8 && has(r, 12), `bom necromante longe (> 15) quando o feitiço acontece: falha causa 8 + msg 12 (${JSON.stringify(r.outcome)})`);
   r = start(); settle(r, 5); beside(r, r.b.hero, 139); settle(r); beside(r, r.b.hero, 144); settle(r); r.b.world.kill(unit(r, 144)); settle(r, 30);
   check(failCause(r) === 5, `bom necromante morto: falha causa 5 (${JSON.stringify(r.outcome)})`);

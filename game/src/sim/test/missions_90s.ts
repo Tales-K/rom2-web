@@ -29,6 +29,8 @@ import { availableMissions, getVar, isDone, nextAfterMission, takePendingVideos 
 import type { CampaignState } from "../../campaign/types";
 
 import { TICKS_PER_SEC } from "../types";
+/** duas avaliações do script (1×/s, no pensamento 0x56fe4d → 0x57485b) e folga: cadeias de gatilho que pedem 2 ciclos */
+const CYC2 = 2 * TICKS_PER_SEC + 8;
 const all3 = (r: Run): Unit[] => [r.b.hero, unit(r, 10002), unit(r, 10003)];
 /** o grupo inteiro (herói, Igles, Dina) para junto de (x, y) */
 function groupAt(r: Run, x: number, y: number): void { for (const [i, u] of all3(r).entries()) at(r, u, x + i, y); }
@@ -70,9 +72,9 @@ async function m90(): Promise<void> {
   w.damage(h, unit(r, 78), 1); settle(r, 30);
   check(has(r, 13) && ambush(r).every(u => !u.phased) && !r.outcome, "atacar a podstava: msg 13 e a emboscada (grupo 7) aparece");
   check(w.diplomacyValue(4, 1) === 1 && w.diplomacyValue(5, 1) === 0, "necromantes em guerra com o herói, druidas ainda em paz");
-  killAll(r, ambush(r).slice(1)); settle(r, 25);
+  killAll(r, ambush(r).slice(1)); settle(r, CYC2);
   check(!r.outcome, "um único da emboscada vivo: sem desfecho");
-  killAll(r, ambush(r)); settle(r, 25);
+  killAll(r, ambush(r)); settle(r, CYC2);
   check(r.outcome?.ok === true && sub(r, 4) === 2, `emboscada morta: Mission Complete e sub 4 cumprido (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r) && messagesHaveText(r, hero0()), "script sem ações sem suporte e falas com texto");
   campaignContract(90, r);
@@ -93,7 +95,7 @@ async function m90(): Promise<void> {
   beside(r, h, 78); settle(r, 30);
   check(has(r, 7) && has(r, 12) && ambush(r).every(u => !u.phased) && w.diplomacyValue(4, 1) === 1, "podstava com o herói: msg 7, msg 12, emboscada aparece e os necromantes viram inimigos");
   check(r.messages.filter(m => m === 7).length === 1, "a podstava só grita uma vez (v71)");
-  killAll(r, ambush(r)); settle(r, 25);
+  killAll(r, ambush(r)); settle(r, CYC2);
   check(r.outcome?.ok === true && sub(r, 4) === 2, "emboscada morta: Mission Complete");
   // atacar druida antes da aliança: falha 5; depois da aliança não há falha (gatilho de uma vez só)
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
@@ -158,10 +160,10 @@ async function m91(): Promise<void> {
   check(!!sack && sack.x === where.x && sack.y === where.y, `o xamã larga o ingrediente no chão em (${where.x},${where.y})`);
   at(r, h, sack!.x - 3, sack!.y + 1);
   check(pickupAt(r, h, sack!.x, sack!.y) && h.items.includes(INGR), "o herói anda até o saco e pega o ingrediente (ordem pickup)");
-  settle(r, 25);
+  settle(r, CYC2);
   check(has(r, 8) && sub(r, 2) === 2 && sub(r, 3) === 1 && !r.outcome, "com o ingrediente: msg 8, sub 2 cumprido e sub 3 (entregar) ativo");
   const gold0 = r.gold;
-  beside(r, h, 95); settle(r, 25);
+  beside(r, h, 95); settle(r, CYC2);
   check(has(r, 5) && r.outcome?.ok === true && sub(r, 3) === 2, `entrega ao orcólogo: msg 5, sub 3 cumprido e Mission Complete (${JSON.stringify(r.outcome)})`);
   check(!h.items.includes(INGR) && r.gold - gold0 === 1000000, `o ingrediente sai da mochila e o jogador recebe 1.000.000 de ouro (${r.gold - gold0})`);
   check(noUnsupported(r) && messagesHaveText(r, hero0()), "script sem ações sem suporte e falas com texto");
@@ -244,15 +246,15 @@ async function m92(): Promise<void> {
   check(has(r, 2) && sub(r, 1) === 1, "armadilheiro com o herói: msg 2 e sub 1");
   at(r, h, 97, 16); settle(r);
   check(!has(r, 5), "perto do armadilheiro sem os súcubos mortos: sem a msg 5");
-  killAll(r, SUCC.slice(0, 2).map(i => unit(r, i))); settle(r, 25);
+  killAll(r, SUCC.slice(0, 2).map(i => unit(r, i))); settle(r, CYC2);
   check(!has(r, 5), "2 de 3 súcubos mortos: nada (v81 = 0)");
-  killAll(r, [unit(r, 68)]); settle(r, 25);
+  killAll(r, [unit(r, 68)]); settle(r, CYC2);
   check(has(r, 5) && sub(r, 1) === 2, "3 súcubos mortos e o grupo no armadilheiro: msg 5, sub 1 cumprido");
   beside(r, h, 56); settle(r);
   check(has(r, 6) && sub(r, 2) === 1, "falante (36,114) com o herói: msg 6 e sub 2");
   at(r, h, 37, 114); settle(r);
   check(!has(r, 9), "perto do falante com o dragão vivo: sem a msg 9");
-  w.kill(dragon, h); settle(r, 25);
+  w.kill(dragon, h); settle(r, CYC2);
   check(has(r, 9) && sub(r, 2) === 2, "dragão 57 morto: msg 9, sub 2 cumprido");
   beside(r, h, 55); settle(r);
   check(has(r, 12) && sub(r, 3) === 1 && trapper.ai?.type === "follow", `armadilheiro concorda: msg 12, sub 3 e ele passa a seguir o herói (ai ${trapper.ai?.type})`);
@@ -267,7 +269,7 @@ async function m92(): Promise<void> {
   w.command(h, { type: "hold" });
   let t = run(r, TICKS_PER_SEC * 150, () => { keep(r); return trapper.alive && dist(trapper, ghost) <= 3.5; });
   console.log(`  info: armadilheiro andou ${(t / TICKS_PER_SEC).toFixed(0)} s até os fantasmas; está a ${dist(trapper, ghost).toFixed(1)} deles`);
-  settle(r, 25);
+  settle(r, CYC2);
   check(has(r, 15) && group(r, 1).every(u => u.ai?.type === "follow"), "armadilheiro chega aos fantasmas: msg 15 e os fantasmas passam a segui-lo");
   // o jogador leva o grupo até o falante e, se os fantasmas pararem longe (seguem a até 4,5 células do armadilheiro), dá a volta para trazê-los
   t = 0;
@@ -280,7 +282,7 @@ async function m92(): Promise<void> {
   settle(r, 10);
   check(has(r, 10) && sub(r, 3) === 2, "fantasma a <= 4 do falante: msg 10 e sub 3 cumprido");
   check(group(r, 1).every(u => u.ai?.type === "move") && trapper.ai?.type === "move", "fantasmas voltam ao posto (85,42) e o armadilheiro volta (99,16)");
-  settle(r, 25);
+  settle(r, CYC2);
   const prize = w.loot.find(l => l.items.includes("17762"));
   check(!!prize, "Get Subobjective(3) >= 2: o prêmio é largado pelo marcador (79)");
   if (prize) {
@@ -291,9 +293,9 @@ async function m92(): Promise<void> {
   }
   // vitória: todos os necromantes (jogador 2) mortos
   const necros = ofPlayer(r, 2);
-  killAll(r, necros.slice(1)); settle(r, 25);
+  killAll(r, necros.slice(1)); settle(r, CYC2);
   check(!r.outcome, "um necromante vivo: sem desfecho");
-  killAll(r, necros); settle(r, 25);
+  killAll(r, necros); settle(r, CYC2);
   check(r.outcome?.ok === true, `necromantes mortos: Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r) && messagesHaveText(r, hero0()), "script sem ações sem suporte e falas com texto");
   campaignContract(92, r);
@@ -362,10 +364,10 @@ async function m100(): Promise<void> {
   check(has(r, 8) && king.phased && !kingFree.phased && sub(r, 1) === 2 && sub(r, 2) === 1, "falar com o rei: msg 8, o rei mascarado sai, o sem máscara (306) entra; sub 1 cumprido e sub 2 (matar o rei) ativo");
   check(w.diplomacyValue(8, 7) === 1 && w.diplomacyValue(8, 1) === 1, "os cavaleiros maus ficam hostis aos bons e ao herói");
   check(!r.outcome, "rei vivo: sem desfecho");
-  killAll(r, followers(r)); settle(r, 25);
+  killAll(r, followers(r)); settle(r, CYC2);
   check(!r.outcome, "só os seguidores mortos (o rei sem máscara vivo): sem desfecho");
   kingFree.hp = kingFree.maxHp;
-  killAll(r, kings(r)); settle(r, 25);
+  killAll(r, kings(r)); settle(r, CYC2);
   check(r.outcome?.ok === true && has(r, 11) && sub(r, 2) === 2, `seguidores e rei mortos: msg 11, sub 2 cumprido e Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r) && messagesHaveText(r, hero0()), "script sem ações sem suporte e falas com texto");
   const st = campaignContract(100, r);
@@ -373,7 +375,7 @@ async function m100(): Promise<void> {
 
   console.log("[100] seguidores sem o rei; guerra real entre os cavaleiros; Igles/Dina; variantes; falhas");
   // os seguidores mortos antes da conversa e o rei sem máscara (fora de fase, vivo): nada
-  r = start(); settle(r, 5); killAll(r, followers(r)); settle(r, 25);
+  r = start(); settle(r, 5); killAll(r, followers(r)); settle(r, CYC2);
   check(!r.outcome, "seguidores mortos antes de falar com o rei: o rei sem máscara (vivo, fora de fase) impede a vitória");
   // guerra real depois da conversa: 8 seguidores do rei contra os cavaleiros bons; o tio (293) precisa sobreviver ou a missão falha (causa 5)
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
@@ -431,10 +433,10 @@ async function m101(): Promise<void> {
   beside(r, h, 7); settle(r);
   check(has(r, 5) && sub(r, 3) === 2 && r.b.host.unitParameter(7, 6) > 0, "herói a <= 3 do druida chefe: ele acorda (vida > 0), msg 5 e sub 3 (curar) cumprido");
   check(!r.outcome, "necromantes vivos: sem desfecho");
-  killAll(r, necros(r).slice(1)); settle(r, 25);
+  killAll(r, necros(r).slice(1)); settle(r, CYC2);
   check(!r.outcome, "um necromante vivo: sem desfecho");
   const gold0 = r.gold;
-  killAll(r, necros(r)); settle(r, 25);
+  killAll(r, necros(r)); settle(r, CYC2);
   check(r.outcome?.ok === true && sub(r, 1) === 2 && sub(r, 2) === 2, `necromantes mortos e o druida chefe ouvido: Mission Complete, subs 1 e 2 cumpridas (${JSON.stringify(r.outcome)})`);
   check(w.diplomacyValue(3, 1) === 0 && w.diplomacyValue(1, 3) === 0, "ao vencer os monstros dos druidas ficam em paz (Complete)");
   check(noUnsupported(r) && messagesHaveText(r, hero0()), "script sem ações sem suporte e falas com texto");
@@ -443,9 +445,9 @@ async function m101(): Promise<void> {
 
   console.log("[101] necromantes antes do druida chefe; Igles/Dina; variantes; falhas");
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
-  killAll(r, necros(r)); settle(r, 25);
+  killAll(r, necros(r)); settle(r, CYC2);
   check(!r.outcome && sub(r, 1) === 2 && sub(r, 2) === 2, "necromantes mortos antes de falar com o druida chefe: subs 1/2 cumpridas, mas sem a conversa não há vitória");
-  beside(r, h, 7); settle(r, 25);
+  beside(r, h, 7); settle(r, CYC2);
   check(has(r, 5) && r.outcome?.ok === true, "falar com o druida chefe depois: msg 5 e Mission Complete");
   const quick = (hero: HeroState, who = 10001): Run => {
     const q = start(hero); settle(q, 5);
@@ -471,7 +473,7 @@ async function m101(): Promise<void> {
   healDying(r.b.world, r.b.hero, dz, Math.ceil(dz.maxHp * 0.5));   // Heal do herói (druidas em paz): levanta de verdade
   check(r.b.host.unitParameter(7, 6) > 0, "curado a 50% da vida (Heal), o druida chefe acorda para o script (vida > 0) mesmo sem ninguém por perto");
   // (o herói fica parado: com o andar do exe a perseguição automática dele ao monstro mais perto o leva a <= 4 do druida)
-  r = start(); settle(r, 5); at(r, r.b.hero, 22, 22); r.b.world.command(r.b.hero, { type: "hold" }); settle(r, 25);
+  r = start(); settle(r, 5); at(r, r.b.hero, 22, 22); r.b.world.command(r.b.hero, { type: "hold" }); settle(r, CYC2);
   const castHeal = unit(r, 10003), dru = unit(r, 7);
   at(r, castHeal, 22, 20);
   check(dru.hp < dru.maxHp * 0.25 && r.b.host.unitParameter(7, 6) === 0, "herói e Dina a 6-8 células: o druida chefe continua moribundo");
@@ -479,12 +481,14 @@ async function m101(): Promise<void> {
   while (r.b.host.unitParameter(7, 6) === 0 && casts < 10) {
     castOn(r, castHeal, 24, 50, dru); casts++; settle(r, 5);
   }
-  settle(r, 25);
+  settle(r, CYC2);
   // um Heal o levanta (vida > 0 para o script); de pé e ferido, os druidas do grupo dele o curam (AI_IdleCasterSupport 0x56c592)
   check(casts >= 1 && casts < 10 && dru.hp >= dru.maxHp * 0.25, `Dina lança Heal (24) no druida chefe ${casts} vezes até ele passar de 25% (vida ${Math.ceil(dru.hp)}/${dru.maxHp})`);
   check(r.b.host.unitParameter(7, 6) > 0 && sub(r, 3) === 2 && !has(r, 5), "o druida deixa de estar caído para o script (sub 3, curar, cumprido); a conversa só vem quando alguém chega a <= 4");
-  beside(r, r.b.hero, 7); settle(r);
-  check(has(r, 5), "herói junto do druida curado: msg 5");
+  // para lançar, Dina chega a (20,18): Chebyshev 4 do druida em (22,14) (a métrica do script, 0x577268; a euclidiana dava 4,47), e a
+  // conversa única (v71) é a dela
+  beside(r, r.b.hero, 7); settle(r, CYC2);
+  check(has(r, 7) && !has(r, 5), "Dina junto do druida curado (Chebyshev ≤ 4): msg 7, a conversa dela (v71)");
   // 20 s de combate real junto aos monstros do começo
   r = start(); w = r.b.world; h = r.b.hero;
   for (const id of [10001, 10002, 10003]) { const u = unit(r, id); u.maxHp = u.hp = 5000; }
@@ -600,7 +604,8 @@ async function shrine(s: Shrine): Promise<void> {
   const ex = Math.min(w.grid.w - 9, Math.max(8, s.necroExit[0])), ey = Math.min(w.grid.h - 9, Math.max(8, s.necroExit[1]));
   // some se a última célula útil fica a ≤ 1 do ponto (condição "distância ≤ 1" do script)
   const gone = s.necroGone && Math.max(Math.abs(ex - s.necroExit[0]), Math.abs(ey - s.necroExit[1])) <= 1;
-  check(necro.phased === gone && Math.hypot(necro.x - (ex + 0.5), necro.y - (ey + 0.5)) <= 2, gone ? `o necromante anda até (${s.necroExit}) e some (Phase out)` : `o necromante anda até a borda junto de (${s.necroExit}) e fica ali (${necro.cx},${necro.cy}; ponto na borda intransponível)`);
+  // em células de Chebyshev (a métrica do script, 0x57714d): a ≤ 1 do ponto ele some já numa diagonal, a meio passo
+  check(necro.phased === gone && Math.max(Math.abs(necro.cx - ex), Math.abs(necro.cy - ey)) <= 2, gone ? `o necromante anda até (${s.necroExit}) e some (Phase out)` : `o necromante anda até a borda junto de (${s.necroExit}) e fica ali (${necro.cx},${necro.cy}; ponto na borda intransponível)`);
   check(pyramid.phased && host.measurePhased, "marcador da pirâmide fora de fase; o host mede a distância até ele (measurePhased)");
   // alavancas (Switch): "Health of building" 1 = desligada, 0 = ligada
   check(host.switches.size === 2 && host.buildingHealth(2) === 1 && host.buildingHealth(3) === 1 && host.switchNear(100, 24) === 2 && host.switchNear(110, 40) === 3, "duas alavancas (estruturas 2 e 3), desligadas = 1; switchNear acha pelo clique");
@@ -627,9 +632,9 @@ async function shrine(s: Shrine): Promise<void> {
   gotoCell(r, [102, 34], 20);
   check(h.cx === 102 && h.cy === 34 && !has(r, 2), "pisar no teleporte (102,34) com as alavancas desligadas: nada acontece");
   gotoCell(r, [105, 30], 5); // sai de cima do teleporte antes de abri-lo
-  host.toggleSwitch(2); settle(r, 25);
+  host.toggleSwitch(2); settle(r, CYC2);
   check(host.buildingHealth(2) === 0 && !has(r, 2) && w.traps.length === base, "uma alavanca ligada (0): o teleporte continua fechado");
-  host.toggleSwitch(2); settle(r, 25); host.toggleSwitch(2); host.toggleSwitch(3); settle(r, 25);
+  host.toggleSwitch(2); settle(r, CYC2); host.toggleSwitch(2); host.toggleSwitch(3); settle(r, CYC2);
   check(has(r, 2) && w.traps.length === base + 1, `as duas alavancas ligadas: msg 2 (Dina) e a armadilha Teleport (102,34) -> (74,72) (${w.traps.length - base} nova)`);
   gotoCell(r, [102, 34], 45);
   check(Math.abs(h.cx - 74) <= 2 && Math.abs(h.cy - 72) <= 2, `o herói pisa no teleporte (102,34) e vai para o centro (74,72): ${h.cx},${h.cy}`);
@@ -658,7 +663,7 @@ async function shrine(s: Shrine): Promise<void> {
   const spot: [number, number] = [pyramid2.cx + 1, pyramid2.cy];
   gotoCell(r, spot, 25);
   check(!has(r, 5) && !r.outcome, "junto da pirâmide com o dragão vivo: nada");
-  w.kill(dragon2, h); settle(r, 25);
+  w.kill(dragon2, h); settle(r, CYC2);
   check(has(r, 5) && !pyramid2.items.length, "dragão morto e o herói a <= 4 da pirâmide (marcador fora de fase): msg 5 e o marcador larga o prêmio");
   const prize = w.loot.find(l => l.items.includes(s.prize));
   check(!!prize && prize.x === pyramid2.cx && prize.y === pyramid2.cy, `o prêmio ${s.prize} fica no chão em (${pyramid2.cx},${pyramid2.cy})`);
@@ -733,7 +738,7 @@ async function m102(): Promise<void> {
   // o mago (13,80): conversa 1 (msgs 2/3/4) uma vez; ele só entra no grupo com os dragões mortos
   beside(r, h, 217); settle(r);
   check(has(r, 2) && count(r, 2) === 1 && mage.player === 4, "mago 217 com o herói: msg 2 (v70) e ele ainda não entra (os dragões vivos)");
-  killAll(r, group(r, 9)); settle(r, 25);
+  killAll(r, group(r, 9)); settle(r, CYC2);
   check(mage.player === 1 && has(r, 5) && mage.ai?.type === "defend" || mage.player === 1, `dragões mortos e o herói junto do mago: Mage join — o mago passa ao jogador (${mage.player}) e a msg 5 vem`);
   check(!r.outcome, "o mago entrou, mas o amuleto fica com ele: sem desfecho");
   // o amuleto: o mago morto larga o saco; o herói o pega e leva ao fantasma (125,15)
@@ -744,11 +749,11 @@ async function m102(): Promise<void> {
   check(!!sack && sack.x === m2.cx && sack.y === m2.cy && w.diplomacyValue(4, 1) === 1 && !r.outcome, `o mago morto larga o amuleto em (${sack?.x},${sack?.y}); diplomacia do mago com o herói = guerra`);
   at(r, h, sack!.x - 2, sack!.y + 1);
   check(pickupAt(r, h, sack!.x, sack!.y) && h.items.includes(AMULET), "o herói pega o amuleto (ordem pickup)");
-  settle(r, 25);
+  settle(r, CYC2);
   check(!r.outcome, "com o amuleto longe do fantasma: sem desfecho");
   at(r, h, 125, 25); settle(r);
   check(!has(r, 10), "amuleto a 10 células do fantasma (125,15): ainda não");
-  at(r, h, 125, 17); settle(r, 25);
+  at(r, h, 125, 17); settle(r, CYC2);
   check(has(r, 10) && r.outcome?.ok === true && !h.items.includes(AMULET) && unit(r, 91).phased, `herói com o amuleto a <= 4 do fantasma: msg 10, o amuleto some de todos, o fantasma some e Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r) && messagesHaveText(r, hero0()), "script sem ações sem suporte e falas com texto");
   campaignContract(102, r);
@@ -853,7 +858,7 @@ async function m103(): Promise<void> {
   check(pickupAt(r, h, hs!.x, hs!.y) && h.items.includes(HEAD), "o herói pega a cabeça (ordem pickup)");
   // entrega ao xamã com as duas relíquias: msg 11, itens removidos, o grupo 1 (xamã) parte para (80,77) e depois (127,69)
   const orcStart = { x: orc.cx, y: orc.cy };
-  beside(r, h, 30); settle(r, 25);
+  beside(r, h, 30); settle(r, CYC2);
   check(has(r, 11) && !h.items.includes(HEAD) && !h.items.includes(STONE), "herói com a pedra e a cabeça junto do xamã: msg 11 e as duas relíquias são entregues");
   check(orc.ai?.type === "move" && orc.ai.x === 80 && orc.ai.y === 77, `o xamã parte para o 1º ponto (80,77) (${JSON.stringify(orc.ai)})`);
   hold(r, unit(r, 10002)); hold(r, unit(r, 10003));
@@ -865,7 +870,7 @@ async function m103(): Promise<void> {
   console.log(`  info: de (80,77) até (127,69): ${(t / TICKS_PER_SEC).toFixed(0)} s; xamã em ${orc.cx},${orc.cy}`);
   run(r, TICKS_PER_SEC * 10, () => keep(r)); // termina de andar até (127,69)
   check(distTo(orc, 128, 72) <= 4 && !r.outcome, `o xamã chega ao Oráculo (128,72) sozinho (${orc.cx},${orc.cy}); sem o grupo ali ainda não acaba`);
-  at(r, h, 126, 71); settle(r, 25);
+  at(r, h, 126, 71); settle(r, CYC2);
   check(has(r, 14) && r.outcome?.ok === true, `grupo a <= 4 de (126,71) e o xamã no Oráculo: msg 14 e Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r) && messagesHaveText(r, hero0()), "script sem ações sem suporte e falas com texto");
   campaignContract(103, r);
@@ -945,7 +950,7 @@ async function m103(): Promise<void> {
   failedWith(r, 5, "xamã morto");
   r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 30), 1); settle(r, 30);
   failedWith(r, 6, "xamã atacado");
-  r = start(); settle(r, 5); at(r, r.b.hero, 41, 53); settle(r, 25);
+  r = start(); settle(r, 5); at(r, r.b.hero, 41, 53); settle(r, CYC2);
   const guards = group(r, 19);
   check(guards.length === 6, `a casa (41,50) tem ${guards.length} guardas (grupo 19)`);
   for (const id of [10001, 10002, 10003]) { const u = unit(r, id); u.maxHp = u.hp = 5000; }
@@ -974,6 +979,7 @@ async function m110(): Promise<void> {
   check(has(r, 1) && w.diplomacyValue(3, 4) === 1 && w.diplomacyValue(4, 3) === 1, "msg 1: cavaleiros e druidas entram em guerra entre si");
   check(group(r, 38).every(u => u.phased), "Skrakan (grupo 38) fora de fase");
   check([1, 4, 13, 14].every(g => group(r, g).every(u => u.suspended)), "os grupos 1 (Urd), 4, 13 e 14 ficam suspensos (Suspend group a cada ciclo): ninguém do exército de Urd age");
+  settle(r, TICKS_PER_SEC * 3);   // 5 ciclos do script a 1×/s (0x57485b): ~5 s desde o começo
   check(has(r, 5), "o contador (v71 >= 5) chega a 5 ciclos: msg 5 (\"Brothers!\")");
   check(!r.outcome && r.b.host.scenarioVars.get(779) === undefined, "sem desfecho; a variável de cenário 779 ainda não foi gravada");
   {
@@ -997,17 +1003,17 @@ async function m110(): Promise<void> {
   console.log("[110] vitória dos druidas / dos cavaleiros; os sobreviventes viram do jogador; Lich; Urd");
   // druidas vencem (todos os cavaleiros mortos): msg 3, 779 = 1, as duas facções passam ao jogador
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
-  killAll(r, knights(r)); settle(r, 25);
+  killAll(r, knights(r)); settle(r, CYC2);
   check(has(r, 3) && !has(r, 2) && r.b.host.scenarioVars.get(779) === 1, "cavaleiros mortos: msg 3 (druidas triunfam) e 779 = 1");
   check(druids(r).filter(u => u.alive).length >= 10 && druids(r).every(u => u.player === 1), "os druidas sobreviventes passam ao jogador (Make druids ours)");
   check(druids(r).every(u => !u.alive || u.ai?.type === "defend" || u.ai?.type === "follow"), "os druidas do jogador passam a acompanhar o grupo");
   check(!r.outcome, "só a facção vencedora: sem desfecho (falta matar Urd)");
   const grp = r;
   // o super-lich morto: msg 4
-  killAll(r, group(r, 13)); settle(r, 25);
+  killAll(r, group(r, 13)); settle(r, CYC2);
   check(has(r, 4) && count(r, 4) === 1, "grupo 13 (super-lich) morto: msg 4");
   // Urd morto: msg 6 e vitória
-  w.kill(unit(r, 117), h); settle(r, 25);
+  w.kill(unit(r, 117), h); settle(r, CYC2);
   check(has(r, 6) && r.outcome?.ok === true, `Urd morto: msg 6 e Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r) && messagesHaveText(r, hero0()), "script sem ações sem suporte e falas com texto");
   const stD = campaignContract(110, grp, false, false, {}, [779]);
@@ -1017,10 +1023,10 @@ async function m110(): Promise<void> {
   check(!!wantD && vidD.includes(wantD), `campanha: vitória dos druidas mostra o vídeo final ${wantD} (${vidD.join(",")})`);
   // cavaleiros vencem (todos os druidas mortos): msg 2, 779 = 0
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
-  killAll(r, druids(r)); settle(r, 25);
+  killAll(r, druids(r)); settle(r, CYC2);
   check(has(r, 2) && !has(r, 3) && r.b.host.scenarioVars.get(779) === 0, "druidas mortos: msg 2 (cavaleiros triunfam) e 779 = 0");
   check(knights(r).filter(u => u.alive).length >= 10 && knights(r).every(u => u.player === 1), "os cavaleiros sobreviventes passam ao jogador (Make knights ours)");
-  w.kill(unit(r, 117), h); settle(r, 25);
+  w.kill(unit(r, 117), h); settle(r, CYC2);
   check(r.outcome?.ok === true, "Urd morto: Mission Complete");
   const stK = campaignContract(110, r, false, false, {}, [779]);
   const vidK = takePendingVideos(stK, campaignData);
@@ -1029,7 +1035,7 @@ async function m110(): Promise<void> {
   check(nextAfterMissionEnd(stK) && isDone(stK, 110), "campanha: depois da 110 o jogo vai ao fim (estágio 120)");
   // Urd morto antes de alguém vencer: vitória sem a variável 779
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
-  w.kill(unit(r, 117), h); settle(r, 25);
+  w.kill(unit(r, 117), h); settle(r, CYC2);
   check(r.outcome?.ok === true && has(r, 6) && r.b.host.scenarioVars.get(779) === undefined, "Urd morto com as duas facções vivas: Mission Complete sem gravar 779 (a campanha usa o último valor do script)");
   const stN = campaignContract(110, r, false, false, {}, [779]);
   check(getVar(stN, 779) === 0, `campanha: sem 779 no resultado (só subobjetivos) a variável continua 0 = cavaleiros (${getVar(stN, 779)}); o último valor de scenarioVarsSet só vale sem o campo scenarioVars`);
