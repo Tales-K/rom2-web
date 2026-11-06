@@ -204,3 +204,16 @@ O resíduo de 4469 era o motor antigo largando a tarefa do exe: a magia (Stone C
 caído, e o act reescrevendo IA+0x14/+0x30 com o SpellDef antigo. Agora as ordens vindas da tarefa do exe ficam com o despachante.
 **Corridas sem reimportar: m10_start, m10_mage, m10_quest_x1, m10_troll_x1, m10_hydun_x1, m10_ogre_x1 — nenhuma divergência; m20_start 740.**
 Golden 79,99 %, loadcmp 46/46 e 44/46. Próximo: m20_start T=740 (act/dir16 de 24616 e 24660, rng) e os outros itens da 8b; armadilhas.
+
+## m20_start T=740 — investigado, NÃO corrigido (para a próxima sessão)
+- Sintoma (corrida sem reimportar): em 740, olhar em volta trocado entre 24616 e 24660 (um sorteia o rumo novo, o outro não); mesmo
+  número de sorteios — é a **ordem** em que as unidades rodam (0x52b459 percorre a lista).
+- Causa achada: a unidade **24609** (tipo 103, jogador 2) cai em T=727 (vida −4, sem morte consumada). No original ela fica na mesma
+  posição de `[0x68d2dc]+4` (`lists.all`, posição 3 de 42); no nosso, em 728, ela vai para o fim de `lists.all` E da lista viva (mundo+4),
+  com o mesmo endereço e `bodyDead` = false. O `stable(...)` do `exeSyncWorld` não deveria movê-la (`all` = não consumadas): falta achar
+  quem refaz as duas listas nesse passo (sonda: posição em `exeWorld.lists.all.values()` e `liveUnits` antes/depois de cada função do passo).
+- Desvio escondido à parte (sem efeito nos sorteios): desde T=384 unidades dormindo (24644, 24645, 24662; 24600 em 496) ficam com IA+8 = 0
+  no nosso (o `act`, `case "none"`, chama `stop` quando `!awake`) e 0xb no original. Testado manter a IA+8: some o desvio escondido,
+  o 740 continua; desfeito (sem prova do mecanismo).
+- Ferramenta usada (refazer em `game/src/sim/test/_scratch_*.ts`, fora do commit): `simFromImport` + `step` do simcore, comparando
+  `AI_FIELDS`/`WALK_FIELDS` do exe_recon com os bytes `o.exe.ai`/`o.exe.mv` do despejo, e `serverOrder()` com `exe.world.lists.all`.
