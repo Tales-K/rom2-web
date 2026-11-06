@@ -76,7 +76,7 @@ import { BookSpellRec, PlayerRec, UnitStatsRec, UnitTypeRec } from "./exe/types"
 import { DmgRec, ItemMagicRec, ItemRec, SpellObjRec, SpellPayloadRec, TemplateRec } from "./exe/types";
 import type { SpellObjsJson } from "./exe/recio";
 import { fn_0x52c279 } from "./exe/spells";
-import { unitVt58 } from "./exe/effects";
+import { spellCasterPower, unitVt58 } from "./exe/effects";
 import { fn_0x512fcb, fn_0x5131ef, fn_0x542770, unitXpOnHit } from "./exe/xp";
 import { randInclusive } from "./exe/rand";
 import { vt30 } from "./exe/vtables";
@@ -1027,6 +1027,9 @@ export class World {
       const id = Number(s.base ?? s.id) | 0;
       if (id < 0 || id >= n) continue;
       b.spells[id] = this.bookSpellRec(s, this.spellAddr(s));
+      // a instância pelo poder de quem lança, como o livro do exe nasce e é refeito (0x51c3e4 → Spell_CasterPower 0x519483 → Spell_Instance
+      // 0x5195b1): o alcance +9 que o pensamento põe em IA+0x14 antes do 1.º lançamento (o Darkness do morcego da m10: 6, não os 7 do motor)
+      if (this.spellTable?.[String(id)]) spellCasterPower(b.spells[id]!, u.rec);
     }
     bookApplyKeep(u.rec);
     b.keep = null;
@@ -2154,20 +2157,16 @@ export class World {
           if (o.type === "attack" && r.ai.task !== 5 && sub !== 1 && sub !== 2 && this.isAiPlayerUnit(u)) { u.unreachTarget = t.id; u.unreachTick = this.tick; this.resumeOrNone(u); }
           return;
         }
-        // magia no chão (tarefa 9 do exe, 0x56ec3f: exec 0 no corpus, sem porta): anda até o alcance e, ao alcance e de frente, começa
-        // a sub-ação 2 na célula (o que 0x56e906 faria: IA+9 = 2, ação 0xe, +0x60 = célula, +0x64 = magia); a máquina portada faz o resto
+        // magia no chão: a tarefa 9 do exe (0x56ec3f, exe/action.ts: andar até o alcance IA+0x14 de frente para a célula IA+0x3c ou começar
+        // a magia, 0x56e986); a do pensamento da IA (AI_TeleportCast 0x56969c) já vem escrita, a ordem do jogador a escreve aqui
         const tx = o.type === "cast" ? o.x ?? u.cx : u.cx, ty = o.type === "cast" ? o.y ?? u.cy : u.cy;
-        const range = spell!.range;
-        if (this.inRange(u, tx, ty, range)) {
-          if (this.turning(u, tx, ty)) { this.stop(u); return; }
-          r.ai.task = 0;
-          r.ai.sub = 2; r.ai.f15 = 0; r.act = 0xe; r.ai.f5c = 0; r.f5c = 0; r.f60 = (((ty & 0xff) << 8) | (tx & 0xff)) >>> 0;
-          r.f64 = this.spellAddr(spell!); r.ready = 0; u.castAuto = false;
-          this.machine(u);
-          return;
+        if (!(o.type === "cast" && o.exe && (r.ai.task & 0xff) === 9)) {
+          r.ai.task = 9; r.ai.f3c = (((ty & 0xff) << 8) | (tx & 0xff)) & 0xffff; r.ai.range = spell!.range & 0xff; r.ai.f30 = this.spellAddr(spell!);
         }
-        const near = range <= 1 ? 1 : Math.max(1, Math.floor(range * 0.7));
-        if (!this.walkTo(u, tx, ty, near)) { if (!u.isHero) this.command(u, { type: "none" }); this.stop(u); }
+        u.castAuto = false;
+        this.machine(u);
+        // a magia começou (0x56e986: IA+9 = 2, ação 0xe): a ordem do lado humano acaba como a da magia na unidade
+        if (!this.isAiPlayerUnit(u) && (r.ai.sub as number) === 2 && (r.act & 0xff) === 0xe) u.order = { type: "none" };
         return;
       }
     }
@@ -2255,7 +2254,6 @@ export class World {
   private readonly exeHooks: MachineHooks = {
     task: r => {
       switch (r.ai.task) {
-        case 9: unitWalkNear(this.exeWorld, r, r.ai.f3c & 0xffff, r.ai.range & 0xff); r.act = 1; return true;   // ramo de andar de 0x56ec3f
       }
       return false;
     },

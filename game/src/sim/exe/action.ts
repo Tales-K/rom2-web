@@ -23,9 +23,9 @@ import { gridChebyshevDist, mapObjCellOf, mapObjSubCellCenter } from "./walk";
 import { mapObjCellX, mapObjCellY } from "./path";
 import {
   NotPorted, aiUnitDistance, fn_0x52b22a, fn_0x55532d, fn_0x5568e4, pathClearDynamic, unitActionChase, unitTeleportTo, unitTurnStep,
-  unitWalkNear,
+  unitWalkNear, dirFromDelta16,
 } from "./walk_action";
-import { aiAttackRange, fn_0x55be86 } from "./wave";
+import { aiAttackRange, aiTeleportTargetDist, fn_0x55be86 } from "./wave";
 import { fn_0x57afd0, randUniformObject } from "./rand";
 import { CListPtrIter, CListWord, type CListPtr, type ListPos } from "./mfc";
 import { EXE_GLOBALS, type MapObjRec, type MapRec, type UnitRec, type WorldRec } from "./types";
@@ -328,6 +328,42 @@ export function fn_0x56ebc0(wd: WorldRec, u: UnitRec): void {
   fn_0x56e906(wd, u);
 }
 
+/** 0x55539a (cdecl; unidade, célula, alcance): de frente para a célula (0x556b2c, depois de 0x551383) e a Chebyshev até ela
+ *  (AI_TeleportTargetDist 0x558fe9) ≤ alcance. */
+export function fn_0x55539a(u: UnitRec, param_2: number, param_3: number): number {
+  mapObjSubCellCenter(u.mapObj);
+  const cVar1 = u.walk.dir & 0xff;
+  const cVar2 = dirFromDelta16(u, param_2 & 0xffff) & 0xff;
+  if (cVar1 === cVar2) {
+    const bVar3 = aiTeleportTargetDist(mapObjCellOf(u.mapObj) & 0xffff, param_2 & 0xffff) & 0xff;
+    if (bVar3 <= (param_3 & 0xff)) return 1;
+  }
+  return 0;
+}
+
+/** 0x56e986 (thiscall; `this` = mundo): começa a magia na célula: IA+9 = 2, IA+0x15 = 0, ação 0xe, +0x60/+0x61 = célula IA+0x3c, +0x64 =
+ *  magia IA+0x30, IA+0x5c = 0 (alvo é célula); com IA+0x60 == 0, para e fica em Stand ground (0x56dbc6). */
+export function fn_0x56e986(wd: WorldRec, u: UnitRec): void {
+  u.ai.sub = 2;
+  u.ai.f15 = 0;
+  u.act = 0xe;
+  u.f60 = ((u.f60 & 0xffff0000) | (u.ai.f3c & 0xffff)) >>> 0;
+  u.f64 = u.ai.f30 >>> 0;
+  u.ai.f5c = 0;
+  if ((u.ai.f60 | 0) === 0) fn_0x56dbc6(wd, u);
+}
+
+/** 0x56ec3f (thiscall; `this` = mundo): tarefa 9, magia na célula IA+0x3c: fora do alcance IA+0x14 ou não de frente (0x55539a) →
+ *  andar até perto (Unit_WalkNear 0x56e4ac, ação 1); senão começa a magia (0x56e986). */
+export function fn_0x56ec3f(wd: WorldRec, u: UnitRec): void {
+  if (fn_0x55539a(u, u.ai.f3c & 0xffff, u.ai.range & 0xff) === 0) {
+    unitWalkNear(wd, u, u.ai.f3c & 0xffff, u.ai.range & 0xff);
+    u.act = 1;
+  } else {
+    fn_0x56e986(wd, u);
+  }
+}
+
 /**
  * 0x56e5bc Unit_LookAround (thiscall; `this` = mundo): olhar em volta da unidade ociosa (tarefa IA+8 = 0xb). Já virada para o rumo
  * desejado: sem golpe recebido (IA+0x54 = 0) e rand() > 204 → ação 0; senão rumo desejado = rumo + 33 + rand()×190/32768 (byte),
@@ -405,7 +441,7 @@ export function unitActionDispatcher(wd: WorldRec, u: UnitRec, hooks: DispatchHo
       case 6: fn_0x56eff3(wd, u); break;
       case 7: if (!hooks.task?.(u)) throw new NotPorted("0x56ea24"); break;
       case 8: fn_0x56ebc0(wd, u); break;
-      case 9: if (!hooks.task?.(u)) throw new NotPorted("0x56ec3f"); break;
+      case 9: fn_0x56ec3f(wd, u); break;
       case 10: unitTurn(u, u.walk.dirTarget & 0xff); break;
       case 0xb: unitLookAround(wd, u); break;
       case 0xc: if (!hooks.task?.(u)) throw new NotPorted("0x56eb2d"); break;

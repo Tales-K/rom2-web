@@ -29,6 +29,7 @@ import {
 import {
   aiAngleTiebreak, aiEnemyFilter, aiStandGroundAt, fn_0x53a5a0, fn_0x54fb7f, fn_0x558b75, fn_0x567ddf, fn_0x56d969, fn_0x56dba1,
   fn_0x56dbc6, fn_0x56dbfb, fn_0x56dc24, fn_0x56e8c3, fn_0x56e906, fn_0x56ea52, fn_0x56eab5, fn_0x56ebc0, fn_0x56ed4e, fn_0x56eff3,
+  fn_0x55539a, fn_0x56e986, fn_0x56ec3f,
   fn_0x56f0bb, fn_0x57994d, unitActionDispatcher, unitLookAround,
 } from "../exe/action";
 import { CListEvent, CListEventNode, type CListPtr } from "../exe/mfc";
@@ -78,6 +79,10 @@ const CHECKS: Record<string, Check> = {
   "0x56dbc6": run((c, d) => { const w = W(c, d.this); fn_0x56dbc6(w, U(c, A(d, 0))); return null; }),
   "0x56e906": run((c, d) => { const w = W(c, d.this); fn_0x56e906(w, U(c, A(d, 0))); return null; }),
   "0x56ebc0": run((c, d) => { const w = W(c, d.this); fn_0x56ebc0(w, U(c, A(d, 0))); return null; }),
+  // magia no chão (tarefa 9): pares do m10_hydun_x1 (o Darkness do morcego 24619)
+  "0x56ec3f": run((c, d) => { const w = W(c, d.this); fn_0x56ec3f(w, U(c, A(d, 0))); return null; }),
+  "0x55539a": run((c, d) => fn_0x55539a(U(c, A(d, 0)), A(d, 1) & 0xffff, A(d, 2) & 0xff), EAX),
+  "0x56e986": run((c, d) => { const w = W(c, d.this); fn_0x56e986(w, U(c, A(d, 0))); return null; }),
   "0x54fb7f": run((c, d) => fn_0x54fb7f(mapObjFrom(c.cm, d.this), mapObjFrom(c.cm, A(d, 0))), AL),
   "0x55aa21": run((c, d) => aiAngleTiebreak(A(d, 0), A(d, 1)), AL),
   "0x57994d": run((c, d) => (fn_0x57994d(WR(c, d.this - WORLD_DIP_OFF), U(c, A(d, 0)), U(c, A(d, 1))) ? 1 : 0), AL),

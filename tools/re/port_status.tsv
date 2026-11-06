@@ -1348,7 +1348,7 @@ addr	name	size	file	line	status	ts	note
 0x5551d6	FUN_005551d6	25	game/g_550000.c	2859	ported	mapObjCenterFraction	exe_walk.ts: pares 100% (3 episódios)
 0x5551ef	Unit_WalkWait	318	game/g_550000.c	2870	ported	walk_action.ts:unitWalkWait	pares 3 episódios 100% (exe_walkaction.ts) + varredura Unicorn fuzz_walk.py 100% (exe_walkaction.ts)
 0x55532d	FUN_0055532d	109	game/g_550000.c	2903	ported	walk_action.ts:fn_0x55532d	pares 3 episódios 100% (exe_walkaction.ts)
-0x55539a	FUN_0055539a	119	game/g_550000.c	2922	pending		
+0x55539a	FUN_0055539a	119	game/g_550000.c	2922	ported	fn_0x55539a	exe/action.ts; test/exe_walkaction.ts: pares do m10_hydun_x1 6/6
 0x555411	Unit_ActionWalk	828	game/g_550000.c	2949	ported	walk_action.ts:unitActionWalk	pares 3 episódios 100% (exe_walkaction.ts)
 0x55574d	Unit_ActionChase	1003	game/g_550000.c	3060	ported	walk_action.ts:unitActionChase	pares 3 episódios 100% (exe_walkaction.ts)
 0x555b38	Path_ClearDynamic	326	game/g_550000.c	3166	ported	walk_action.ts:pathClearDynamic	pares 3 episódios 100% (exe_walkaction.ts); ramo do teleporte (tipo 0x17) chama 0x55a96c NotPorted (exec 0)
@@ -1640,13 +1640,13 @@ addr	name	size	file	line	status	ts	note
 0x56e6b8	FUN_0056e6b8	523	game/g_560000.c	8991	ported	combat.ts:fn_0x56e6b8	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 1) (108): golpe recebido IA+0x54/+0x58/+0x5a/+0x94/+0x98/+0x9c, evento 1 (0x57b210), 0x57977a
 0x56e8c3	FUN_0056e8c3	67	game/g_560000.c	9054	ported	fn_0x56e8c3	exe/action.ts; começo do golpe (sub-ação 1); pares 3 ep. 100%
 0x56e906	FUN_0056e906	128	game/g_560000.c	9067	ported	fn_0x56e906	exe/action.ts; começo da magia (sub-ação 2); pares 100%
-0x56e986	FUN_0056e986	158	game/g_560000.c	9085	pending		
+0x56e986	FUN_0056e986	158	game/g_560000.c	9085	review	fn_0x56e986	exe/action.ts; sem par: no corpus a magia na célula da IA não chega a começar (m10_hydun_x1 só anda); a forma é a do 0x56e906 (provado)
 0x56ea24	FUN_0056ea24	46	game/g_560000.c	9105	pending		
 0x56ea52	FUN_0056ea52	99	game/g_560000.c	9120	ported	action.ts:fn_0x56ea52	pares 3 episódios 100% (628; exe_walkaction.ts): tarefa 4 / ramo de perseguir de 0x56eab5/0x56ebc0
 0x56eab5	FUN_0056eab5	120	game/g_560000.c	9140	ported	fn_0x56eab5	exe/action.ts; tarefa 5 atacar; pares 100%
 0x56eb2d	FUN_0056eb2d	147	game/g_560000.c	9164	pending		
 0x56ebc0	FUN_0056ebc0	127	game/g_560000.c	9191	ported	fn_0x56ebc0	exe/action.ts; tarefa 8 magia na unidade; pares 100%
-0x56ec3f	FUN_0056ec3f	125	game/g_560000.c	9215	pending		
+0x56ec3f	FUN_0056ec3f	125	game/g_560000.c	9215	ported	fn_0x56ec3f	exe/action.ts (tarefa 9: magia no chão); test/exe_walkaction.ts: pares do m10_hydun_x1 6/6
 0x56ecbc	FUN_0056ecbc	146	game/g_560000.c	9236	pending		
 0x56ed4e	FUN_0056ed4e	677	game/g_560000.c	9260	ported	fn_0x56ed4e	exe/action.ts; fim de caminho: alvo ao alcance; pares 12/12 (3 ep.)
 0x56eff3	FUN_0056eff3	200	game/g_560000.c	9369	ported	fn_0x56eff3	exe/action.ts; tarefa 6; pares 100% (m10_mage)
