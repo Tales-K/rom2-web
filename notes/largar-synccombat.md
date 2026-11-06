@@ -113,3 +113,45 @@ m63 (2 ciclos), m9x (o necromante some numa diagonal, Chebyshev).
 
 Resíduo: m10_quest_x1 T=2416 `hpmax/manamax|1` 42/100 × 43/101 (a próxima subida de vida/mana máx. do herói); a partir de um estado do
 meio (free_run --from) o script recomeça sem as variáveis (v71 etc. não vêm no despejo) — artefato da importação.
+
+# Passagem (2026-11-06, fim desta sessão): o que está no main e o que vem a seguir
+No main: 94d69d7 .. 4ca65f7 (push feito pelo coordenador) + esta passagem. Árvore: só as mudanças alheias de antes (setup.ts, host.ts,
+behaviors.ts, testes de missão, ...); `mission/console.ts` (não versionado) tem 1 linha minha (`w.syncCombat(u)` depois do `+god`).
+Medidas de referência agora: tickcmp --all 100/100/100, livre nenhuma/nenhuma/740; m10_quest_x1 livre 2416; m10_troll_x1 nenhuma;
+m10_hydun_x1 2337; m10_ogre_x1 nenhuma; golden --ci 79,99 %; loadcmp 46/46 / 44/46; free_run.mts igual ao tickcmp nos 5 episódios.
+
+## Item 1 da fila nova: resíduo T=2416 do m10_quest_x1 (hpmax/manamax do herói 42/100 × 43/101) — diagnosticado, NÃO corrigido
+No original, em T=2417 a habilidade de fogo do herói sobe 20 → 21 (experiência total +0x130 = 8048) e o 0x51366b refaz 43/101. No nosso
+ela não sobe: a experiência do herói é do motor antigo (`World.gainExp`/`supportExp`, ganchos `xpOnHit`/`xpOnCast`) e fica para trás.
+Sonda (simcore, corrida sem reimportar), ganho acumulado desde T=0, original × nosso:
+| tique | original | nosso | o que é |
+|---|---|---|---|
+| 693, 1558, 2106 | +8 cada | 0 | magia de apoio (Shield da maga; em 1559 o Shield entra): o 0x5131ef dá, o nosso `supportExp` não |
+| 1303, 1429, 1464, 1497 | +28, +19, +17, +21 | 0 | golpe que mata (Bone Snakes): o nosso `hookXp` exige `t.alive` depois do dano |
+| 1326..1558 (golpes comuns) | +8, +9, +9, +11, +11, +8, +10, +6, +6, +4 | +7, +8, +4, +10, +10, +1, +9, +3, 0, 0 | fórmula aproximada (`gainExp`: base × (Mind/30 + 0,25) × 10/(n+10), ÷8 fora do alinhamento) |
+| 2259.. | iguais (+59, +54, +50, +45, +79, ...) | iguais | |
+Total em 2417: original 8048, nosso 7901 (falta 147 = 139 dos ganhos + 8 da experiência inicial: a importação dá ao herói a experiência
+padrão por escola de `heroFromState`/`heroStartSkillExp`, 7320, e o despejo tem só o total 7328 e os níveis).
+**Correção certa: portar a experiência do exe** (lote próprio, x87 do assembly): 0x513128 Unit_XPOnHit (out hoje; o `CRT_ftol` sem
+argumento = conta perdida no C), 0x5128cb (vtable+0x64; pending, exec 31: a tabela de abates +0x1a8 por tipo 0x41e1d0/0x402880, ÷8 fora
+do alinhamento +0x23c, 0x512f44 teto por nível, +0x23c/+0x130, subida → vtable+0x58), 0x512f44 (pending, exec 31), 0x542770 (pending,
+exec 31), 0x5131ef (experiência pela magia; out, "x87 perdido"). Pares do oráculo: `fnprobe.py` nos episódios com imagem (exec 31 no
+corpus). Depois: `gainExp`/`supportExp`/`hookXp*`/`killsByType` saem, o herói passa a ter +0x23c/+0x130 no registro (hoje 0), e
+`recomputeHero` lê +0x130. Para a reancorada/free_run --from: o despejo precisa trazer +0x23c (experiência por escola) e +0x130
+(`dump_ticks.py`), senão a importação continua com a experiência padrão.
+
+## Itens 2 e 3 da fila nova (não começados)
+- Resto da 8b: áreas de dano, Fireball, Wall of Earth, Teleport, Summon, Animate Dead, Drain Life, magia de chão da IA (Darkness: o
+  resíduo T=2337 do m10_hydun_x1), dano de área em estruturas (#94). Provar com pares do oráculo ou `tools/re/oracle/synth_spells.py`.
+- Armadilhas do MapRec (m76, m93): 0x55a96c Unit_TeleportTo, o conjurador 0x4f06ac e dependências (0x4f0832/0x4f086f, 0x51c29e,
+  0x50dc2b, 0x519466, 0x51906d, 0x53a600), 0x55ba36 + 0x55b978 (registro +0x34) e tirar a imitação `setTrap` do host (carga e "Set trap"
+  0x57847e). Meta: loadcmp com MapRec 46/46. Ver `notes/carregador.md` "Lote 3c".
+- Se a m77 for mexida de novo: gravar o trecho do ritual no original (o veredito de 973b145 é pelo C e pelo script).
+
+## Dicas de ferramenta desta sessão
+- Commitar só os próprios trechos: montar o arquivo a partir do `git show HEAD:<arq>` com as mesmas trocas (âncoras ASCII ou lidas do
+  arquivo: os acentos de um heredoc não chegam iguais ao Node neste shell) e `git hash-object -w --path=<arq>` + `update-index --cacheinfo`.
+  Vários testes de missão estão em CRLF na árvore.
+- `test:sim` leva ~7 min; os arquivos de teste rodam soltos com `npx tsx src/sim/test/<arq>.ts`.
+- Sonda de experiência/estado sem reimportar: `simFromImport` + `step` do `tools/refcap/mirror/simcore.mts` (lendo
+  `refs/golden/episodes/<id>/` e `refs/oracle/ticks/<id>.jsonl.gz`, com `prepState`).
