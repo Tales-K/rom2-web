@@ -198,3 +198,9 @@ m10_hydun_x1 sem reimportar: 2337 -> **nenhuma**; reancorada 98,8 -> 98,9 %. O r
 loadcmp 46/46 e 44/46, test:sim, test:script).
 Próximo: o m10_quest_x1 em 4469 (Hydun 24599, ação 13 = magia em unidade, alvo o herói, depois da guerra de T=4436): provável magia de
 chance 0x56a981 (motor antigo, `buffs`) ou a escolha de magia da IA; depois os outros itens da 8b e as armadilhas.
+
+# Atualização (2026-11-06, depois do lote A): m10_quest_x1 sem divergência
+O resíduo de 4469 era o motor antigo largando a tarefa do exe: a magia (Stone Curse de chance do Hydun) e o ataque (morcegos) no alvo
+caído, e o act reescrevendo IA+0x14/+0x30 com o SpellDef antigo. Agora as ordens vindas da tarefa do exe ficam com o despachante.
+**Corridas sem reimportar: m10_start, m10_mage, m10_quest_x1, m10_troll_x1, m10_hydun_x1, m10_ogre_x1 — nenhuma divergência; m20_start 740.**
+Golden 79,99 %, loadcmp 46/46 e 44/46. Próximo: m20_start T=740 (act/dir16 de 24616 e 24660, rng) e os outros itens da 8b; armadilhas.
