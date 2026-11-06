@@ -357,6 +357,7 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   h.dir = 8; // o herói do original começa virado para o norte (quadro parado 8)
   h.exp = 0;
   h.heroInfo = { mage: hero.heroClass === "mage", alignment: heroAlignment(hero), skillExp: heroSkillExp(hero, data) };
+  world.heroLevelUp = u => levelUpHero(u, hero, data);
   h.ai = { type: "hold" };
   host.bindUnit(h.scriptId, h);
   return { world, host, runtime, hero: h, mapUnits };
@@ -421,6 +422,20 @@ export function summonFactoryFor(data: MissionData): NonNullable<World["summonFa
     return { kind, typeId: tpl.typeId, player: caster.player, x: caster.cx, y: caster.cy, stats,
       timing: timingFor(data.anim[kind], stats, tpl.dyingTime as number | undefined), name: stats.name };
   };
+}
+
+/** Uma habilidade do herói subiu de nível no meio da missão (0x5128cb → vtable+0x58, 0x51366b; `World.heroLevelUp`): os derivados
+ *  (`heroDerived`, a mesma conta do 0x51366b) refeitos com a experiência de agora — vida/mana máximas pela experiência total (+0x130),
+ *  ataque e dano pela habilidade nova. A vida e a mana não sobem, só ficam presas ao novo máximo (0x51366b: +0x94 = min(+0x94, +0x96),
+ *  mana = min(mana, +0x9c) ≥ 0), sem a proporção do `refreshHero`. */
+export function levelUpHero(u: Unit, hero: HeroState, data: MissionData): void {
+  if (!u.heroInfo) return;
+  const st = heroStats({ ...hero, skillExp: { ...u.heroInfo.skillExp } } as HeroState, data);
+  u.stats = st;
+  u.maxHp = Math.max(1, st.health);
+  u.maxMana = Math.max(0, st.mana);
+  if (u.hp > u.maxHp) u.hp = u.maxHp;
+  u.mana = Math.max(0, Math.min(u.mana, u.maxMana));
 }
 
 /**
