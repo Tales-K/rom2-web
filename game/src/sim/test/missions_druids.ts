@@ -132,7 +132,9 @@ async function m50(): Promise<void> {
   beside(r, h, 32); settle(r);
   check(!has(r, 11) && !r.outcome, "druida macho depois do enxame já marchando: sem fala nova (v74 != 0), sem desfecho");
   // enxame morto, cratera viva: sub 1 cumprido; druida 40 pede a cratera
-  killAll(r, swarm); settle(r);
+  // o grupo só fica vazio com as mortes consumadas (0x52b459: ação 0x10, depois da queda de modelo[0x21] tiques) e o gatilho é do
+  // ciclo seguinte do script (1×/s)
+  killAll(r, swarm); settle(r, 40);
   check(sub(r, 1) === 2, "enxame morto: sub 1 cumprido");
   beside(r, h, 40); settle(r);
   check(has(r, 14) && sub(r, 2) === 1, "druida 40: msg 14 e sub 2 ativo");

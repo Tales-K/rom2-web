@@ -1264,7 +1264,8 @@ export class World {
       l.removeAll();
       for (const a of order) l.addTail(a);
     };
-    stable(w.liveUnits, u => u.state !== "dead" && u.state !== "dying");
+    // (mundo+4 = [0x68d2dc]+4: `liveUnits` é a mesma lista que `lists.all` — a caída fica no lugar até a ação 0x10, 0x52b459; o filtro
+    // "vivas" daqui a tirava e a seguinte a punha no fim: m20_start, a 24609 caída em T=727)
     // contentor [0x68d2dc] (World_SecondTick): todas as não consumadas (caídas incluídas), as criadas por magia e os cadáveres (na ordem
     // em que entraram: a da morte, como no exe)
     stable(w.lists.all, u => !u.bodyDead);
