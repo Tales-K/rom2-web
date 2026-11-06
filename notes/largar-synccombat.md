@@ -56,3 +56,51 @@ Commits 94d69d7 (o passo sem `syncCombat`) e 21e09e3 (vida/mana máximas do her�
 - `World.recomputeLater` (a ponte no fim do passo) sai junto com a ponte.
 - Medido no despejo do m10_troll_x1: em T=2982 a mana máx. do herói vai de 101 a 102 sem subida de nível (a experiência fica em 8676),
   depois da 1.ª divergência (dip@2481). Não investigado.
+
+# Fila da F2 depois do syncCombat (2026-11-06, mesma sessão)
+Itens de `notes/bugs-2026-10-31-fase1.md` D/E, um commit cada, sem push.
+
+| commit | item | o que mudou |
+|---|---|---|
+| f0e910e | 1. corrida livre do tickcmp | parte de `worldFromState(base)` (mundo novo), não do mundo da reancorada depois do `resetWorld` |
+| bed8887 | 2. duração da queda | registro: modelo[0x21] do data.bin (`UnitStats.fallTicks`, `dyingTime`) na vtable+0x74 do monstro (0x50f048); era a animação (piso 14) |
+| 22f4546 | (achado do item 2) | a vtable+0x58 do herói do motor antigo refaz vida/mana máx. pela experiência em TODO chamador (o Shield em T=1559 do m10_quest_x1 sobe a mana máx. 99 → 100 sem subida de nível) |
+| 8082c8d | 3. script (parcial) | infraestrutura do script no pensamento (gancho 0x57485b, `World.scriptThink`, `ScriptRuntime.external`), desligada |
+| — | 4. "Challenge winned" cedo | não começado |
+
+Medidas (antes = 7d03d59; depois = 8082c8d):
+| | antes | depois |
+|---|---|---|
+| tickcmp --all reancorada | 100,0 / 100,0 / 100,0 % | igual |
+| tickcmp --all sem reimportar | 322 / nenhuma / 740 | **nenhuma / nenhuma / 740** (m20: mediana por unidade 775 → 793) |
+| m10_quest_x1 sem reimportar (tickcmp e free_run.mts) | 1428 `rng` (sorteio do saque) | **1985 `dip|5,1`** ("Challenge starts", item 3) |
+| m10_troll_x1 / m10_hydun_x1 / m10_ogre_x1 sem reimportar | 2481 / 2337 / nenhuma | igual |
+| golden --ci | 79,74 % | **79,99 %** (0 janelas piores, 6 melhores) |
+| loadcmp --no-map / com MapRec | 46/46 / 44/46 | igual |
+| test:sim, test:script (49/49), typecheck | verdes | verdes |
+
+O item 1 não mudou nenhum número (a livre do m10_quest_x1 já dava 1428 inteira e com --max 1500, igual ao free_run.mts); o free_run.mts
+cai na m20 (`simcore` → `exeRebuildLists`), problema da ferramenta do espelho, não mexido.
+
+## Script no pensamento (item 3): o que falta para ligar
+Provado no C: o script roda em 0x56fe4d → 0x57485b (exec 180 = 1×/s) antes do AI_PlayerThink; os valores 6 (0x577268, 0xff se uma das
+unidades tem ação 0x10), 7 (0x57714d) e 15 (0x57745b: o menor entre as unidades dos grupos do jogador, 0xff sem nenhuma) usam
+`Grid_ChebyshevDist`. Ligado por inteiro (medido nesta sessão): m10_quest_x1 livre 1985 → **2416** (`hpmax|1`), m10_troll_x1 livre 2481 →
+**nenhuma**, tickcmp --all e golden iguais. Só Chebyshev com o relógio de 0,5 s: o gatilho sai CEDO (quest 1983, troll 2471) — por isso
+não entrou sozinho.
+Para ligar (tudo junto, um commit):
+1. `mission/setup.ts`: `new ScriptRuntime(data.script, host, { external: true, distance: "chebyshev" })` e
+   `world.scriptThink = () => runtime.runCycle()`.
+2. `mission/host.ts nearestPlayerUnitDistance`: `Math.max(|dx|, |dy|)` no lugar de `Math.hypot` (valor 15).
+3. `sim/test/import_state.ts worldFromState`: `r.b.runtime?.runCycle()` no lugar de `update(0)` (o estado exportado já passou pelo 1.º ciclo).
+4. Testes calibrados no ciclo de 0,5 s e na euclidiana (todos [est] do nosso lado, não medidos no original):
+   - m41 (`missions_kaarg.ts`): o herói "perto do dragão" em (28,16) já está a 4 da torre (24,12) por Chebyshev → (30,17).
+   - m32: (25,36) está a 3 de (28,33) por Chebyshev: o "Brigands swarm" dispara e os bandidos ficam `swarm` (o teste esperava `guard`
+     porque com a euclidiana 4,24 o gatilho não disparava).
+   - m63 (`missions_druids.ts`): a fala 9 precisa de 2 ciclos (v73 e depois a fala): `settle(r, 25)` → 2 s + folga.
+   - m74 (`missions_70s.ts`): "ogro curado acorda": `settle(r, 30)` → 2 ciclos; "Igles a 3 células do líder: ainda não" quebra com o
+     `settle` padrão de 2,25 s (não investigado).
+   - **m77 (o grosso)**: o contador v73 do ritual sobe 1 por ciclo (aparece em 10, some em 20): a 1×/s a guarda fica ~10 s em campo
+     (era ~5 s), a invisibilidade `[est]` do ritual (`setup.ts`, 16 s) acaba antes, e a guarda mata a Dina (falha 4) — com 24 s ainda
+     falha. É o `[est]` do ritual (não é mecânica do exe: notes do AI_EnemyFilter 0x567a16 em world.ts) que precisa ser revisto, de
+     preferência com uma captura do original nesse trecho.
