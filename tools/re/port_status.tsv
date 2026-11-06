@@ -391,7 +391,7 @@ addr	name	size	file	line	status	ts	note
 0x511266	FUN_00511266	52	game/g_510000.c	602	pending		
 0x5113e7	FUN_005113e7	213	game/g_510000.c	652	ported	fn_0x5113e7	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x5114f3	Monster_LoadTemplate	971	game/g_510000.c	690	ported	monsterLoadTemplate	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
-0x5118be	FUN_005118be	85	game/g_510000.c	785	ported	fn_0x5118be	exe_effects.ts: pares sintéticos (oracle/synth_spells.py) 13/13 (vtable+0x58 do monstro)
+0x5118be	FUN_005118be	85	game/g_510000.c	785	ported	fn_0x5118be	exe_effects.ts: pares sintéticos (oracle/synth_spells.py) 13/13 (vtable+0x58 do monstro); no mundo: unitVt58 nas unidades exeBase (F2 etapa 2)
 0x511913	FUN_00511913	70	game/g_510000.c	802	pending		
 0x511959	Human_Create	1646	game/g_510000.c	815	ported	monsterCreate	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2); ramo do MONSTRO (o nome Human_Create está errado)
 0x512133	FUN_00512133	84	game/g_510000.c	1147	pending		
@@ -408,7 +408,7 @@ addr	name	size	file	line	status	ts	note
 0x51327b	FUN_0051327b	71	game/g_510000.c	1844	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5132c2	FUN_005132c2	469	game/g_510000.c	1866	pending		
 0x513497	FUN_00513497	175	game/g_510000.c	1931	ported	fn_0x513497	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
-0x51366b	FUN_0051366b	3157	game/g_510000.c	1982	ported	unitRecompute	vtable+0x58 humanos: x87 do assembly; no mundo gancho recompute (syncCombat); exe/effects.ts; test/exe_effects.ts 4/4
+0x51366b	FUN_0051366b	3157	game/g_510000.c	1982	ported	unitRecompute	vtable+0x58 humanos: x87 do assembly; exe/effects.ts unitVt58; no mundo: a porta nas unidades exeBase (criação portada), ponte syncCombat nas outras (F2 etapa 2, notes/largar-synccombat.md); test/exe_effects.ts 4/4
 0x5143e4	Human_CreateByName	114	game/g_510000.c	2402	pending		
 0x5145d1	FUN_005145d1	1825	game/g_510000.c	2527	ported	humanCreate	"exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2); só o ramo dos modelos do mapa (sem ""."" nem prefixo Hero)"
 0x514cf2	FUN_00514cf2	615	game/g_510000.c	2789	ported	fn_0x514cf2	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2); laço das habilidades do assembly

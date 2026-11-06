@@ -53,7 +53,9 @@ fase 1).
 O que falta para a partida iniciada pelo nosso jogo ser igual, não só a importada:
 1. 9b lotes 3+: carregador até 46/46 missões com tique 0 exato (colocação, `AI_GuardLoad`, MapRec).
 2. Largar `syncCombat`: atributos pelo recálculo portado 0x51366b/0x5118be a cada tique (fecha o último tique do tickcmp e é
-   candidato a "troll fácil").
+   candidato a "troll fácil"). **Feito no passo (06/11, `notes/largar-synccombat.md`)**: o exe só recalcula em eventos, e o mundo
+   também; a porta vale nas unidades do carregador. Falta largar a ponte nas unidades do motor antigo: criar o herói pelo exe e portar
+   a experiência 0x513128/0x5128cb.
 3. Resto da 8b: áreas de dano, Fireball, Wall of Earth, Teleport, Summon, Animate Dead, Drain Life; dano de área em estruturas (#94).
 4. Corrida livre longa: episódios do original **desde o tique 0** em mais missões (não só 10 e 20), comparados sem reimportar; o
    golden ganha janelas que começam na carga.

@@ -334,8 +334,14 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   passa ao 1.º passo), sem `phaseOut` da forma do Polymorph na carga, `AI_GuardLoad` da unidade sem grupo e o laço de Guard da carga
   (0x570aba). `loadcmp --no-map` 35 → 45/46 (sobra m92), com MapRec 0 → 43/46 (m76, m93: armadilhas); tickcmp 100,0/100,0/100,0 %,
   golden 79,74 %. A perseguição do Troll1 relatada pelo usuário é igual ao original (notes/bugs-2026-10-31-fase1.md, C).
-- **Próximo**: o plano do jogo inteiro (`docs/PLANO-FIDELIDADE-JOGO.md`); nesta frente (F2): 9b resto (m92, armadilhas do MapRec),
-  largar `syncCombat`, o resto da 8b (áreas de dano, invocações, magia no chão da IA) e corridas livres desde o tique 0 em
+- **F2 etapa 2, largar o `syncCombat` do passo (06/11)** (commits 94d69d7, 21e09e3; `notes/largar-synccombat.md`): no exe o recálculo
+  (vtable+0x58: 0x51366b/0x5118be) só roda em eventos (`exec` = 4 no corpus), e agora o mundo faz igual: o passo não reescreve os
+  atributos, e o motor antigo só os escreve nos eventos dele. O gancho usa a porta nas unidades da criação portada (`exeBase`) e a ponte
+  nas outras (herói da campanha, invocações, importações). A vida e a mana máximas do herói crescem com a experiência na subida de nível
+  (0x5128cb). m10_troll_x1 sem reimportar: sobra só `dip@2481` (14 → 1 unidade divergente); tickcmp 100,0/100,0/100,0 % (T=322/
+  nenhuma/740), golden 79,74 %, loadcmp 46/46 e 44/46, iguais. Falta, para largar a ponte: criar o herói pelo exe e portar 0x513128/0x5128cb.
+- **Próximo**: o plano do jogo inteiro (`docs/PLANO-FIDELIDADE-JOGO.md`); nesta frente (F2): 9b resto (armadilhas do MapRec),
+  o herói pelo exe (para largar a ponte do `syncCombat`), o resto da 8b (áreas de dano, invocações, magia no chão da IA) e corridas livres desde o tique 0 em
   mais missões; no fim, a passada de nomes legíveis em `exe/`.
 - **Ajuste da ordem**: a integração (seção 6) passa a ser uma etapa própria entre a 5 e a 6 da tabela, decidida por modelo forte
   depois do lote do andar, porque o avanço de posição por tique vive no caso 1 de `Unit_ActionMachine` e exige o registro espelhado
