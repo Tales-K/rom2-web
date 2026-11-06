@@ -82,25 +82,34 @@ Medidas (antes = 7d03d59; depois = 8082c8d):
 O item 1 não mudou nenhum número (a livre do m10_quest_x1 já dava 1428 inteira e com --max 1500, igual ao free_run.mts); o free_run.mts
 cai na m20 (`simcore` → `exeRebuildLists`), problema da ferramenta do espelho, não mexido.
 
-## Script no pensamento (item 3): o que falta para ligar
-Provado no C: o script roda em 0x56fe4d → 0x57485b (exec 180 = 1×/s) antes do AI_PlayerThink; os valores 6 (0x577268, 0xff se uma das
-unidades tem ação 0x10), 7 (0x57714d) e 15 (0x57745b: o menor entre as unidades dos grupos do jogador, 0xff sem nenhuma) usam
-`Grid_ChebyshevDist`. Ligado por inteiro (medido nesta sessão): m10_quest_x1 livre 1985 → **2416** (`hpmax|1`), m10_troll_x1 livre 2481 →
-**nenhuma**, tickcmp --all e golden iguais. Só Chebyshev com o relógio de 0,5 s: o gatilho sai CEDO (quest 1983, troll 2471) — por isso
-não entrou sozinho.
-Para ligar (tudo junto, um commit):
-1. `mission/setup.ts`: `new ScriptRuntime(data.script, host, { external: true, distance: "chebyshev" })` e
-   `world.scriptThink = () => runtime.runCycle()`.
-2. `mission/host.ts nearestPlayerUnitDistance`: `Math.max(|dx|, |dy|)` no lugar de `Math.hypot` (valor 15).
-3. `sim/test/import_state.ts worldFromState`: `r.b.runtime?.runCycle()` no lugar de `update(0)` (o estado exportado já passou pelo 1.º ciclo).
-4. Testes calibrados no ciclo de 0,5 s e na euclidiana (todos [est] do nosso lado, não medidos no original):
-   - m41 (`missions_kaarg.ts`): o herói "perto do dragão" em (28,16) já está a 4 da torre (24,12) por Chebyshev → (30,17).
-   - m32: (25,36) está a 3 de (28,33) por Chebyshev: o "Brigands swarm" dispara e os bandidos ficam `swarm` (o teste esperava `guard`
-     porque com a euclidiana 4,24 o gatilho não disparava).
-   - m63 (`missions_druids.ts`): a fala 9 precisa de 2 ciclos (v73 e depois a fala): `settle(r, 25)` → 2 s + folga.
-   - m74 (`missions_70s.ts`): "ogro curado acorda": `settle(r, 30)` → 2 ciclos; "Igles a 3 células do líder: ainda não" quebra com o
-     `settle` padrão de 2,25 s (não investigado).
-   - **m77 (o grosso)**: o contador v73 do ritual sobe 1 por ciclo (aparece em 10, some em 20): a 1×/s a guarda fica ~10 s em campo
-     (era ~5 s), a invisibilidade `[est]` do ritual (`setup.ts`, 16 s) acaba antes, e a guarda mata a Dina (falha 4) — com 24 s ainda
-     falha. É o `[est]` do ritual (não é mecânica do exe: notes do AI_EnemyFilter 0x567a16 em world.ts) que precisa ser revisto, de
-     preferência com uma captura do original nesse trecho.
+## Script no pensamento (item 3, ligado em 973b145), item 4 e o free_run (2026-11-06, mesma sessão)
+| commit | o que mudou |
+|---|---|
+| 973b145 | o script roda no pensamento (0x56fe4d → 0x57485b, 1×/s) com as distâncias de Chebyshev (valores 6, 7 e 15); sai o [est] do ritual da m77 |
+| 6425a75 | item 4: a unidade caída conta no grupo e no jogador até a morte se consumar (0x52b459: ação 0x10 → 0x51618e) |
+| 1e9100f | free_run.mts / espelho: `resetWorld` antes de aplicar o estado e `exeExact` só no 1.º passo (a m20 caía; o espelho nunca saía do estado importado) |
+
+Evidência da m77 (antes de mudar os testes): o script não tem ação de invisibilidade; o exe só a dá pela magia, e o autocast 0x56bc7b
+só lança Invisibility no nível 3 do AutoCasting (bit 0x20, "Maximum"; o padrão do New Game é 0x19). O buff de 16 s de `setup.ts`, o
+IA+0x71 = 0 e a parada forçada em `world.ts` eram [est] nossos e saíram. A guarda (grupo 24) fica em campo enquanto 10 <= v73 < 20 =
+10 ciclos = 10 s. O roteiro que o script pede: afastar os dois necromantes a <= 15 do túmulo, fora da vista da guarda (8 a 10), e trazer
+o bom de volta depois que ela sai (falas 11 e 13 com v73 > 20). Medido no nosso sim sem o [est]: guarda de v73 = 10 a 19, Mission
+Complete. Não gravado no original (o roteiro inteiro da m77 no oráculo é longo; fica como conferência futura).
+
+Testes ajustados pela conta do script (o porquê está em cada um): m77 (ritual), m74 (o 1.º ciclo é o do 1.º pensamento), m85 (v72 > 15 =
+~15 s), m101/m102 (2 ciclos; a Dina chega a Chebyshev 4 do druida e a conversa v71 é dela; contador de 5 ciclos), m41 e m32 (Chebyshev),
+m63 (2 ciclos), m9x (o necromante some numa diagonal, Chebyshev).
+
+| | antes (358f84c) | depois (1e9100f) |
+|---|---|---|
+| tickcmp --all reancorada / sem reimportar | 100/100/100; nenhuma/nenhuma/740 | igual |
+| m10_quest_x1 sem reimportar | 1985 `dip|5,1` | **2416** `hpmax|1` (o `dip` sai da lista de campos) |
+| m10_quest_x1 a partir do estado 4000 (free_run) | "Challenge winned" em 4048 (original 4066) | **4066** |
+| m10_troll_x1 / m10_hydun_x1 / m10_ogre_x1 sem reimportar | 2481 / 2337 / nenhuma | **nenhuma** / 2337 / nenhuma |
+| free_run.mts --mode import (m10_start, m10_mage, m20, quest, troll) | nenhuma, nenhuma, **erro**, 1985, 2481 | nenhuma, nenhuma, 740, 2416, nenhuma |
+| golden --ci | 79,99 % | 79,99 % (CI ok) |
+| loadcmp --no-map / com MapRec | 46/46 / 44/46 | igual |
+| test:sim, test:script (49/49), typecheck | verdes | verdes |
+
+Resíduo: m10_quest_x1 T=2416 `hpmax/manamax|1` 42/100 × 43/101 (a próxima subida de vida/mana máx. do herói); a partir de um estado do
+meio (free_run --from) o script recomeça sem as variáveis (v71 etc. não vêm no despejo) — artefato da importação.
