@@ -228,7 +228,7 @@ export default class MissionScene extends Scene {
     // antes do restore de um save (as unidades do grupo entram na mesma ordem, logo depois do herói) e antes da vista carregar
     const party = await this.spawnParty();
     if (party.length) attachFollowers(this.world, this.hero, party);
-    { const up = this.world.heroLevelUp; this.world.heroLevelUp = u => { up?.(u); reapplyGod(u); }; }   // o +god vale de novo (como no refreshHero)
+    { const up = this.world.heroRecompute; this.world.heroRecompute = u => { up?.(u); reapplyGod(u); }; }   // o +god vale de novo (como no refreshHero)
     installMissionAi(this.world, {
       spells: this.data.spells as SpellTable | undefined, difficulty: this.heroState.difficulty,
       heroSpellIds: (this.heroState.spells ?? []).map(Number).filter(n => n > 0), settings: this.settings,

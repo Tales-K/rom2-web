@@ -579,9 +579,10 @@ export class World {
   /** cria a unidade de um template do data.bin pelo nome (`template`: "Squirrel.2", "F_Zombie.1", "Ghost"...) para Summon e Animate Dead
    *  (sim/necro.ts escolhe o nome pelas regras do exe); a cena/loader fornecem (mission/setup.ts `summonFactoryFor`) */
   summonFactory?: (caster: Unit, x: number, y: number, power: number, template?: string) => UnitInit | undefined;
-  /** uma habilidade do herói subiu de nível (0x5128cb → vtable+0x58, 0x51366b): os derivados refeitos com a experiência de agora (a
-   *  missão fornece: mission/setup.ts `levelUpHero`); depois o `syncCombat` os põe no registro */
-  heroLevelUp?: (u: Unit) => void;
+  /** vtable+0x58 do herói do motor antigo (0x51366b): os derivados refeitos com a experiência de agora (vida/mana máximas pela
+   *  experiência +0x130) — na subida de nível (0x5128cb) e em todo outro chamador (efeito que entra/sai, 0x51d436); a missão fornece
+   *  (mission/setup.ts `recomputeHero`); depois o `syncCombat` os põe no registro */
+  heroRecompute?: (u: Unit) => void;
   /** chamado quando uma unidade morre (o host do script e a cena usam) */
   onDeath?: (u: Unit, killer: Unit | undefined) => void;
   /** células atingidas por magia de área que também age sobre ESTRUTURAS (Fireball, pulsos de Blizzard) [exe 0x518833 → 0x518681 com
@@ -2255,7 +2256,7 @@ export class World {
     recompute: r => {
       const u = this.unitByAddr(r.addr);
       if (u?.exeBase) unitVt58(this.exeWorld, r);
-      else if (u) { this.syncCombat(u); this.recomputeLater.add(u); }
+      else if (u) { if (u.heroInfo) this.heroRecompute?.(u); this.syncCombat(u); this.recomputeLater.add(u); }
     },
     clientEffect: (r, id, type, v, on) => {
       const u = this.unitByAddr(r.addr);
@@ -3004,7 +3005,7 @@ export class World {
   /** Subiu o nível de uma habilidade (0x5128cb): +1 em +0xa8 e a vtable+0x58 — vida/mana máximas pela experiência +0x130 (0x51366b). */
   private heroSkillUp(a: Unit): void {
     this.events.push({ type: "levelup", unit: a.id });
-    if (this.heroLevelUp) { this.heroLevelUp(a); this.syncCombat(a); } else this.syncSkills(a);
+    if (this.heroRecompute) { this.heroRecompute(a); this.syncCombat(a); } else this.syncSkills(a);
   }
 
   /** Magia de suporte lançada: int(nível × 0,5 + 0,5) de experiência na escola. */
