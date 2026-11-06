@@ -400,11 +400,11 @@ addr	name	size	file	line	status	ts	note
 0x5127f2	FUN_005127f2	50	game/g_510000.c	1476	ported	fn_0x5127f2	folha de 0x51366b, provada pelos pares dele (4/4); exe/effects.ts
 0x512870	FUN_00512870	60	game/g_510000.c	1508	pending		
 0x5128ac	FUN_005128ac	31	game/g_510000.c	1526	ported	fn_0x5128ac	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
-0x5128cb	FUN_005128cb	1657	game/g_510000.c	1538	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x512f44	FUN_00512f44	135	game/g_510000.c	1686	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x512fcb	FUN_00512fcb	349	game/g_510000.c	1716	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x513128	Unit_XPOnHit	199	game/g_510000.c	1772	out		gancho CombatHooks.xpOnHit (experiência do herói: World.gainExp, motor antigo; 0x5128cb)
-0x5131ef	FUN_005131ef	140	game/g_510000.c	1808	out		gancho SpellHooks.xpOnCast (experiencia pela magia, motor antigo; x87 perdido)
+0x5128cb	FUN_005128cb	1657	game/g_510000.c	1538	ported	fn_0x5128cb	exe/xp.ts; test/exe_xp.ts: pares do oráculo 100 % (m10_start, m10_mage, m20_start, m10_quest_x1); x87 do assembly
+0x512f44	FUN_00512f44	135	game/g_510000.c	1686	ported	fn_0x512f44	exe/xp.ts; test/exe_xp.ts: pares do oráculo 100 % (m10_start, m10_mage, m20_start, m10_quest_x1); x87 do assembly
+0x512fcb	FUN_00512fcb	349	game/g_510000.c	1716	ported	fn_0x512fcb	exe/xp.ts; test/exe_xp.ts: pares do oráculo 100 % (m10_start, m10_mage, m20_start, m10_quest_x1); x87 do assembly
+0x513128	Unit_XPOnHit	199	game/g_510000.c	1772	ported	unitXpOnHit	exe/xp.ts; test/exe_xp.ts: pares do oráculo 100 % (m10_start, m10_mage, m20_start, m10_quest_x1); x87 do assembly
+0x5131ef	FUN_005131ef	140	game/g_510000.c	1808	ported	fn_0x5131ef	exe/xp.ts; test/exe_xp.ts: pares do oráculo 100 % (m10_start, m10_mage, m20_start, m10_quest_x1); x87 do assembly
 0x51327b	FUN_0051327b	71	game/g_510000.c	1844	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
 0x5132c2	FUN_005132c2	469	game/g_510000.c	1866	pending		
 0x513497	FUN_00513497	175	game/g_510000.c	1931	ported	fn_0x513497	exe/create.ts; loadcmp 46 despejos do tique 0 (etapa 9b lote 2)
@@ -963,7 +963,7 @@ addr	name	size	file	line	status	ts	note
 0x542700	FUN_00542700	25	game/g_540000.c	2581	pending		
 0x542720	FUN_00542720	16	game/g_540000.c	2590	ported	vtables.ts:vt2c	slot +0x2c: 1
 0x542730	FUN_00542730	16	game/g_540000.c	2599	ported	vtables.ts:vt30	slot +0x30 (humano/herói): 1
-0x542770	FUN_00542770	28	game/g_540000.c	2621	pending		
+0x542770	FUN_00542770	28	game/g_540000.c	2621	ported	fn_0x542770	exe/xp.ts; test/exe_xp.ts: pares do oráculo 100 % (m10_start, m10_mage, m20_start, m10_quest_x1); x87 do assembly
 0x542810	FUN_00542810	55	game/g_540000.c	2666	pending		
 0x542850	FUN_00542850	46	game/g_540000.c	2682	pending		
 0x542880	FUN_00542880	46	game/g_540000.c	2695	pending		

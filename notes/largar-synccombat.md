@@ -155,3 +155,37 @@ corpus). Depois: `gainExp`/`supportExp`/`hookXp*`/`killsByType` saem, o herói p
 - `test:sim` leva ~7 min; os arquivos de teste rodam soltos com `npx tsx src/sim/test/<arq>.ts`.
 - Sonda de experiência/estado sem reimportar: `simFromImport` + `step` do `tools/refcap/mirror/simcore.mts` (lendo
   `refs/golden/episodes/<id>/` e `refs/oracle/ticks/<id>.jsonl.gz`, com `prepState`).
+
+# Atualização da passagem (2026-11-06, depois de ce2bb7c): item 1 da fila FECHADO
+**Experiência do exe portada** (ce2bb7c; `game/src/sim/exe/xp.ts`, prova `game/src/sim/test/exe_xp.ts`, no `test:sim`): 0x513128
+(vtable+0x6c), 0x512fcb (vtable+0x68, chamada no `consumeDeath` como o 0x52b459 da morte consumada), 0x5131ef (vtable+0x70), 0x5128cb
+(vtable+0x64), 0x512f44, 0x542770 — 195 pares do oráculo iguais (m10_start, m10_mage, m20_start e m10_quest_x1 até 4070: subida de nível
+de T=2417 e a morte do Troll1). Saíram `gainExp`/`heroSkillUp`/`hookXp*`/`killsByType` (o `supportExp` ficou só como ponte para o
+0x5131ef nas magias que o motor antigo ainda resolve).
+Achados (com evidência do original):
+- [0x6044c4]+0x74 = 0 no jogo de um jogador (pares dos 4 episódios): `EXE_GLOBALS.f74` era 1 por suposição desde a 8a (o teto do
+  ganho saía ÷ 5; também muda `death.ts:115` e `spells.ts:564`, que usam o mesmo campo).
+- +0x4c bit 2 = humano com mana (o herói do oráculo tem 6): o Spell_Apply só chama a vtable+0x70 com ele (os comentários diziam
+  "sem o bit 2"); o `syncCombat` o liga nos humanos do motor antigo com mana.
+- +0x1a0 = bandeira 8 (sem experiência) da unidade do .alm (0x561bf9: +0x194/+0x198/+0x19c/+0x1a0 = bandeiras 1/4/2/8); o Hydun e os
+  morcegos da m10 têm 1 no oráculo (também tira o saque deles em 0x510a70).
+- O herói precisa de +0xe 0x21..0x24 no registro (era o `typeId`, 0) [est: 0x21 + 2 × mago + mulher; a Dina, maga, é 0x24].
+- `dump_ticks.py` exporta +0x23c e os abates (só humanos: o registro do monstro é menor — ler +0x23c dele derrubava o despejo); os 9
+  despejos de `refs/oracle/ticks/` foram refeitos.
+| | antes (af994fa) | depois (ce2bb7c) |
+|---|---|---|
+| m10_quest_x1 sem reimportar | 2416 `hpmax\|1` | **4469** `act\|24599` (a IA do Hydun em guerra); +0x23c do herói igual ao original do início ao fim |
+| m10_quest_x1 / m10_troll_x1 reancorada | 99,1 / 99,4 % | 99,4 / 99,5 % |
+| m10_troll_x1 / m10_hydun_x1 / m10_ogre_x1 livre | nenhuma / 2337 / nenhuma | iguais |
+| tickcmp --all, golden --ci, loadcmp | 100/100/100 (nenhuma/nenhuma/740), 79,99 %, 46/46 e 44/46 | iguais |
+| test:sim, test:script (49/49), typecheck | verdes | verdes (test:sim com exe_xp) |
+Fora (anotado): 0x51327b (vtable+0x50 do matador: ouro pela morte com [0x6044c4]+0x74 ≠ 0 — no jogo de um jogador não roda) e os
+stubs de cliente (Server_SendMsg92, Server_Event 0xffb, 0x4e9e97). As magias antigas ofensivas (8b) não chamam a vtable+0x70: quando
+forem portadas pelo Spell_Apply, chamam.
+
+## Próximo (a fila continua)
+1. ~~Experiência~~ (feito).
+2. Resto da 8b em lotes (áreas de dano, Fireball, Wall of Earth, Teleport, Summon, Animate Dead, Drain Life, magia de chão da IA —
+   o resíduo T=2337 do m10_hydun_x1 é o Darkness do morcego 24619 —, dano de área em estruturas #94). O m10_quest_x1 em 4469 (a IA do
+   Hydun, 24599, em guerra) é o próximo resíduo dele: olhar antes de começar a 8b.
+3. Armadilhas do MapRec (m76, m93): meta loadcmp com MapRec 46/46.
