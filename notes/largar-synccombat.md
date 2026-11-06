@@ -217,3 +217,21 @@ Golden 79,99 %, loadcmp 46/46 e 44/46. Próximo: m20_start T=740 (act/dir16 de 2
   o 740 continua; desfeito (sem prova do mecanismo).
 - Ferramenta usada (refazer em `game/src/sim/test/_scratch_*.ts`, fora do commit): `simFromImport` + `step` do simcore, comparando
   `AI_FIELDS`/`WALK_FIELDS` do exe_recon com os bytes `o.exe.ai`/`o.exe.mv` do despejo, e `serverOrder()` com `exe.world.lists.all`.
+
+# Atualização (2026-11-06, ef7d5e2): m20_start T=740 FECHADO — todas as corridas livres do oráculo sem divergência
+Causa: `liveUnits` (mundo+4) e `lists.all` ([0x68d2dc]+4) são a mesma lista (apelido em exe/types.ts), mas o exeSyncWorld a filtrava
+duas vezes — "vivas" tirava a unidade caída e "não consumadas" a punha de volta no fim. No exe ela fica no lugar até a ação 0x10
+(0x52b459). A m50 do test:sim passou a esperar a morte consumada do enxame (40 tiques) antes do gatilho do grupo vazio.
+**Corridas sem reimportar, nenhuma divergência: m10_start_s1, m10_mage_s102, m20_start_s203, m10_quest_x1 (4560), m10_troll_x1 (3200),
+m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99,4/99,5/98,9/97,9 %, artefatos da importação). Golden
+79,99 %, loadcmp 46/46 e 44/46.
+
+## Próximo (fila do coordenador)
+- **8b, lotes seguintes** (áreas de dano, Fireball, Wall of Earth, Teleport, Summon, Animate Dead, Drain Life, dano de área em
+  estruturas #94): o corpus não tem mais resíduo para guiar — cada lote precisa de pares sintéticos (`tools/re/oracle/synth_spells.py`,
+  como no lote 5 da 8b: `notes/magias.md`) ou de um episódio novo do oráculo que lance a magia (gravar com o espelho/`to_oracle.py`, ou
+  roteiro no oráculo como o m10_quest_x1). Ponto de partida: `exe/spells.ts spellApplyPorted` (os `case` que ainda vão ao gancho
+  `spellApply` do motor antigo) e `port_status.py next --root 0x519db8 --n 15`.
+- **Armadilhas do MapRec** (m76, m93; meta loadcmp com MapRec 46/46): ver "Itens 2 e 3 da fila nova" acima e `notes/carregador.md` "Lote 3c".
+- Também útil antes da 8b: mais episódios longos do oráculo em outras missões (item 4 da F2 no PLANO: "tickcmp livre ≥ 99 % em ≥ 6
+  missões"), porque hoje todos os episódios são das missões 10 e 20.
