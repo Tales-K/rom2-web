@@ -265,7 +265,8 @@ function initUnitRec(u: Unit): void {
   r.speed = Math.round(u.stats.speed * 16);
   r.type.stats.f45 = 1;
   r.tpl = new TemplateRec();
-  r.tpl.arr[0x21] = u.timing.dyingTicks;   // duração da queda (vtable +0x74 → modelo[0x21] / [0x17]): a da animação do motor
+  // duração da queda (vtable+0x74 do monstro, 0x50f048 → modelo[0x21] do data.bin); sem o modelo (testes, herói), a da animação do motor
+  r.tpl.arr[0x21] = u.stats.fallTicks ?? u.timing.dyingTicks;
   r.type.stats.f20 = u.isHero ? 4 : 0x12;
   r.owner.f2c = u.isHero ? 0 : 1;
   r.ai.f16 = -36;   // +0x1c4+0x16 = 0xffdc em todas as unidades das imagens do oráculo ("nunca")

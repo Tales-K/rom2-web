@@ -70,6 +70,7 @@ export function fromTemplate(t: TemplateJson, fallback: UnitStats, flyingHint: b
     alwaysHit: !!t.alwaysHit,
     charge: t.charge ?? fallback.charge,
     relax: t.relax ?? fallback.relax,
+    ...(typeof (t as { dyingTime?: unknown }).dyingTime === "number" ? { fallTicks: (t as { dyingTime: number }).dyingTime } : {}),
     flying: t.flying ?? (t.movementType === 3 ? true : undefined) ?? fallback.flying ?? flyingHint,
     ...(t.tokenSize ? { size: t.tokenSize } : {}), ...(t.movementType ? { movement: t.movementType } : {}),
     treasure: t.treasure ?? undefined,

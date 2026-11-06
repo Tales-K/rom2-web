@@ -30,6 +30,8 @@ export interface UnitStats {
   /** tiques do jogo original (25/s) até o golpe sair / de recuperação (data.bin; golpe em charge/12,5 s, ciclo em (charge+relax)/12,5 s) */
   charge?: number;
   relax?: number;
+  /** duração da queda em tiques do servidor (modelo[0x21] do data.bin, `dyingTime`): vtable+0x74 do monstro (0x50f048) */
+  fallTicks?: number;
   /** dano elemental extra do golpe [exe 0x516f6f, struct de dano +0x11..+0x15]: A (contra água) e B (contra `element` 1..5) */
   elemental?: { aBase: number; aRange: number; bBase: number; bRange: number; element: number };
   /** PERÍODO de regeneração (data.bin; maior = mais lenta) [exe 0x50fc5a]: por chamada, vida += 2 × vidaMax × k / healthRegen
