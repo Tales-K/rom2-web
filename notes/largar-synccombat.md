@@ -189,3 +189,12 @@ forem portadas pelo Spell_Apply, chamam.
    o resíduo T=2337 do m10_hydun_x1 é o Darkness do morcego 24619 —, dano de área em estruturas #94). O m10_quest_x1 em 4469 (a IA do
    Hydun, 24599, em guerra) é o próximo resíduo dele: olhar antes de começar a 8b.
 3. Armadilhas do MapRec (m76, m93): meta loadcmp com MapRec 46/46.
+
+# Atualização (2026-11-06, b941164): 8b lote A — magia no chão da IA
+Tarefa 9 do despachante portada (0x56ec3f; 0x55539a de frente + Chebyshev ≤ alcance; 0x56e986 começa a magia na célula) e a imitação
+do motor antigo saiu; o livro espelhado nasce instanciado pelo poder de quem lança (0x51c3e4 → 0x519483 → Spell_Instance), como o do
+exe (o alcance +9 que o pensamento copia para IA+0x14). Pares do m10_hydun_x1 6/6 (0x56e986 sem par: review).
+m10_hydun_x1 sem reimportar: 2337 -> **nenhuma**; reancorada 98,8 -> 98,9 %. O resto igual (tickcmp --all, quest 4469, golden 79,99 %,
+loadcmp 46/46 e 44/46, test:sim, test:script).
+Próximo: o m10_quest_x1 em 4469 (Hydun 24599, ação 13 = magia em unidade, alvo o herói, depois da guerra de T=4436): provável magia de
+chance 0x56a981 (motor antigo, `buffs`) ou a escolha de magia da IA; depois os outros itens da 8b e as armadilhas.
