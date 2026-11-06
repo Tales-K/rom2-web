@@ -11,7 +11,7 @@
  *  - `simFromLoader` (nosso carregador): loader.startRun (como a MissionScene) com o herói do estado, a semente e o relógio do estado;
  *    unidades casadas pelo id do .alm (0x6000 + id), como o loadcmp.
  */
-import { applyState, ExeReplay, heroFromState, spawnUnmatched, worldFromState, type OrigState } from "../../../game/src/sim/test/import_state";
+import { applyState, ExeReplay, heroFromState, resetWorld, spawnUnmatched, worldFromState, type OrigState } from "../../../game/src/sim/test/import_state";
 import { loadData, startRun, type Run } from "../../../game/src/sim/test/loader";
 import { orderOf } from "../../../game/src/sim/test/diff_window";
 import { thinkPhaseFor, type Unit, type World } from "../../../game/src/sim/world";
@@ -67,6 +67,9 @@ export function prepState(st: Any, bookOf?: Map<number, Any>): OrigState {
 /** `ticks` (opcional) = os estados 0..T0 do original, para começar no tique T0 (o MapRec do despejo vem em deltas desde o 0). */
 export async function simFromImport(base: OrigState, st0: OrigState, ticks?: readonly OrigState[], T0 = 0): Promise<Sim> {
   const imp = await worldFromState(base);
+  // a mesma sequência do runFree do tickcmp: o retrato da base (grupos do exe inclusive) antes de casar e aplicar o estado (sem ela a
+  // m20 caía em exeRebuildLists: membro de grupo sem registro)
+  resetWorld(imp);
   const w = imp.w;
   spawnUnmatched(imp.r, w, st0, imp.idmap);
   const exe = st0.exe ? new ExeReplay(ticks ?? [st0]) : null;
@@ -126,6 +129,7 @@ export function step(s: Sim, acts: Action[]): void {
     for (const u of list) { const o = orderOf(w, a as Any, u, ref); if (o) w.command(u, o, true, !!a.now); }
   }
   w.step();
+  w.exeExact = false;   // o estado exato do exe vale só para o passo logo depois da importação (como o stepOnce do tickcmp)
   s.run.b.runtime?.update(1 / TICKS_PER_SEC);
   w.events.length = 0;
   s.T++;
