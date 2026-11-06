@@ -21,6 +21,8 @@ export interface RuntimeOptions {
   cyclePeriod?: number;
   /** métrica de distância em células (padrão "euclid") */
   distance?: DistanceMetric;
+  /** os ciclos vêm de fora (`runCycle`: o pensamento do servidor, 0x57485b): `update` só avança o relógio (padrão false) */
+  external?: boolean;
   /** limite de ações executadas por ciclo (proteção; padrão 1000) */
   maxActionsPerCycle?: number;
   /** máximo de ciclos recuperados num único `update` com dt grande (padrão 5) */
@@ -92,6 +94,7 @@ export class ScriptRuntime {
     this.options = {
       cyclePeriod: options.cyclePeriod ?? 1.0,
       distance: options.distance ?? "euclid",
+      external: options.external ?? false,
       maxActionsPerCycle: options.maxActionsPerCycle ?? 1000,
       maxCyclesPerUpdate: options.maxCyclesPerUpdate ?? 5,
       stopOnOutcome: options.stopOnOutcome ?? false,
@@ -127,6 +130,7 @@ export class ScriptRuntime {
   update(dt: number): void {
     if (!(dt >= 0)) dt = 0;
     this.time += dt;
+    if (this.options.external) return;
     if (!this.started) {
       this.started = true;
       this.runCycle();

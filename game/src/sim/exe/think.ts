@@ -56,6 +56,8 @@ export interface ThinkHooks {
   casterOffensiveSpell?(wd: WorldRec, u: UnitRec, t: UnitRec): number;
   /** 0x57a47d: armadilhas do script (0x57a307 sorteia o alvo; exec 0 no corpus). Sem gancho: nada. */
   traps?(wd: WorldRec): void;
+  /** 0x57485b → 0x574899/0x574ba1: um ciclo do script da missão (game/src/script). Sem gancho: nada. */
+  script?(wd: WorldRec): void;
   /** 0x56cb8c (Wimpy com Teleport pagável) e 0x56cef3 (Withdraw idem): fuga por magia (8b; exec 0 no corpus). Sem gancho → NotPorted. */
   fleeTeleport?(wd: WorldRec, u: UnitRec): void;
   withdrawTeleport?(wd: WorldRec, u: UnitRec): void;
@@ -1451,6 +1453,7 @@ export function fn_0x56fe4d(wd: WorldRec, param_1: CListPtr, h: ThinkHooks): voi
   if ((wd.fbbe8 | 0) === 0) fn_0x55b5f1(wd);
   // 0x57485b: +0xd720, o script (0x574899 / 0x574ba1: game/src/script) e RemoveAll dos eventos
   wd.fd720 = (wd.fd720 + 1) | 0;
+  h.script?.(wd);
   wd.events.removeAll();
   for (let local_78 = param_1.first(); local_78 !== 0; local_78 = param_1.nextAfter(local_78)) aiPlayerThink(wd, wd.playerAt(local_78), h);
   h.traps?.(wd);   // 0x57a47d

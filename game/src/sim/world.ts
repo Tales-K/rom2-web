@@ -583,6 +583,8 @@ export class World {
    *  experiência +0x130) — na subida de nível (0x5128cb) e em todo outro chamador (efeito que entra/sai, 0x51d436); a missão fornece
    *  (mission/setup.ts `recomputeHero`); depois o `syncCombat` os põe no registro */
   heroRecompute?: (u: Unit) => void;
+  /** um ciclo do script da missão no pensamento do servidor (0x57485b, 1×/s: relógio ≡ 7) — a missão fornece (mission/setup.ts) */
+  scriptThink?: () => void;
   /** chamado quando uma unidade morre (o host do script e a cena usam) */
   onDeath?: (u: Unit, killer: Unit | undefined) => void;
   /** células atingidas por magia de área que também age sobre ESTRUTURAS (Fireball, pulsos de Blizzard) [exe 0x518833 → 0x518681 com
@@ -1123,6 +1125,16 @@ export class World {
       return 1;
     },
     traps: () => { for (let i = 0; i < this.traps.length; i++) this.rng.draw(0x57a409); },
+    // o script roda dentro do pensamento (0x57485b), antes do AI_PlayerThink: a diplomacia e os comandos de grupo que ele dá já valem
+    // neste pensamento (o exe os escreve direto no mundo e nos grupos; aqui passam pelo motor antigo e são espelhados de novo)
+    script: () => {
+      // no passo logo depois do estado exato do oráculo (tickcmp) o script não roda: as variáveis e os gatilhos já disparados não vêm no
+      // despejo, e os gatilhos do começo disparariam de novo dentro do passo comparado
+      if (!this.scriptThink || this.exeExact) return;
+      this.scriptThink();
+      this.exeSyncDip();
+      if (!this.exeExact) this.exeSyncGroups();
+    },
     fleeTeleport: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) { exeFlee(this, u, this.enemiesInSquare(u, UNIT_GUARD_RADIUS + 5), Math.max(1, Math.floor(u.stats.sight)) + 1, UNIT_GUARD_RADIUS); this.fleeTask(u); } },
     withdrawTeleport: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) { exeFlee(this, u, this.enemiesInSquare(u, 2), Math.max(1, Math.max(1, Math.floor(u.stats.sight)) - 1)); this.fleeTask(u); } },
     fled: (_w, r) => { const u = this.unitByAddr(r.addr); if (u) { u.fledThisThink = true; if (u.order.type !== "retreat") this.events.push({ type: "flee", unit: u.id }); } },
@@ -1208,12 +1220,17 @@ export class World {
    *  o id do dono (+0x14+4: o script pode passar a unidade a outro jogador) e a lista das unidades vivas (mundo+4: a morte tira —
    *  cadáveres vão para +0x44 —, a ressurreição põe de volta), refeita na ordem de criação, salvo no tique importado do oráculo
    *  (a lista veio do despejo). */
-  private exeSyncWorld(): void {
+  /** A tabela de diplomacia do exe (mundo+0xa8bc) a partir da `dip` do motor. */
+  private exeSyncDip(): void {
     const w = this.exeWorld;
-    w.helpless.clear(); for (const u of this.units) if (u.helpless) w.helpless.add(u.rec.addr >>> 0);
     for (let a = 0; a < this.dip.length && a < 0x46; a++) for (let b = 0; b < (this.dip[a]?.length ?? 0) && b < 0x46; b++) {
       w.dipTable[8 + a * 0x46 + b] = a === b ? 0x12 : (this.dip[a]?.[b] ?? 0) & 0xff;   // bit 0 guerra, bit 1 aliança, 0x10 visão partilhada (0x57977a testa & 3; AI_AlliesScan 0x567b2d guarda o bit 1; 0x567c56 compara o byte inteiro com 2); consigo mesmo 0x12 (46 despejos do tique 0)
     }
+  }
+  private exeSyncWorld(): void {
+    const w = this.exeWorld;
+    w.helpless.clear(); for (const u of this.units) if (u.helpless) w.helpless.add(u.rec.addr >>> 0);
+    this.exeSyncDip();
     const heroOf = new Map<number, number>();
     for (const u of this.units) if (u.isHero) heroOf.set(u.player, u.rec.addr);
     // AutoCasting do jogador (Game Options, mensagem 0x46): [dono+0x34]+0x20 (0x56bb53/0x56bc7b)
