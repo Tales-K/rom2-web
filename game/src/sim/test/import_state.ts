@@ -140,6 +140,8 @@ export interface OrigState {
   exe?: OrigExeMap;
   /** só no estado base (tique 0): passo por célula F[y][x] = MapRec+0 do original (export_state.read_state) */
   terrain_speed?: number[][];
+  /** episódio desde a carga (tools/re/oracle/join_episode.py): o tique 0 é antes do 1.º pensamento, o script ainda não rodou */
+  from_load?: boolean;
 }
 
 /** MapRec do original no tique T, reconstruído aplicando os deltas do estado por tique em ordem (refs/oracle/ticks). */
@@ -273,7 +275,7 @@ export async function worldFromState(st: OrigState): Promise<Imported> {
   const r = startRun(data, heroFromState(st));
   // o estado exportado é de DEPOIS do 1º ciclo do script (gatilhos "Start": patrulhas, guardas, swarm): roda-o antes do retrato do
   // tique 0, senão cada janela o repete (a patrulha dos camponeses da m20 recomeçava na posição da janela)
-  r.b.runtime?.runCycle();   // os ciclos do script vêm do pensamento (0x57485b): `update` não roda mais o 1.º
+  if (!st.from_load) r.b.runtime?.runCycle();   // os ciclos do script vêm do pensamento (0x57485b): `update` não roda mais o 1.º
   const w = r.b.world;
   // passo por célula do original no tique 0 (MapRec+0): o nosso mapa (sim/exe/mapbuild.ts) não tem o passo padrão 6 que 0x550a96
   // põe nas células livres do pé das estruturas

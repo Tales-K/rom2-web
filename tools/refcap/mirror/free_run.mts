@@ -18,6 +18,12 @@ import { fieldOf, unitOf, type Diff } from "../diff/tick_compare.mts";
 type Any = any;
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 const gz = (p: string): string => gunzipSync(readFileSync(p)).toString("utf8");
+/** As linhas de um .jsonl.gz sem montar uma string só (os episódios desde a carga da m30/m70/m110 passam do limite de 512 MB). */
+const gzLines = (p: string): string[] => {
+  const b = gunzipSync(readFileSync(p)), out: string[] = [];
+  for (let s = 0; s < b.length;) { let e = b.indexOf(10, s); if (e < 0) e = b.length; if (e > s) out.push(b.toString("utf8", s, e)); s = e + 1; }
+  return out;
+};
 const GAME = new Set(["x", "y", "hp", "alive", "task", "target", "dip", "player"]);
 
 function load(id: string): { ep: Any; base: OrigState; ticks: OrigState[] } {
@@ -25,7 +31,7 @@ function load(id: string): { ep: Any; base: OrigState; ticks: OrigState[] } {
   const ep = JSON.parse(readFileSync(join(dir, "ep.json"), "utf8"));
   const base = JSON.parse(gz(join(dir, "base.json.gz"))) as Any;
   const bookOf = new Map<number, Any>(base.units.map((u: Any) => [u.id, u.book ?? []]));
-  const ticks = gz(join(ROOT, "refs", "oracle", "ticks", `${id}.jsonl.gz`)).split("\n").filter(l => l.trim()).map(l => prepState(JSON.parse(l), bookOf));
+  const ticks = gzLines(join(ROOT, "refs", "oracle", "ticks", `${id}.jsonl.gz`)).filter(l => l.trim()).map(l => prepState(JSON.parse(l), bookOf));
   return { ep, base, ticks };
 }
 

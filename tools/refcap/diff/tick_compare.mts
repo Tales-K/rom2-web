@@ -33,6 +33,12 @@ type Val = number | string;
 interface Action { t: number; do: string; unit?: number | string | (number | string)[]; x?: number; y?: number; target?: number | string; spell?: number }
 
 const gz = (p: string): string => gunzipSync(readFileSync(p)).toString("utf8");
+/** As linhas de um .jsonl.gz sem montar uma string só (os episódios desde a carga da m30/m70/m110 passam do limite de 512 MB). */
+const gzLines = (p: string): string[] => {
+  const b = gunzipSync(readFileSync(p)), out: string[] = [];
+  for (let s = 0; s < b.length;) { let e = b.indexOf(10, s); if (e < 0) e = b.length; if (e > s) out.push(b.toString("utf8", s, e)); s = e + 1; }
+  return out;
+};
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 const EPISODES = ["m10_start_s1", "m10_mage_s102", "m20_start_s203"];
 
@@ -60,7 +66,7 @@ function loadEpisode(id: string): Episode {
   const ep = JSON.parse(readFileSync(join(dir, "ep.json"), "utf8"));
   const base = JSON.parse(gz(join(dir, "base.json.gz"))) as OrigState;
   const bookOf = new Map<number, Any>(base.units.map((u: Any) => [u.id, u.book ?? []]));
-  const lines = gz(join(ROOT, "refs", "oracle", "ticks", `${id}.jsonl.gz`)).split("\n").filter(l => l.trim());
+  const lines = gzLines(join(ROOT, "refs", "oracle", "ticks", `${id}.jsonl.gz`)).filter(l => l.trim());
   const ticks = lines.map(l => {
     const s = JSON.parse(l) as Any;
     // o oráculo não traz `range` (usa o byte baixo de attack_range) nem `book` (estático: vem do base do golden)
@@ -190,7 +196,11 @@ export function viewOurs(w: World, st: Any, orig: Any, idmap: Map<number, number
     const key = groupKey(g, idmap, w);
     if (!key) continue;
     const gid = Number(key.slice(1)), gs = w.groupState.get(gid);
-    v.set(`g_radius|${key}`, gs?.radius ?? 0); v.set(`g_base|${key}`, gs?.base ?? 0); v.set(`g_combat|${key}`, gs?.combat ? 1 : 0); v.set(`g_cmd12|${key}`, gs?.cmd12 ? 1 : 0);
+    // o comando do grupo é o do registro do exe ([[unidade+0x70]+0x3c]+0x20, como o lado original): `groupState.cmd12` só é escrito
+    // na guarda da carga, e a ordem de andar do script (m30_join T=4: grupos do jogador 3 → comando 0) não o apaga
+    const mem = g.units.map(x => idmap.get(x.id)).map(n => (n !== undefined ? w.get(n) : undefined)).find(u => u && u.group === gid);
+    const cmd12 = mem ? (mem.rec.type.stats.f20 & 0xff) === 0x12 : !!gs?.cmd12;
+    v.set(`g_radius|${key}`, gs?.radius ?? 0); v.set(`g_base|${key}`, gs?.base ?? 0); v.set(`g_combat|${key}`, gs?.combat ? 1 : 0); v.set(`g_cmd12|${key}`, cmd12 ? 1 : 0);
     for (const x of g.units) { const n = idmap.get(x.id); const u = n !== undefined ? w.get(n) : undefined; v.set(`g_assigned|${key}:${x.id}`, u && u.group === gid ? (u.groupTarget ? rev.get(u.groupTarget) ?? -u.groupTarget : 0) : 0); }
   }
   return v;

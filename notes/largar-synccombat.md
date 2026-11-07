@@ -323,3 +323,49 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
      colocação 0x54f9b9 e Server_Event; chamado por Server_PacketDispatcher 0x4f515d, 0x4f856a e 0x4ebd5f), com os dados do personagem
      que o cliente manda. Isso abre as 46 missões sem jogo real, e no nosso lado é o mesmo passo de "criar o herói pelo exe" (F2 item 2).
 - Nada no git mudou por este item.
+
+# Item 4 da F2: a junção do herói no oráculo FEITA; episódios desde a carga em 6 missões; o script do oráculo ainda incompleto
+- **Junção** (`tools/re/oracle/join_episode.py`), feita como o cliente:
+  1. o Igles de partida nova da imagem m10_start_s1 é serializado pelo próprio exe (0x4e9e97, a ficha .a2c de 296 bytes; só grava com
+     [0x6044c4]+0x74 ≠ 0, posto só na chamada; vai para `refs/oracle/heroes/igles_m10.a2c`);
+  2. `load_mission.load(N)`;
+  3. o pacote 0xbe (+5 jogador, +9 tipo, +10 tamanho, +0xe a ficha: o 0x41c6b5 do cliente) e o pacote 4 (entrar: 0x4f1d9c → 0x4f2c83,
+     ponto de entrada sorteado da lista +0xc0).
+  [est] Com servidor+0x1a8 = 0 (o que a carga da campanha deixa), o caso 0xbe não desserializa e cria o personagem de reserva
+  (0x4f254b, 0x19 em tudo: corpo 25, vida 75). O +0x1a8 é uma escolha da interface (0x46e/0x65, 0x44d135) e aqui vale 1 só no tique do
+  0xbe. Resultado: o herói entra com 142 de vida e corpo 40, no ponto de entrada (m30: (12,14), o `heroEntry` do script).
+  O roteiro é decidido no oráculo a cada 16 tiques (atacar o inimigo vivo mais perto, ou um monstro) e gravado. Sem imagem `<id>_t0`
+  (o Unicorn depois da carga não se salva como imagem), o fnprobe não roda nesses episódios.
+- **Episódios** (2400 tiques cada, `refs/`): m30_join, m31_join, m50_join, m60_join, m70_join, m110_join. Os de m30/m70/m110 passam de
+  512 MB descompactados: `free_run.mts` e `tick_compare.mts` agora leem o .jsonl.gz em linhas (`gzLines`).
+- **Correções com evidência**:
+  - (1) `import_state.worldFromState` não roda o 1.º ciclo do script quando a base é desde a carga (`from_load`): o tique 0 é 2
+    tiques depois da carga, antes do 1.º pensamento (os gatilhos "Start" do original andam no T=4). Antes, a m30/50/60/70 divergia
+    no T=4 (o andar dos grupos do "Start" sumia).
+  - (2) O tickcmp lê o comando do grupo nosso do registro do exe ([[unidade+0x70]+0x3c]+0x20, como o lado original), não de
+    `groupState.cmd12`, que só a guarda da carga escreve.
+  - O tickcmp --all, as 6 longas e o troll_chase continuam sem divergência; golden CI ok; test:sim e test:script verdes.
+- **1.ª divergência na corrida livre** (modo importado):
+
+  | episódio | 1.ª divergência |
+  |---|---|
+  | m30 | T=20, `dip 4→1` (o original entra em guerra) |
+  | m31 | T=463, vida do 24708 (48 × 50) |
+  | m50 | T=20, o 24619 anda no original |
+  | m60 | T=99, o herói fica sem alvo no original |
+  | m70 | T=20, rng e `dip 1↔6` = 2 (aliança no original) |
+  | m110 | T=4, o caminho e o rumo do herói |
+
+  O modo carregador diverge antes (o tipo/regeneração de mana do herói, os rumos sorteados).
+- **Bloqueio: o script do oráculo não vê o herói.** No oráculo da m30, a lista de valores calculados do script ([0x66832c]+0xeaac,
+  0x574899) tem só 18 valores, os sem referência especial (≥ 10001 no JSON; faixas 8000/9000 do .alm). Nenhum valor que cita o herói
+  é calculado (gancho em 0x577268: só "From son to elder" por ciclo). O carregador do script (0x562745) roda dentro do Server_StartMap
+  (g_4e0000.c:8297), antes de qualquer herói. Ou o jogo real resolve as especiais depois (passo de entrada que a minha junção não
+  reproduz; o 0x4f1d9c roda e não resolve), ou os valores com especial vão para outra estrutura. Enquanto isso não fechar, os
+  gatilhos do script que dependem do herói nunca disparam no oráculo, e as divergências do T=20 podem ser artefato. Próximo passo:
+  achar onde o exe liga as referências 8000/9000 a unidades. Pistas: o laço da carga dos checks em g_560000.c ~1900–2000 (`local_154`,
+  `local_130 = 0` → "Failed to create check"), 0x560d22 (procura no mapa +0xeab0 por +0x60/+0x68) e o resto do 0x562745.
+- **Testado e desfeito** (no runtime do script, sem commit):
+  - (a) valores com especial pendente valendo 0: quebra a kaarg (o "Elder to knight" dispara antes do "Elder to hero");
+  - (b) calcular todos os valores no começo do ciclo, antes dos gatilhos, como o 0x57485b faz (0x574899 → 0x574ba1): bate com o C,
+    mas quebra as missões 70/80/90 do test:sim de um jeito que não é só tempo. Precisa de estudo antes de ligar.
