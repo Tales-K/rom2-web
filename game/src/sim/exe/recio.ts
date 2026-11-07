@@ -143,7 +143,7 @@ export function unitRecFromJson(r: UnitRec, j: UnitRecJson): void {
 export function bookApplyKeep(r: UnitRec): void {
   for (const [i, range, f0e, f0f, f10] of r.book.keep ?? []) {
     const s = r.book.spells[i];
-    if (s) { s.range = range; s.f0e = f0e; s.f0f = f0f; s.f10 = f10; }
+    if (s) { s.range = range; s.f0e = f0e; s.f0f = f0f; if (Number.isFinite(f10)) s.f10 = f10; }   // +0x10 ausente (despejo antigo): o calculado
   }
 }
 

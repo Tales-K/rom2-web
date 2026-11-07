@@ -451,3 +451,25 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   | m60 | T=13 | T=13 (rng) |
   | m70 | T=21 | T=21 |
   | m110 | T=5 | T=5, agora só a perseguição do 24909/24910: o AI_CasterOffensiveSpell lança no 24893 fora do alcance; no nosso, a máquina põe a ação 1 mas o `unitActionChase` (0x56ea52) não monta o caminho, nem nos tiques seguintes — a próxima a ver |
+
+# Próximo bloco (perseguição da m110): o livro na importação corrigido; a porta do 0x57a769 achada, mas desfeita (quebra a m103)
+- **A causa da m110 T=5** (24909/24910 perseguindo no original, parados no nosso) tem duas partes:
+  1. **O livro da importação**: o `exeSyncBook` refazia a instância do livro pelo poder atual de quem lança (sk 100, mind 63 →
+     alcance +4: Stone Missile 11, e não os 7 do exe). O exe guarda a instância de quando o livro nasceu. **Corrigido**: o
+     `import_state` passa a instância do despejo como `keep` (+9 alcance, +0xe, +0xf e +0x10 quando há), e o `bookApplyKeep` deixa
+     o +0x10 calculado se o despejo não o traz. O `tools/refcap/diff/export_state.py` (não versionado; mudança local) agora lê também
+     o +0x10. Com isso o 24910 bate.
+  2. **AI_CasterOffensiveSpell 0x57a769 NÃO está portado**: ele fica num gancho do motor antigo (`casterOffensiveSpell` →
+     `pickOffensive`). O exe (C lido, 444 bytes): com Mind (+0x88) < 60, ou o sorteio 0..99 (0x57afd0, sítio 0x57a7b8) acima de 29,
+     monta a lista das magias do livro 1..28 com custo (+0xc) ≤ mana (+0x9a) e +0xa = 0, sorteia (sítio 0x57a862; índice além = a
+     última; lista vazia = nada) e chama AI_CastAtTarget (IA+0x60 = 1); senão chama AI_Task_Attack, que reentra nele. Os sorteios
+     do oráculo no T=5 da m110 (ganchos em Rand_Inclusive/Rand_One/0x57afc0/0x57afd0/0x57aff0) dão a mesma sequência de sítios
+     até a escolha da magia; o exe chama o 0x57a769 para 18 conjuradores (24895–24912; o 24905 duas vezes, pela reentrada).
+     **A porta literal leva a m110 do T=5 ao T=14** (rng) e deixa as 9 corridas antigas, o golden (79,99 %) e o loadcmp iguais.
+     Mas quebra o test:sim na m103 ("Igles busca a pedra e a cabeça"): o Igles fica com a ação 0x1b (grupo dormindo) por centenas de
+     tiques com a ordem de coletar, e não pega a cabeça. Com o gancho antigo, passa. Ajustes de cenário (desocupar o saco, "hold",
+     tirar a pedra e o veneno) não resolveram. **Desfeita até achar por que o grupo do Igles dorme**: o +0x45 do grupo, escrito pelo
+     0x55b5f1; a ação 0x1b vem do despachante com mundo+0xbbe8 = 0 e tipo+0x45 = 0. A porta está pronta para refazer: texto acima.
+- Bateria verde com a correção do livro: 9 corridas sem divergência, golden 79,99 %, loadcmp 46/46, test:sim, test:script.
+  Episódios regravados (o despejo com o +0x10 do livro); 1.ª divergência: m30 T=1076, m31 T=997, m50 T=834, m60 T=13, m70 T=21,
+  m110 T=5.

@@ -14,7 +14,7 @@ import { thinkPhaseFor, World, type Unit } from "../world";
 import { TICKS_PER_SEC } from "../types";
 import { CellStructRec, MapObjRec, MapRec, SpellObjRec, SpellPayloadRec, UnitRec, VT_DIRECT_DAMAGE, VT_POINT_EFFECT, VT_SPELL_AREA, VT_TRANSPORT, type WorldRec } from "../exe/types";
 import { CMapShortOcc } from "../exe/mfc";
-import { applyMemRuns, applyOccBuckets, listSet, recFromBytes } from "../exe/recio";
+import { applyMemRuns, applyOccBuckets, bookApplyKeep, listSet, recFromBytes } from "../exe/recio";
 import { unitWalkFormula } from "../exe/walk_action";
 import { loadData, proc, startRun, type Run } from "./loader";
 
@@ -463,7 +463,15 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     }
     else if (u.order.type === "attack" || u.order.type === "move" || u.order.type === "cast") w.command(u, { type: "none" });
     // registro do exe (fonte de verdade do andar): exato com o despejo da etapa 6, senão derivado do estado (janelas do golden)
-    if (o.exe) { unitRecFromOrig(u.rec, o, addrOf); w.exeImportSpellPtrs(u, o.exe.book ?? [], o.exe.f64); }
+    if (o.exe) {
+      unitRecFromOrig(u.rec, o, addrOf);
+      // a instância do livro do despejo (Spell_Instance de quando o livro nasceu: o exe não a refaz pelo poder de agora; m110_join, o
+      // 24909 com o Stone Missile de alcance 7, não os 11 do poder atual)
+      const bk = o.book as { slot?: number; id: number; range?: number; dmin?: number; damp?: number; f10?: number }[] | undefined;
+      if (bk?.length && bk.every(b => b.range !== undefined)) u.rec.book.keep = bk.map(b => [b.slot ?? b.id, b.range!, b.dmin ?? 0, b.damp ?? 0, b.f10 ?? NaN]);
+      w.exeImportSpellPtrs(u, o.exe.book ?? [], o.exe.f64);
+      if (u.rec.book.keep) { bookApplyKeep(u.rec); u.rec.book.keep = null; }
+    }
     else recFromState(w, u, o, byOrig);
   }
   // guarda dos grupos: raio atual, base e combate do comando do grupo; alvo atribuído a cada unidade (0x57240b)
