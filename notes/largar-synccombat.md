@@ -268,3 +268,13 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   (dano = +0x13 + Rand(+0x14) − 5 na vida +0x42 do prédio, só com +0x44 ≠ 0; com o dano ≥ vida, tira da lista [0x6044c4]+0x7c+0x10
   o que estiver na posição dele). Faltam as vtables do prédio (+0x1c, +0x20, +0x2c, +0x34) e os pares de uma Fireball num prédio.
   **É o que falta para ligar a Fireball/Wall of Fire no `spellApplyPorted`.**
+- **Prédio, medido no Unicorn (m10_mage_s102, tique 1; sonda de rascunho fora do git)**: os 16 prédios da m10 têm vtable 0x5d1268
+  (um 0x5d1228), **vida +0x42 e máxima +0x44** (casas 100/100, um de 500/500, alguns 0/100 ou 0/0). Vtable 0x5d1268: +0x1c 0x541fe0,
+  +0x20 0x541ff0, +0x2c 0x542010, +0x34 0x543390 (0x5d1228: igual, salvo +0x54 0x520137 × 0x520853). Ou seja, **a Fireball do original
+  danifica e destrói prédios**. O nosso motor só guarda a vida dos prédios para o script (`mission/host.ts` `buildingHp`, "Health of
+  building"), e o espelho tem `CellStructRec.f42` como a "máscara dos jogadores" do 0x55b507. Conferir isso antes do lote, porque no
+  objeto do prédio o +0x42 é a vida.
+  Lote do prédio (próximo da 8b): espelhar o prédio (vtable, +0x42/+0x44, lista [0x6044c4]+0x7c+0x10), portar 0x5201b2 e as
+  entradas da vtable, ligar o `buildingHp` do script à vida do espelho, gravar pares de uma Fireball num prédio (`synth_spells.py
+  --scene fire`, alvo na célula de um prédio) e só então liberar distribuição 3/4 no `spellApplyPorted`. O desenho do prédio
+  destruído no cliente (0x504b1d) é à parte.
