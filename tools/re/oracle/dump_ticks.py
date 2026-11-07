@@ -50,7 +50,7 @@ def _book(o, book: int) -> list:
 
 
 GLOBAL_PTR = 0x6044C4   # [ ] = objeto global (+0x7c registro dos objetos: [+4] = contentor dos objetos de magia, lista em +4)
-VT_POINT_EFFECT, VT_TRANSPORT = 0x5D10A0, 0x5D1120
+VT_POINT_EFFECT, VT_TRANSPORT, VT_SPELL_AREA = 0x5D10A0, 0x5D1120, 0x5D10E0
 
 
 def _spell_obj(o, a: int, depth: int = 0) -> dict:
@@ -59,8 +59,9 @@ def _spell_obj(o, a: int, depth: int = 0) -> dict:
     mo = struct.unpack_from("<I", b, 0x10)[0]
     r = {"a": a, "b": b.hex(), "mo": bytes(o.read(mo, 0xC)).hex() if mo else ""}
     vt = struct.unpack_from("<I", b, 0)[0]
-    if vt == VT_POINT_EFFECT:
-        p = struct.unpack_from("<I", b, 0x4C)[0]
+    if vt in (VT_POINT_EFFECT, VT_SPELL_AREA):
+        # a carga: +0x4c no preso ao alvo, +0x48 na área (SpellArea_ApplyAll 0x518833 / SpellArea_HitCell 0x518681)
+        p = struct.unpack_from("<I", b, 0x4C if vt == VT_POINT_EFFECT else 0x48)[0]
         if p:
             pb = bytes(o.read(p, 0x60))
             pm = struct.unpack_from("<I", pb, 0x10)[0]

@@ -340,6 +340,10 @@ imagens** (uma por missão e uma por episódio de interesse), nunca para traçar
   nas outras (herói da campanha, invocações, importações). A vida e a mana máximas do herói crescem com a experiência na subida de nível
   (0x5128cb). m10_troll_x1 sem reimportar: sobra só `dip@2481` (14 → 1 unidade divergente); tickcmp 100,0/100,0/100,0 % (T=322/
   nenhuma/740), golden 79,74 %, loadcmp 46/46 e 44/46, iguais. Falta, para largar a ponte: criar o herói pelo exe e portar 0x513128/0x5128cb.
+- **8b lote B: a explosão da Fireball e a Wall of Fire (06/11)** (`notes/largar-synccombat.md`): 0x518833, 0x51e5db, 0x552079,
+  0x5182b6 e 0x517ec3 portadas e provadas por pares sintéticos (`synth_spells.py --scene fire`). O Spell_Apply delas bate 6/6, mas
+  segue no gancho até o dano em estruturas (#94). A importação traz o modo e a carga das áreas. m10_troll_chase e o _w: livres sem
+  divergência (antes NotPorted). As 9 corridas livres do oráculo, nenhuma divergência; golden 79,99 %, loadcmp 46/46 e 44/46.
 - **Próximo**: o plano do jogo inteiro (`docs/PLANO-FIDELIDADE-JOGO.md`); nesta frente (F2): 9b resto (armadilhas do MapRec),
   o herói pelo exe (para largar a ponte do `syncCombat`), o resto da 8b (áreas de dano, invocações, magia no chão da IA) e corridas livres desde o tique 0 em
   mais missões; no fim, a passada de nomes legíveis em `exe/`.

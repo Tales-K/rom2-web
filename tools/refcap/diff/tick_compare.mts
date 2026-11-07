@@ -79,7 +79,8 @@ function loadEpisode(id: string): Episode {
 const cellCode = (c: Cell | null | undefined): number => (c ? c.y * 256 + c.x : 0);
 const R256 = (v: number): number => Math.round(v * 256);
 export const TASK_CLASS: Record<number, string> = { 1: "move", 10: "move", 3: "attack", 8: "cast", 0xd: "cast", 0xe: "cast", 11: "idle", 12: "idle", 0: "idle", 0x17: "idle", 16: "dead" };
-const EFFECT_MASK = EFFECT_SPELL.reduce((m, [b]) => m | b, 0);
+// os bits de +0x144 comparados: os das magias de EFFECT_SPELL e Darkness/Light (0x4000/0x8000: só na lista +0x20 do exe, lote 8b)
+const EFFECT_MASK = EFFECT_SPELL.reduce((m, [b]) => m | b, 0) | 0x4000 | 0x8000;
 export type View = Map<string, Val>;
 export const origDead = (o: Any): boolean => o.state === 0x10 || o.hp <= 0;
 export const skipUnit = (o: Any): boolean => o.id === 0 || (o.fx < 1 && o.fy < 1);
@@ -120,14 +121,14 @@ export function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any):
   const el = s.elemental ? [s.elemental.aBase, s.elemental.aRange, s.elemental.bBase, s.elemental.bRange, s.elemental.element] : [0, 0, 0, 0, 0];
   let effects = 0;
   for (const [bit, sid] of EFFECT_SPELL) if (u.buffs.some(b => Number(b.spell) === sid)) effects |= bit;
-  effects |= w.exeFxBits(u);   // etapa 8b, lote 4: os efeitos da lista +0x20 do exe (o Shield)
+  effects |= w.exeFxBits(u) & EFFECT_MASK;   // etapa 8b, lote 4: os efeitos da lista +0x20 do exe (o Shield)
   const oid = (id: number) => (id ? rev.get(id) ?? -id : 0);
   const base = w.t16base ?? 0;
   const r = u.rec;
   return {
     type: u.typeId, player: u.player, x: u.cx, y: u.cy, fx: R256(u.x), fy: R256(u.y), hp: u.hp, hpmax: u.maxHp, mana: u.mana, manamax: u.maxMana,
     act, task: tc, target: oid(ot), dir16: (u.dir + 8) % 16,
-    speed_eff: Math.round(s.speed * 16), scan: Math.floor(s.sight), toHit: s.attack, dmin: s.damage.min, dmax: s.damage.max, defense: s.defense, absorb: s.absorption + w.exeFxSum(u, "absorption"),
+    speed_eff: Math.round(s.speed * 16), scan: Math.floor(w.sightOf(u)),   /* +0xa5 do original já tem o Light/Darkness (0x51d175 mexe em +0xa4): m10_troll_chase T=2910 */ toHit: s.attack, dmin: s.damage.min, dmax: s.damage.max, defense: s.defense, absorb: s.absorption + w.exeFxSum(u, "absorption"),
     range: s.range, turn: s.turnSpeed ?? Math.round(s.speed * 16), withdraw: u.withdrawHp, wimpy: u.wimpyHp, charge: s.charge ?? 0, relax: s.relax ?? 0,
     eldmg: el.join(","), hpregen: s.healthRegen ?? 0, manaregen: s.manaRegen ?? 0, effects, summoner: oid(u.summoner),
     post: cellCode(u.home), unreach: u.unreachSec, flee_cell: u.fleeCell, hit_clock16: u.hitClock16, look_hit: u.rec.ai.f54 ? 1 : 0,

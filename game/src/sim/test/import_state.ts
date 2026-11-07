@@ -12,7 +12,7 @@ import { defaultHero, spawnFromTemplate, spellDef } from "../../mission/setup";
 import { snapshotMission, restoreMission, type MissionSnapshot } from "../snapshot";
 import { thinkPhaseFor, World, type Unit } from "../world";
 import { TICKS_PER_SEC } from "../types";
-import { CellStructRec, MapObjRec, MapRec, SpellObjRec, SpellPayloadRec, UnitRec, VT_DIRECT_DAMAGE, VT_POINT_EFFECT, VT_TRANSPORT, type WorldRec } from "../exe/types";
+import { CellStructRec, MapObjRec, MapRec, SpellObjRec, SpellPayloadRec, UnitRec, VT_DIRECT_DAMAGE, VT_POINT_EFFECT, VT_SPELL_AREA, VT_TRANSPORT, type WorldRec } from "../exe/types";
 import { CMapShortOcc } from "../exe/mfc";
 import { applyMemRuns, applyOccBuckets, listSet, recFromBytes } from "../exe/recio";
 import { unitWalkFormula } from "../exe/walk_action";
@@ -85,9 +85,11 @@ export function spellObjsFromOrig(w: WorldRec, list: OrigSpellObj[]): void {
     o.f14 = v.getUint32(0x14, true); o.f18 = v.getUint16(0x18, true); o.f1c = v.getUint32(0x1c, true); o.f3c = v.getUint32(0x3c, true);
     o.f40 = v.getUint8(0x40); o.f41 = v.getUint8(0x41); o.f42 = v.getUint16(0x42, true); o.f44 = v.getUint16(0x44, true); o.f46 = v.getUint16(0x46, true);
     o.f48 = v.getUint32(0x48, true); o.f4c = v.getUint32(0x4c, true); o.f50 = o.vtbl === VT_TRANSPORT ? v.getInt16(0x50, true) : 0;
+    // a área (SpellArea): modo +8, células marcadas +0x4c (u8), raio +0x4d, direção +0x4e, tiques que faltam +0x50 e a carga +0x48
+    if (o.vtbl === VT_SPELL_AREA) { o.f08 = v.getUint32(8, true); o.f4c = v.getUint8(0x4c); o.f4d = v.getUint8(0x4d); o.f4e = v.getUint8(0x4e); o.f4f = v.getUint8(0x4f); o.f50 = v.getInt16(0x50, true); }
     mapObjFromHex(o.mapObj, x.mo);
     w.spellObjs.set(o.addr, o);
-    if (x.p && o.vtbl === VT_POINT_EFFECT) w.payloads.set(x.p.a >>> 0, payloadFromOrig(x.p));
+    if (x.p && (o.vtbl === VT_POINT_EFFECT || o.vtbl === VT_SPELL_AREA)) w.payloads.set(x.p.a >>> 0, payloadFromOrig(x.p));
     if (x.c) obj(x.c);
     return o;
   };

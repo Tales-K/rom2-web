@@ -34,7 +34,7 @@ import fnprobe as F  # noqa: E402
 EP, OUT = "m10_mage_s102", "synth_m10_mage"
 SPELL_APPLY = 0x519DB8
 DEF0, DEF_STRIDE = 0x29A16A0, 0x20          # definição do id k = DEF0 + k × 0x20 (a tabela de data.bin na imagem; nome +4, colunas +8, texto +0x1c)
-SPHERE = {4: 1, 6: 2, 8: 2, 0xC: 3, 0xD: 3, 0xE: 3, 0xF: 3, 0x12: 4, 0x13: 4, 0x14: 5, 0x15: 5, 0x1B: 5, 0x1C: 5, 0x1D: 5}
+SPHERE = {2: 1, 3: 1, 4: 1, 6: 2, 8: 2, 0xC: 3, 0xD: 3, 0xE: 3, 0xF: 3, 0x12: 4, 0x13: 4, 0x14: 5, 0x15: 5, 0x1B: 5, 0x1C: 5, 0x1D: 5}
 MAGE, ALLY, MONSTER, MONSTER2 = 1, 24608, 24611, 24612
 T0 = 200
 # (id, quem lança, alvo, poder): a cena aplicada e tiquetada
@@ -54,6 +54,13 @@ SWEEP_STEP = {4: 1, 0x14: 1, 0x15: 1, 6: 1, 0x12: 1}         # passo do poder (o
 FNS = [SPELL_APPLY, 0x517949, 0x542D00, 0x51CE12, 0x51D175, 0x51D337, 0x51D436, 0x51CC9F, 0x51366B, 0x5118BE,
        0x517C1A, 0x517CFE, 0x518681, 0x518594, 0x5183A2, 0x518024, 0x55A8F8, 0x518833, 0x542D50]
 STRIDE = {0x51CC9F: 5, 0x517CFE: 3}
+# `--scene fire` (lote B da 8b): Fireball (2: projétil, distribuição 3, sem duração → área de modo 0, SpellArea_ApplyAll 0x518833) e Wall
+# of Fire (3: distribuição 4, duração 10 → modo 1) lançadas no chão, na célula de um monstro ou de quem lança; saída à parte
+FIRE_OUT = "synth_m10_fire"
+FIRE_SCENE = [(2, MAGE, MONSTER, 0), (2, MAGE, MONSTER2, 60), (3, MAGE, MONSTER, 0), (2, MAGE, ALLY, 120), (2, MAGE, MAGE, 200),
+              (3, MAGE, MONSTER2, 90)]
+FIRE_FNS = [SPELL_APPLY, 0x518D1E, 0x518EFD, 0x517C1A, 0x517CFE, 0x518833, 0x518681, 0x51E5DB, 0x552079, 0x51E65B, 0x5183A2,
+            0x518024, 0x518594, 0x55A8F8, 0x542D50, 0x51366B, 0x5118BE]
 
 
 def units(o, corpses: bool = False) -> dict[int, int]:
@@ -115,6 +122,10 @@ def main():
         return default
     ticks, nver = int(opt("--ticks", "400")), int(opt("--verify", "0"))
     only = int(opt("--verify-only", "0"))
+    fire = opt("--scene", "") == "fire"
+    global OUT, FNS
+    if fire:
+        OUT, FNS = FIRE_OUT, FIRE_FNS
     if only:                                                         # só o replay dos pares já gravados
         verify(only)
         return
@@ -127,9 +138,14 @@ def main():
     pr.t = T0
     pr.refresh_objects()
     us = units(o)
-    for sid, c, t, p in SCENE:
-        cast(o, pr, sid, us[c], us.get(t), p)
-    print("cena: %d lançamentos; %d tiques" % (len(SCENE), ticks), flush=True)
+    scene = FIRE_SCENE if fire else SCENE
+    for sid, c, t, p in scene:
+        if fire:                                                     # no chão: a célula do alvo (Spell_Apply com alvo 0)
+            mo = o.u32(us[t] + 0x10)
+            cast(o, pr, sid, us[c], None, p, o.read(mo, 1)[0], o.read(mo + 1, 1)[0])
+        else:
+            cast(o, pr, sid, us[c], us.get(t), p)
+    print("cena: %d lançamentos; %d tiques" % (len(scene), ticks), flush=True)
     import original_episode as oe
     hero = o.meta["hero"]
     pend = [a for a in sorted(oe.normalize_script(ep["script"]), key=lambda a: a["t"]) if a["t"] >= T0]
@@ -142,7 +158,7 @@ def main():
     pr.t = T0 + ticks
     pr.refresh_objects()
     n = 0
-    for sid in SWEEP:
+    for sid in ([] if fire else SWEEP):
         for p in range(0, 256, SWEEP_STEP.get(sid, 17)):
             tgt = us[MONSTER] if sid in (0x12, 0x1D, 0x1C) and MONSTER in us else us[MAGE]
             cast(o, pr, sid, us[MAGE], tgt, p, no_xp=True)

@@ -11,10 +11,11 @@
  */
 import {
   fn_0x517949, fn_0x518024, fn_0x518d1e, fn_0x518efd, fn_0x51e65b, fn_0x52c279, fn_0x5238c5, fn_0x542d50, fn_0x543130, fn_0x54feae,
-  fn_0x54ff06, fn_0x55a8f8, spellApply, spellAreaConstruct, spellAreaHitCell, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
+  fn_0x54ff06, fn_0x552079, fn_0x55a8f8, spellApply, spellAreaApplyAll, spellAreaConstruct, spellAreaHitCell, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
   spellAttachToTarget, spellDamageObject, spellFireDamageObj, spellInstance, spellProjectileDist, spellRelease, unitAddHeal,
 } from "../exe/spells";
 import type { CombatHooks } from "../exe/combat";
+import { fn_0x5131ef, unitXpOnHit } from "../exe/xp";
 import { VT_DIRECT_DAMAGE, VT_POINT_EFFECT, VT_SPELL_AREA, VT_TRANSPORT, type BookSpellRec, type SpellObjRec, type WorldRec } from "../exe/types";
 import {
   A, AL, EAX, M, U, checkFields, checkSpellWorld, ctx, done, eq, finView, itemFrom, mapObjFrom, packMapObj, payloadFrom, ptrListFrom, runPairs, runS, spellFrom, spellObjFrom,
@@ -25,8 +26,14 @@ import {
 const MAP_PTR = 0x670e48, WORLD_PTR = 0x66832c;
 /** Experiência (0x513128/0x5131ef): motor antigo, escritas fora da conferência (exe_recon.ts checkUnit). */
 const H: CombatHooks = { xpOnHit: () => { /* nada */ }, xpOnCast: () => { /* nada */ } };
+/** Com a experiência portada (exe/xp.ts: 0x513128 e a subida de nível 0x5128cb → vtable+0x58): a cena da Fireball (synth_m10_fire)
+ *  sobe o nível do mago (+0x96 +1 em t=235). */
+const HX = (w: WorldRec): CombatHooks => {
+  const h: CombatHooks = { xpOnHit: (a, t, dmg, p3) => unitXpOnHit(w, a, t, dmg, p3, h), xpOnCast: (r, t, id) => fn_0x5131ef(w, r, t, id, h) };
+  return h;
+};
 /** NotPorted esperado: os `case` de Spell_Apply fora da porta (gancho `spellApply` do motor antigo). */
-const HOOKED = new Set(["0x519db8"]);
+const HOOKED = new Set(["0x519db8", "0x518681 numa estrutura (#94)"]);   // lote B: a Fireball numa estrutura (synth_m10_fire t=239) fica para o #94
 
 /** Mundo com o mapa remontado (as unidades por endereço: quem lançou +0x44/+0x3c, o alvo +0x48). */
 const world = (c: Ctx): WorldRec => worldRec(c, c.cm.u32(WORLD_PTR), M(c, c.cm.u32(MAP_PTR)));
@@ -41,6 +48,9 @@ const T = (c: Ctx, a: number) => (a === 0 ? null : U(c, a));
 function obj(c: Ctx, w: WorldRec, a: number, vt: number): SpellObjRec {
   const o = spellObjFrom(c.cm, a, vt);
   w.spellObjs.set(o.addr, o);
+  // a área da Fireball (+0xc = 2): a cópia 0x51e5db de SpellArea_HitCell não lê a vtable da carga +0x48, que é Effect_DirectDamage
+  // (Spell_Apply: dano com distribuição 3), e o arnês não leria o dano dela
+  if (vt === VT_SPELL_AREA && (o.fc & 0xffff) === 2 && o.f48 !== 0 && !c.cm.has(o.f48)) w.payloads.set(o.f48 >>> 0, payloadFrom(c.cm, o.f48, VT_DIRECT_DAMAGE));
   return o;
 }
 
@@ -73,7 +83,7 @@ const CHECKS: Record<string, Check> = {
   "0x51e65b": runS((c, d) => {
     const w = world(c), p = payloadFrom(c.cm, d.this, VT_DIRECT_DAMAGE);
     w.payloads.set(p.addr, p);
-    fn_0x51e65b(w, p, U(c, A(d, 0)), H);
+    fn_0x51e65b(w, p, U(c, A(d, 0)), HX(w));
     return null;
   }),
   "0x52c279": runS((c, d) => {
@@ -87,11 +97,15 @@ const CHECKS: Record<string, Check> = {
   // lote 5: SpellArea (pares sintéticos: tools/re/oracle/synth_spells.py)
   "0x517c1a": runS((c, d) => { const w = world(c); return spellAreaConstruct(w, w.payloadAt(A(d, 0)), mapObjFrom(c.cm, A(d, 1)), A(d, 2) & 0xff).addr; }, (v) => v >>> 0),
   "0x517cfe": runS((c, d) => { const w = world(c); spellAreaProcess(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
-  "0x518681": runS((c, d) => { const w = world(c); spellAreaHitCell(w, obj(c, w, d.this, VT_SPELL_AREA), T(c, A(d, 0)), H); return null; }),
+  "0x518681": runS((c, d) => { const w = world(c); spellAreaHitCell(w, obj(c, w, d.this, VT_SPELL_AREA), T(c, A(d, 0)), HX(w)); return null; }),
   "0x5183a2": runS((c, d) => { const w = world(c); spellAreaMarkCells(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
   "0x518024": runS((c, d) => { const w = world(c); fn_0x518024(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
   "0x518594": runS((c, d) => { const w = world(c); spellAreaUnmark(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
   "0x55a8f8": runS((c, d) => { const w = worldRec(c, c.cm.u32(WORLD_PTR), M(c, d.this)); return fn_0x55a8f8(w.map, obj(c, w, A(d, 0), VT_SPELL_AREA), A(d, 1) & 0xffff, A(d, 2)); }, (v) => v >>> 0),
+  // lote B: a explosão da Fireball (pares sintéticos: synth_spells.py --scene fire, pasta synth_m10_fire); 0x51e5db (a cópia na pilha)
+  // conta dentro de 0x518681
+  "0x518833": runS((c, d) => { const w = world(c); spellAreaApplyAll(w, obj(c, w, d.this, VT_SPELL_AREA), HX(w)); return null; }),
+  "0x552079": runS((c, d) => { const w = worldRec(c, c.cm.u32(WORLD_PTR), M(c, d.this)); return fn_0x552079(w.map, A(d, 0) & 0xffff); }, (v) => v >>> 0),
   "0x542d50": runS((c, d) => { const w = world(c); fn_0x542d50(w, obj(c, w, d.this, VT_SPELL_AREA)); return null; }),
   "0x519db8": runSp((c, d, s) => { spellApply(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), A(d, 2) & 0xff, A(d, 3) & 0xff, H); return null; }),
   "0x519d7f": runSp((c, d, s) => { spellRelease(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), H); return null; }),

@@ -235,3 +235,29 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - **Armadilhas do MapRec** (m76, m93; meta loadcmp com MapRec 46/46): ver "Itens 2 e 3 da fila nova" acima e `notes/carregador.md` "Lote 3c".
 - Também útil antes da 8b: mais episódios longos do oráculo em outras missões (item 4 da F2 no PLANO: "tickcmp livre ≥ 99 % em ≥ 6
   missões"), porque hoje todos os episódios são das missões 10 e 20.
+
+# Atualização (2026-11-06): 8b lote B — a explosão da Fireball e a Wall of Fire (portadas e provadas; ainda NÃO ligadas no jogo)
+- Portadas: SpellArea_ApplyAll 0x518833 (modo 0 do 0x517cfe), a cópia 0x51e5db e o ramo da Fireball de 0x518681 (dano B ÷ lado²
+  do alvo), Map_StructureAtCell 0x552079, SpellArea_Wall 0x5182b6 + SpellArea_DirTransform 0x517ec3 (tabelas 0x5f8400 reta/0x5f84a8
+  diagonal lidas do exe).
+- Prova: pares sintéticos `synth_spells.py --scene fire` (pasta `refs/oracle/pairs/synth_m10_fire`: Fireball e Wall of Fire no chão
+  em t=200 da m10_mage_s102). exe_spells: 0x518833 3/3 (+1 em gancho: a explosão pega uma estrutura, #94), 0x518681 248/248,
+  0x51e65b 11/11, 0x517cfe 82/82, 0x518024 2/2, 0x552079 36/36. Duas correções do arnês: a carga da área da Fireball entra com a
+  vtable Effect_DirectDamage (0x51e5db não a lê, e sem ela o arnês não lia o dano), e as conferências de dano usam a experiência
+  portada (exe/xp.ts), porque a cena sobe o nível do mago (+0x96 +1 em t=235). O replay do fnprobe (`--verify 10`) deu 9 de 97
+  diferentes (reads/writes de 0x518833/0x51e65b e o edx de 0x518681), provavelmente o heap da morte/cliente fora do estado gravado; os
+  pares em si são o que o original fez.
+- Spell_Apply da Fireball/Wall of Fire (`spellApplyPorted`: dano com distribuição 3/4): com a porta liberada, os 6 pares batem (6/6),
+  **mas fica no gancho do motor antigo**. No jogo, a explosão chegaria a estrutura (#94: 0x5201b2) e a objeto do mapa (árvore) na
+  célula, e o passo da lista (0x52c279, `world.ts` ~1759) não tem rede para NotPorted. Liga-se junto com o #94.
+- Importação das áreas: o despejo (`dump_ticks.py`) agora traz a carga +0x48 da SpellArea, e `spellObjsFromOrig` lê o modo +8,
+  +0x4c..+0x4f e +0x50. Antes o modo vinha 0, e o m10_troll_chase caía em NotPorted 0x518833 (as áreas lá são o Darkness do morcego,
+  modo 1, raio 4; não há Fireball nesse episódio).
+- Medida (tick_compare): `scan` do nosso lado = `sightOf` (o +0xa5 do original já tem o Light/Darkness, 0x51d175), e os bits de efeito
+  com a mesma máscara nos dois lados (+ Darkness/Light 0x4000/0x8000). Antes, os dois davam uma falsa divergência em T=2910 do
+  m10_troll_chase, com o +0xa4 do herói (1280) igual ao do original.
+- Medidas: **m10_troll_chase** (antes NotPorted) reancorada 97,5 %, livre **nenhuma** divergência; **m10_troll_chase_w** 98,3 %, livre
+  **nenhuma**. As outras 7 continuam sem divergência (tickcmp --all 100/100/100; quest 99,4, troll 99,5, hydun 98,9, ogre 97,9).
+  Golden 79,99 % (CI ok), loadcmp 46/46 `--no-map` e 44/46 com MapRec, test:sim, test:script 49/49 e typecheck verdes.
+- Próximo da 8b: o #94 (dano em estrutura 0x5201b2 e objeto do mapa em 0x518681) → liberar a Fireball/Wall of Fire no
+  `spellApplyPorted`; depois Blizzard (modo 2, 0x51806c), Wall of Earth, Teleport, Summon, Animate Dead e Drain Life.

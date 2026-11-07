@@ -771,9 +771,49 @@ export function spellAreaMarkCells(wd: WorldRec, o: SpellObjRec, h: CombatHooks)
   o.f4c = 1;
 }
 
-/** 0x518024 (fastcall): definição[8] da magia +0xc (0x53e260): 4 → SpellArea_Wall 0x5182b6 (exec 0, NotPorted), senão 0x5183a2. */
+/** As tabelas da parede (.rdata): número de células, 20 dx (+4) e 20 dy (+0x54). 0x5f8400 a reta (duas fileiras de 5), 0x5f84a8 a
+ *  diagonal (9 células). */
+const WALL_STRAIGHT = { n: 10, dx: [-2, -1, 0, 1, 2, -2, -1, 0, 1, 2], dy: [1, 1, 1, 1, 1, 0, 0, 0, 0, 0] };
+const WALL_DIAG = { n: 9, dx: [-2, -1, 0, 1, 2, -1, 0, 1, 2], dy: [2, 1, 0, -1, -2, 2, 1, 0, -1] };
+interface WallXf { dx: number[]; dy: number[]; n: number; sx: number; sy: number }
+/** 0x517ec3 SpellArea_DirTransform (thiscall; reta, diagonal, direção 0..7 de +0x4e): as tabelas de dx/dy, o número e os sinais. Pares
+ *  (0, 2, 4, 6) usam a reta (2 e 6 com dx/dy trocados), ímpares a diagonal; sinais: 0 → y −1, 1 → y −1, 4 → x −1, 5 → x −1, 6 → x −1,
+ *  7 → os dois; 3 (e o resto) a diagonal sem sinal. */
+export function spellAreaDirTransform(param_3: number): WallXf {
+  const p1 = WALL_STRAIGHT, p2 = WALL_DIAG;
+  const t: WallXf = { dx: p2.dx, dy: p2.dy, n: p2.n, sx: 1, sy: 1 };
+  switch (param_3 & 0xff) {
+    case 0: t.dx = p1.dx; t.dy = p1.dy; t.n = p1.n; t.sy = -1; break;
+    case 1: t.sy = -1; break;
+    case 2: t.dx = p1.dy; t.dy = p1.dx; t.n = p1.n; break;
+    case 4: t.dx = p1.dx; t.dy = p1.dy; t.n = p1.n; t.sx = -1; break;
+    case 5: t.sx = -1; break;
+    case 6: t.dx = p1.dy; t.dy = p1.dx; t.n = p1.n; t.sx = -1; break;
+    case 7: t.sx = -1; t.sy = -1; break;
+  }
+  return t;
+}
+
+/** 0x5182b6 SpellArea_Wall (fastcall; distribuição 4, a Wall of Fire): as células da parede (0x517ec3 pela direção +0x4e) a partir da
+ *  célula da área (x em char, y em short: 0x5184bf), o fogo extra como em 0x5183a2; cliente (0x5045a5 com 1); +0x4c = 1. */
+export function spellAreaWall(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
+  const local_8 = mapObjCellX(o.mapObj) & 0xff;
+  const local_c = mapObjCellY(o.mapObj) & 0xff;
+  const p = wd.payloadAt(o.f48);
+  const local_30 = p.vtbl === VT_DIRECT_DAMAGE && (p.dmg.elB1 & 0xff) !== 0 ? 1 : 0;   // IsKindOf 0x5a1edf(+0x48, 0x5f8f38) e +0x5c
+  const t = spellAreaDirTransform(o.f4e & 0xff);
+  for (let local_28 = 0; local_28 < t.n; local_28++) {
+    const x = (local_8 + t.sx * t.dx[local_28]!) & 0xff;
+    const y = ((local_c & 0xff) + ((t.sy * t.dy[local_28]!) << 16 >> 16)) & 0xffff;
+    fn_0x5184bf(wd, o, x, y, local_30, h);
+  }
+  fn_0x5045a5(wd, o, 1, h);
+  o.f4c = 1;
+}
+
+/** 0x518024 (fastcall): definição[8] da magia +0xc (0x53e260): 4 → SpellArea_Wall 0x5182b6, senão 0x5183a2. */
 export function fn_0x518024(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
-  if ((wd.spellDefCol(o.fc & 0xffff, 8) | 0) === 4) throw new NotPorted("0x5182b6");
+  if ((wd.spellDefCol(o.fc & 0xffff, 8) | 0) === 4) { spellAreaWall(wd, o, h); return; }
   spellAreaMarkCells(wd, o, h);
 }
 
@@ -795,8 +835,18 @@ export function spellAreaUnmark(wd: WorldRec, o: SpellObjRec, h: CombatHooks): v
  *  marca o agressor (+0x40 = quem lançou e +0x48 = id da carga; não na Darkness; sem modelo, 0x542560 → +0x40 = 0) e o aviso 0x56e6b8. */
 export function spellAreaHitCell(wd: WorldRec, o: SpellObjRec, param_1: UnitRec | null, h: CombatHooks): void {
   if (param_1 === null || (o.fc & 0xffff) === 0x11) return;
-  if ((o.fc & 0xffff) === 2) throw new NotPorted("0x51e5db");
-  payloadApply(wd, wd.payloadAt(o.f48), param_1, h);
+  if ((o.fc & 0xffff) === 2) {
+    // Fireball: uma cópia da carga na pilha com o dano B (+0x5b/+0x5c) dividido pelo lado² do alvo (vtable+0x1c), 0x51e65b nela e o
+    // destrutor 0x542df0
+    const local_74 = fn_0x51e5db(wd.payloadAt(o.f48));
+    const bVar1 = vtGetSize(param_1) & 0xff, uVar4 = vtGetSize(param_1) & 0xff;
+    const local_14 = bVar1 * uVar4;
+    local_74.dmg.elB0 = Math.floor((local_74.dmg.elB0 & 0xff) / local_14) & 0xff;
+    local_74.dmg.elB1 = Math.floor((local_74.dmg.elB1 & 0xff) / local_14) & 0xff;
+    fn_0x51e65b(wd, local_74, param_1, h);
+  } else {
+    payloadApply(wd, wd.payloadAt(o.f48), param_1, h);
+  }
   if ((o.fc & 0xffff) !== 0xf && (fn_0x55f330(param_1) & 0xff) !== 0 && o.f3c !== 0) {
     const c = wd.map.unitAt(o.f3c);
     if (!fn_0x542560(c)) {
@@ -812,13 +862,60 @@ export function spellAreaHitCell(wd: WorldRec, o: SpellObjRec, param_1: UnitRec 
   }
 }
 
+/** 0x51e5db (thiscall; carga Effect_DirectDamage): o construtor de cópia — a base (0x51cb98: +0xc, +0xe, +0x14, +0x18, +0x1c, o objeto de
+ *  mapa, +0x3c/+0x3d), a vtable 0x5d11d0, o dano +0x48 (6 palavras; 0x515825 o zera antes) e +0x44. A cópia de SpellArea_HitCell fica
+ *  na pilha (sem endereço nem registro no mundo). */
+export function fn_0x51e5db(src: SpellPayloadRec): SpellPayloadRec {
+  const o = new SpellPayloadRec();
+  o.fc = src.fc & 0xffff; o.fe = src.fe & 0xffff; o.f14 = src.f14 >>> 0; o.f18 = src.f18 & 0xffff; o.f1c = src.f1c >>> 0;
+  o.mapObj = fn_0x54feae(new MapObjRec(), src.mapObj);
+  o.f3c = src.f3c & 0xff; o.f3d = src.f3d & 0xff;
+  o.vtbl = VT_DIRECT_DAMAGE;
+  Object.assign(o.dmg, { ...src.dmg, sk: o.dmg.sk }); o.dmg.sk.set(src.dmg.sk);
+  o.f44 = src.f44 >>> 0;
+  return o;
+}
+
+/** 0x552079 Map_StructureAtCell (thiscall, ret 4): estrutura (u32, occCur+8) do registro de ocupação da célula, ou 0. */
+export function fn_0x552079(m: MapRec, cell: number): number {
+  if ((m.mem[(cell & 0xffff) + MAP_MASK_OFF]! & 0x20) === 0) return 0;
+  if (!m.occ.lookup(cell, m.occCur)) return 0;
+  return m.occCur.u32(8) >>> 0;
+}
+
+/** 0x518833 SpellArea_ApplyAll (fastcall; área de uma vez, modo 0: a Fireball): cliente (0x5045a5 com 1); em cada célula do quadrado do
+ *  raio +0x4d (x por fora, y por dentro) a carga age na unidade (Map_UnitAtCell 0x55201a), na estrutura (0x552079) e no objeto
+ *  (Map_ObjectAtCell 0x559b7f) da célula (0x518681); com fogo extra (carga Effect_DirectDamage com +0x5c ≠ 0) apaga as áreas opostas
+ *  (0x5189b5) e marca o fogo (0x559c28); +0x40 = 1 (acabou). Estrutura e objeto ainda não: NotPorted (#94). */
+export function spellAreaApplyAll(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
+  const m = wd.map;
+  fn_0x5045a5(wd, o, 1, h);
+  const p = wd.payloadAt(o.f48);
+  const bVar1 = p.vtbl === VT_DIRECT_DAMAGE && (p.dmg.elB1 & 0xff) !== 0;   // IsKindOf 0x5a1edf(+0x48, 0x5f8f38) e +0x5c
+  const r = o.f4d & 0xff;
+  for (let local_c = (mapObjCellX(o.mapObj) & 0xff) - r; local_c <= (mapObjCellX(o.mapObj) & 0xff) + r; local_c++) {
+    for (let local_10 = (mapObjCellY(o.mapObj) & 0xff) - r; local_10 <= (mapObjCellY(o.mapObj) & 0xff) + r; local_10++) {
+      const cell = ((local_c + local_10 * 0x100) << 16 >> 16) & 0xffff;
+      const un = fn_0x551edb(m, cell);   // Map_UnitAtCell 0x55201a (o mesmo de 0x551edb)
+      spellAreaHitCell(wd, o, un === 0 ? null : m.unitAt(un), h);
+      if (fn_0x552079(m, cell) !== 0) throw new NotPorted("0x518681 numa estrutura (#94)");
+      if (fn_0x559bc9(m, ((local_10 & 0xffff) * 0x100 + (local_c & 0xff)) & 0xffff) !== 0) throw new NotPorted("0x518681 num objeto do mapa");
+      if (bVar1) {
+        spellAreaFireExtra(wd, o, local_c & 0xff, local_10 & 0xffff, h);
+        spellAreaFireExtra2(m, local_c & 0xff, local_10 & 0xff);
+      }
+    }
+  }
+  o.f40 = 1;
+}
+
 /** 0x517cfe SpellArea_Process (fastcall; vtable+0x18 da área): modo 2 → Spell_AreaProgressive 0x51806c e modo 0 → SpellArea_ApplyAll
- *  0x518833 (exec 0: NotPorted); modo 1: sem células marcadas → 0x518024; tempo +0x50 = 0 → desmarca e acaba (+0x40 = 1); senão
+ *  0x518833 (a explosão da Fireball); modo 1: sem células marcadas → 0x518024; tempo +0x50 = 0 → desmarca e acaba (+0x40 = 1); senão
  *  +0x50−− e a cada 16 tiques as unidades nas células do quadrado do raio onde a vaga desta área está ocupada (0x55a8f8 → 0x551edb)
  *  levam a carga (0x518681). */
 export function spellAreaProcess(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
   if ((o.f08 & 2) !== 0) throw new NotPorted("0x51806c");
-  if ((o.f08 & 1) === 0) throw new NotPorted("0x518833");
+  if ((o.f08 & 1) === 0) { spellAreaApplyAll(wd, o, h); return; }
   if ((o.f4c & 0xff) === 0) {
     fn_0x518024(wd, o, h);
   } else if (((o.f50 << 16) >> 16) === 0) {
