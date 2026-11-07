@@ -369,3 +369,30 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   - (a) valores com especial pendente valendo 0: quebra a kaarg (o "Elder to knight" dispara antes do "Elder to hero");
   - (b) calcular todos os valores no começo do ciclo, antes dos gatilhos, como o 0x57485b faz (0x574899 → 0x574ba1): bate com o C,
     mas quebra as missões 70/80/90 do test:sim de um jeito que não é só tempo. Precisa de estudo antes de ligar.
+
+# Passo 1 do coordenador (a rotina das referências especiais): achada no C; a confirmação no jogo real ficou bloqueada (1.º plano)
+- **A rotina**: as referências especiais são resolvidas NA CARGA DO SCRIPT, não depois. O carregador do mapa 0x5606aa chama as
+  unidades (0x561bf9), o script (0x562745, param 1; o Server_StartMap chama via 0x4ec732 com param 0) e as armadilhas (0x564072).
+  Cada referência de unidade passa por 0x562274:
+  - < 10001: unidade do mapa (0x565080);
+  - 10001..11000: 0x562518(id − 10001), que só no servidor local (+0x74 = 0) pega o 1.º jogador humano (0x53b930) COM herói (+0x38)
+    e procura na lista dele (+0x24), depois em [0x68d2dc]+4, a unidade com `+0x14c − 0x15 == n` (o herói tem n = 0);
+  - acima disso: 0x56236c (por nome).
+  Sem a unidade, "Can't resolve hero %d", e o check não é criado. Na lista calculada (+0xeaac) ficam só os que resolveram; o
+  0x574899 calcula cada um (0x574955) se +0x58 = 0.
+- **O que isso explica**: na minha junção, o herói entra DEPOIS do Server_StartMap, então todo check com o herói ou o Igles é
+  descartado (m30: 18 de ~37 na lista). No jogo real, o herói (e o grupo: Igles 10002, Dina 10003, pelo índice +0x14c) já está no
+  jogador antes da carga do mapa. Já registrado em sessões anteriores no jogo real: `build_m20.py` ("as missões 30+ derivadas de saves
+  sem Igles falham: Can't resolve hero 10002 + caixa de erro") e `build_m103.py` (o remendo `sub ecx,0x2711` → `xor ecx,ecx` em
+  0x5622e4, para todo especial resolver no herói).
+- **Falta**: a ordem real dos pacotes da entrada (quem cria o jogador humano e quando chega o 0xbe, em relação ao Server_StartMap).
+  Logo depois do init (0x4eb356) não há jogador 1 (0x4f3ba9(1) = 0). O candidato a criá-lo é o caso 2 do despachante (0x4f0cbe, nome
+  do jogador).
+- **Sonda no jogo real** (`tools/refcap/original/join_order.py`: cópia a2_lab, janela, trava; cavernas de 5 bytes no despachante
+  0x4f515d e na entrada de 0x4eb715/0x5606aa/0x562745; lê a lista +0xeaac depois): 3 tentativas com o `m20_town`, e o harness não
+  conseguiu pôr a janela do jogo em 1.º plano (`input._guard` aborta a entrada; na 3.ª nenhum pacote foi tratado, então o portão não
+  entrou). Jogo fechado e trava solta. **Precisa do desktop livre para o jogo ficar em 1.º plano.** A m30 em si não entra a partir
+  dos saves de cidade que temos (sem o Igles no grupo, a carga do script para com a caixa de erro); para ela, a sonda serve na m20
+  e mostra a ordem.
+- **Próximo, depois da ordem real**: no `join_episode.py`, criar o jogador e juntar o herói (e o Igles, para a m30+) antes do
+  Server_StartMap, no lugar do 0xbe depois da carga; regravar os 6 episódios; conferir o tique 0 com o do jogo real.
