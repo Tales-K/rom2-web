@@ -1,15 +1,21 @@
-"""Episódio do oráculo DESDE A CARGA de qualquer missão, com o herói juntado pelo próprio servidor (F2 item 4).
+"""Episódio do oráculo DESDE A CARGA de qualquer missão, com o herói (e os companheiros) já no jogador, como na campanha (F2 item 4).
 
-1. Herói: o Igles de partida nova da imagem m10_start_s1 serializado pelo exe (0x4e9e97, a ficha .a2c que o servidor grava; só grava
-   com [0x6044c4]+0x74 ≠ 0, posto só na chamada) → refs/oracle/heroes/igles_m10.a2c (uma vez).
-2. Carga: load_mission.load(N) (Server_StartMap 0x4eb715 na imagem m10_start_s1, servidor novo).
-3. Junção como o cliente: pacote 0xbe (+5 jogador, +9 = 0xbe, +10 tamanho, +0xe a ficha; 0x41c6b5) → no despachante 0x4f515d o
-   servidor desserializa a ficha (0x4ea6ab) e põe o herói no jogador. [est] Com +0x1a8 = 0 (a carga da campanha) o caso 0xbe não
-   desserializa e cria o personagem de reserva (0x4f254b com 0x19 em tudo); +0x1a8 é a escolha da interface (mensagem 0x46e/0x65,
-   0x44d135): aqui vale 1 só no tique do 0xbe. Depois o pacote 4 (entrar na missão, +10 = 0 → 0x4f1d9c → 0x4f2c83: o herói vai a um
-   ponto de entrada sorteado da lista do servidor +0xc0).
-4. Tique 0 = o estado logo depois da junção; o roteiro é decidido no próprio oráculo a cada 16 tiques (o herói ataca o inimigo vivo
-   mais perto: em guerra com o jogador do herói, senão um monstro) e gravado com o tique de cada ordem.
+A ordem do jogo (cliente 0x48c8a3): o servidor da campanha PERSISTE de uma missão para a outra; o Server_StartMap 0x4eb715 é chamado
+nele (+0x1ac = 0: mapa, não save), e só depois o cliente manda o pacote 4 (entrar: 0x41c50d → 0x4f1d9c → 0x4f2c83, o ponto de
+entrada sorteado da lista +0xc0). A carga do script (0x5606aa → 0x562745) resolve na hora as referências especiais (0x562274 →
+0x562518: o herói e o grupo do 1.º jogador humano pelo índice +0x14c − 0x15; sem a unidade, "Can't resolve hero" e o valor não é
+criado), então o herói e os companheiros têm de estar no jogador ANTES da carga.
+
+1. Servidor: o da imagem m10_start_s1 (o Igles de partida nova já no jogador 1); 0x4ebd5f, o fim da missão do cliente (0x41d).
+2. Companheiros que o script da missão cita (10002 → NPC 22, Igles; 10003 → NPC 23, Dina) pelo próprio exe: Server_InnNpcCreate
+   0x4f312a(estágio, [NPCs]) — template NPC × 10 + 10000, variante do estágio NPC × 10 + 9998 + estágio/10; índice +0x14c = NPC.
+3. Server_StartMap("<N>.alm") no mesmo servidor e o pacote 4; o tique 0 é o estado logo depois.
+4. O roteiro é decidido no oráculo a cada 16 tiques (o herói ataca o inimigo vivo mais perto: em guerra com o jogador dele, senão
+   um monstro) e gravado com o tique de cada ordem.
+
+Validação por equivalência (sem o jogo real): StartMap("10.alm") e ("20.alm") nas imagens m10_start_s1/m20_start_s203 dão a MESMA tabela
+de valores do script dos saves reais (ids, tipos, parâmetros) e o mesmo tique 0 salvo o tempo já andado e o rng do save
+(notes/largar-synccombat.md).
 
 Saída: refs/golden/episodes/<id>/{ep.json, base.json.gz} e refs/oracle/ticks/<id>.jsonl.gz (o formato do dump_ticks). Sem imagem
 <id>_t0 (o estado do Unicorn depois da carga não se salva como imagem): fnprobe nesses episódios fica de fora.
@@ -36,80 +42,42 @@ import resume as R  # noqa: E402
 import dump_ticks as D  # noqa: E402
 from resume import CLIENT_NET, SEND  # noqa: E402
 
-HEROES = os.path.join(ROOT, "refs", "oracle", "heroes")
 GOLD = os.path.join(ROOT, "refs", "golden", "episodes")
-PKT = 0x672F78                  # buffer do pacote 0xbe do cliente (0x41c6b5)
-SAVE_CHAR = 0x4E9E97            # grava a ficha .a2c do herói (servidor multijogador)
-H_A2C = 0x4F2F0000
+SCRIPTS = os.path.join(ROOT, "game", "public", "data", "scripts")
+PKT = 0x672F78                  # buffer de pacotes do cliente (0x41c50d)
+INN_NPC_CREATE = 0x4F312A       # Server_InnNpcCreate(estágio, CWordArray de NPCs)
+END_MISSION = 0x4EBD5F          # fim da missão no servidor (fastcall; o cliente o chama na mensagem 0x41d)
+COMPANION_NPC = {10002: 22, 10003: 23}
 
 
-def _file_hles(o, fs, cap):
-    """CreateFileA/WriteFile que capturam a ficha .a2c gravada, e as APIs de caminho/volume que o CFile do MFC chama."""
-    create0 = fs.create
-
-    def create(o, a):
-        name = o.read(a[0], 260).split(b"\0", 1)[0].decode("latin-1")
-        if a[1] & 0x40000000 and name.lower().endswith(".a2c"):
-            cap["data"] = bytearray()
-            return H_A2C
-        return create0(o, a)
-
-    def write(o, a):
-        if a[0] == H_A2C:
-            cap["data"] += bytes(o.read(a[1], a[2]))
-        if a[3]:
-            o.set_u32(a[3], a[2])
-        return 1
-
-    def fullpath(o, a):
-        s = bytes(o.read(a[0], 260)).split(b"\0", 1)[0]
-        o.write(a[2], s + b"\0")
-        if a[3]:
-            o.set_u32(a[3], a[2])
-        return len(s)
-
-    def cpyn(o, a):
-        s = bytes(o.read(a[1], max(1, a[2]))).split(b"\0", 1)[0][: max(0, a[2] - 1)]
-        o.write(a[0], s + b"\0")
-        return a[0]
-    for name, n, fn in (("CreateFileA", 7, create), ("WriteFile", 5, write), ("GetFullPathNameA", 4, fullpath),
-                        ("CreateDirectoryA", 2, lambda o, a: 1), ("FlushFileBuffers", 1, lambda o, a: 1),
-                        ("SetEndOfFile", 1, lambda o, a: 1), ("lstrcpyn", 3, cpyn), ("lstrcpynA", 3, cpyn),
-                        ("GetFileType", 1, lambda o, a: 1), ("GetVolumeInformationA", 8, lambda o, a: 0)):
-        L.install(o, name, n, fn)
+def companions(mission: int) -> list[int]:
+    """Os NPCs dos companheiros que o script da missão cita (referências especiais 10002/10003)."""
+    j = json.load(open(os.path.join(SCRIPTS, f"{mission}.json"), encoding="utf-8"))
+    refs = {p["value"] for r in j["values"] + j["actions"] for p in r["params"] if p.get("type") == "unit" and p.get("value", 0) >= 10002}
+    return [COMPANION_NPC[r] for r in sorted(refs) if r in COMPANION_NPC]
 
 
-def hero_a2c(image: str = "m10_start_s1") -> bytes:
-    path = os.path.join(HEROES, "igles_m10.a2c" if image == "m10_start_s1" else f"{image}.a2c")
-    if os.path.exists(path):
-        return open(path, "rb").read()
+def start(mission: int, image: str = "m10_start_s1"):
+    """O servidor da imagem, os companheiros, Server_StartMap e o pacote 4 (entrar). Devolve (oráculo, NPCs criados)."""
     o, fs = L.new_oracle(image)
-    cap = {"data": bytearray()}
-    _file_hles(o, fs, cap)
-    hero = next(u for u in R.unit_list(o) if o.u32(u + 4) == o.meta["hero"])
     srv = o.u32(R.GAME_PTR)
-    f74 = o.u32(srv + 0x74)
-    o.set_u32(srv + 0x74, 1)
-    o.call(SAVE_CHAR, args=(hero,))
-    o.set_u32(srv + 0x74, f74)
-    if not cap["data"]:
-        raise SystemExit("0x4e9e97 não gravou a ficha")
-    os.makedirs(HEROES, exist_ok=True)
-    open(path, "wb").write(cap["data"])
-    return bytes(cap["data"])
-
-
-def join(o, a2c: bytes, player: int) -> None:
-    def send(typ: int, rest: bytes) -> None:
-        o.write(PKT + 5, struct.pack("<HHB", player, 0, typ) + rest)
-        o.call(SEND, ecx=CLIENT_NET, args=[PKT])
-    srv = o.u32(R.GAME_PTR)
-    o.set_u32(srv + 0x1A8, 1)
-    send(0xBE, struct.pack("<I", len(a2c)) + a2c)
+    # fim da missão anterior como o cliente faz (mensagem 0x41d, g_480000.c ~2891): 0x4ebd5f refaz o jogador (+0x40/+0x41 = 0: o
+    # pacote 4 volta a levar ao ponto de entrada) e logo depois Server_InnNpcCreate(var 0x300 = estágio, o grupo da campanha)
+    o.call(END_MISSION, ecx=srv)
+    npcs = companions(mission)
+    if npcs:
+        data, arr = o.heap_alloc(0x40), o.heap_alloc(0x40)
+        o.write(data, struct.pack("<%dH" % len(npcs), *npcs))
+        o.write(arr, struct.pack("<IIIII", 0, data, len(npcs), len(npcs), 0))       # CWordArray {vtbl, m_pData, m_nSize, m_nMaxSize, grow}
+        o.call(INN_NPC_CREATE, args=(mission // 10 * 10, arr))
+    o.set_u32(srv + 0x6B * 4, 0)                                                     # +0x1ac = 0: mapa, não save (0x48c8a3)
+    r = o.call(L.START_MAP, ecx=srv, args=(L.cstring(o, "%d.alm" % mission),))
+    if r != 0:
+        raise SystemExit("Server_StartMap devolveu %d" % r)
+    o.write(PKT + 5, struct.pack("<HHBI", o.meta["sender"], 0, 4, 0))                # pacote 4: entrar na missão (+10 = 0)
+    o.call(SEND, ecx=CLIENT_NET, args=[PKT])
     o.tick()
-    o.set_u32(srv + 0x1A8, 0)
-    send(0x04, struct.pack("<I", 0))
-    o.tick()
+    return o, npcs
 
 
 def pick_target(st: dict) -> int | None:
@@ -149,11 +117,7 @@ def main():
     import original_episode as oe
     from export_state import map_wh, read_state
     t_start = time.perf_counter()
-    a2c = hero_a2c()
-    o, fs, r = L.load(a.mission)
-    if r != 0:
-        raise SystemExit("carga devolveu %d" % r)
-    join(o, a2c, o.meta["sender"])
+    o, npcs = start(a.mission)
     srv = R.EmuServer(o.proc)
     rd = oe.Reader(srv)
     wh = map_wh(a.mission)
@@ -195,7 +159,7 @@ def main():
             _, st = snap(step + 1)
     ep = {"state": eid, "mission": a.mission, "seed": base["seed"], "hero": hero, "t16_0": raw0.get("t16"), "stalls": 0, "id": eid,
           "ticks": a.ticks, "script": script,
-          "note": "oráculo desde a carga (load_mission) + junção do herói pelo servidor (pacotes 0xbe/4; tools/re/oracle/join_episode.py)"}
+          "companions": npcs, "note": "oráculo desde a carga: servidor da campanha com o herói, Server_StartMap e o pacote 4 (tools/re/oracle/join_episode.py)"}
     json.dump(ep, open(os.path.join(GOLD, eid, "ep.json"), "w", encoding="utf-8"), ensure_ascii=False)
     print(json.dumps({"id": eid, "ticks": a.ticks, "ordens": len(script), "s": round(time.perf_counter() - t_start, 1),
                       "MB": round(os.path.getsize(path) / 1e6, 2), "out": path}, ensure_ascii=False))

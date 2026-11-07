@@ -396,3 +396,34 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   e mostra a ordem.
 - **Próximo, depois da ordem real**: no `join_episode.py`, criar o jogador e juntar o herói (e o Igles, para a m30+) antes do
   Server_StartMap, no lugar do 0xbe depois da carga; regravar os 6 episódios; conferir o tique 0 com o do jogo real.
+
+# Item 4: a junção refeita na ordem do jogo; provada por equivalência na m10/m20 (sem o jogo real)
+- **A ordem do jogo** (pelo C do cliente):
+  - O servidor da campanha PERSISTE entre as missões.
+  - No fim de cada missão (mensagem 0x41d, g_480000.c ~2891), o cliente chama 0x4ebd5f (refaz o jogador: +0x40/+0x41 = 0) e
+    `Server_InnNpcCreate(var 0x300 = estágio, o grupo)`, que cria os companheiros: o template é NPC × 10 + 10000, mais a variante do
+    estágio NPC × 10 + 9998 + estágio/10, e o índice +0x14c recebe o NPC (Igles 22 → 0x16, Dina 23).
+  - Na missão seguinte, o Server_StartMap 0x4eb715 roda NO MESMO servidor (0x48c8a3), e só depois vem o pacote 4 (0x41c50d).
+  - A carga do script (0x5606aa → 0x562745) encontra o herói e o grupo já no jogador e resolve as especiais (0x562274 → 0x562518).
+- **`join_episode.py`** agora faz exatamente isso no servidor da imagem m10_start_s1: 0x4ebd5f, InnNpcCreate com os companheiros que
+  o script cita (m30: Igles; m50/m70: Igles e Dina; m60: Dina), StartMap e o pacote 4. A ficha .a2c e o pacote 0xbe saíram.
+  Na m30: herói em (12,14) (o `heroEntry`), Igles (id 2, índice 0x16, vida 158) em (11,17), **33 valores do script calculados = os
+  40 do JSON menos os 7 constantes** (FALSE, 1, 2, 3, 4, 10, que não entram na lista). Antes eram 18.
+  Correção da nota anterior: os ids que faltam na lista da m10 real (1, 3, 5, 6, 7) são constantes, não valores do Igles.
+- **Provado por equivalência** (sem a sonda no jogo real): a mesma sequência na imagem m10_start_s1 com "10.alm" e na m20_start_s203
+  com "20.alm" dá a MESMA tabela de valores do script dos saves gravados no jogo real (m10: 15, m20: 13; ids, tipos e os 0x30 bytes
+  de parâmetros) e o herói na mesma célula (m10 (11,41), m20 (41,67)). Depois de 19 tiques, as diferenças com o tique 0 dos saves
+  são só sorteios (o rumo do olhar em volta; 2 unidades de patrulha na m20): a carga semeia pelo relógio, e o save real foi gravado
+  com t16 = 21 e o rng do harness. As corridas livres antigas não mudam (o código do sim não mudou).
+- **Episódios regravados**: m30, m31, m50, m60, m70, m110 (2400 tiques). 1.ª divergência na corrida livre (modo importado):
+
+  | episódio | 1.ª divergência |
+  |---|---|
+  | m30 | T=240, caminho do 24699 (`walk_goal`) |
+  | m31 | T=450, vida do 24708 (52 × 48) |
+  | m50 | T=355, ação do herói (3 × 0) |
+  | m60 | T=13, rng |
+  | m70 | T=21, ação/rumo de 24694–24696 |
+  | m110 | T=5, o caminho dinâmico do herói (`fy`) e a magia de 24695 |
+
+  As do T=20 (m30, m50) eram artefato das especiais sem resolver.
