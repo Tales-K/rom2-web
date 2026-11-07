@@ -33,7 +33,7 @@ const HX = (w: WorldRec): CombatHooks => {
   return h;
 };
 /** NotPorted esperado: os `case` de Spell_Apply fora da porta (gancho `spellApply` do motor antigo). */
-const HOOKED = new Set(["0x519db8", "0x518681 numa estrutura (#94)"]);   // lote B: a Fireball numa estrutura (synth_m10_fire t=239) fica para o #94
+const HOOKED = new Set(["0x519db8"]);
 
 /** Mundo com o mapa remontado (as unidades por endereço: quem lançou +0x44/+0x3c, o alvo +0x48). */
 const world = (c: Ctx): WorldRec => worldRec(c, c.cm.u32(WORLD_PTR), M(c, c.cm.u32(MAP_PTR)));

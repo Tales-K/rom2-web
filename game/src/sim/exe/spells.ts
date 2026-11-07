@@ -886,7 +886,8 @@ export function fn_0x552079(m: MapRec, cell: number): number {
 /** 0x518833 SpellArea_ApplyAll (fastcall; área de uma vez, modo 0: a Fireball): cliente (0x5045a5 com 1); em cada célula do quadrado do
  *  raio +0x4d (x por fora, y por dentro) a carga age na unidade (Map_UnitAtCell 0x55201a), na estrutura (0x552079) e no objeto
  *  (Map_ObjectAtCell 0x559b7f) da célula (0x518681); com fogo extra (carga Effect_DirectDamage com +0x5c ≠ 0) apaga as áreas opostas
- *  (0x5189b5) e marca o fogo (0x559c28); +0x40 = 1 (acabou). Estrutura e objeto ainda não: NotPorted (#94). */
+ *  (0x5189b5) e marca o fogo (0x559c28); +0x40 = 1 (acabou). A "estrutura" (0x552079, ocupação +8) é a unidade grande nas células que
+ *  ela cobre além da dela; o objeto do mapa (ocupação +0xc) ainda não: NotPorted. */
 export function spellAreaApplyAll(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
   const m = wd.map;
   fn_0x5045a5(wd, o, 1, h);
@@ -898,7 +899,10 @@ export function spellAreaApplyAll(wd: WorldRec, o: SpellObjRec, h: CombatHooks):
       const cell = ((local_c + local_10 * 0x100) << 16 >> 16) & 0xffff;
       const un = fn_0x551edb(m, cell);   // Map_UnitAtCell 0x55201a (o mesmo de 0x551edb)
       spellAreaHitCell(wd, o, un === 0 ? null : m.unitAt(un), h);
-      if (fn_0x552079(m, cell) !== 0) throw new NotPorted("0x518681 numa estrutura (#94)");
+      // a unidade grande (lado > 1) nas outras células que ela cobre (registro de ocupação +8: synth_m10_fire t=239, o monstro de lado 3
+      // 0x12baa668): ela leva a explosão uma vez por célula, com o dano B ÷ lado² (0x518681)
+      const st = fn_0x552079(m, cell);
+      spellAreaHitCell(wd, o, st === 0 ? null : m.unitAt(st), h);
       if (fn_0x559bc9(m, ((local_10 & 0xffff) * 0x100 + (local_c & 0xff)) & 0xffff) !== 0) throw new NotPorted("0x518681 num objeto do mapa");
       if (bVar1) {
         spellAreaFireExtra(wd, o, local_c & 0xff, local_10 & 0xffff, h);

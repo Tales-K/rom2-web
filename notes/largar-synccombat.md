@@ -261,3 +261,10 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   Golden 79,99 % (CI ok), loadcmp 46/46 `--no-map` e 44/46 com MapRec, test:sim, test:script 49/49 e typecheck verdes.
 - Próximo da 8b: o #94 (dano em estrutura 0x5201b2 e objeto do mapa em 0x518681) → liberar a Fireball/Wall of Fire no
   `spellApplyPorted`; depois Blizzard (modo 2, 0x51806c), Wall of Earth, Teleport, Summon, Animate Dead e Drain Life.
+- **Correção no mesmo dia**: a "estrutura" de Map_StructureAtCell (0x552079, ocupação +8) é a **unidade grande** nas células que ela
+  cobre além da dela (o par t=239 é o monstro 0x12baa668, vtable 0x5d0eb0, de lado 3). O 0x518833 agora chama 0x518681 nela, e ela
+  leva a explosão uma vez por célula, com o dano B ÷ lado². Pares 0x518833 **4/4** (sem gancho). O prédio fica na ocupação +0xc
+  (`CellStructRec`, 0x559bc9) e continua NotPorted: no Effect_DirectDamage, vtable+0x2c = 0 e +0x34 ≠ 0 levam a 0x5201b2
+  (dano = +0x13 + Rand(+0x14) − 5 na vida +0x42 do prédio, só com +0x44 ≠ 0; com o dano ≥ vida, tira da lista [0x6044c4]+0x7c+0x10
+  o que estiver na posição dele). Faltam as vtables do prédio (+0x1c, +0x20, +0x2c, +0x34) e os pares de uma Fireball num prédio.
+  **É o que falta para ligar a Fireball/Wall of Fire no `spellApplyPorted`.**
