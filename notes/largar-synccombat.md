@@ -427,3 +427,27 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   | m110 | T=5, o caminho dinâmico do herói (`fy`) e a magia de 24695 |
 
   As do T=20 (m30, m50) eram artefato das especiais sem resolver.
+
+# Item 4, divergências 1 e 2 corrigidas (C + oráculo): o "Suspend group" e a ordem da lista na entrada nova
+- **"Suspend group"** (instantâneo 39 → 0x5781a7): o exe só faz `[[grupo]+0x3c]+0x48 = 0` (tira o "sempre acordado"). As unidades
+  NÃO param: o 24695 (grupo 1 da m110), suspenso no 1.º ciclo, lança o Shield no pensamento do T=5 (gancho de escrita na IA+8 no
+  oráculo: 0x56ff4d → AI_PlayerThink → AI_GroupThink 0x5700f3 → 0x5728fa → AI_Idle → AI_IdleAlt → AI_IdleCasterSupport → AI_CasterShield
+  → AI_CastAtTarget). O `host.suspendGroup` congelava as unidades (`u.suspended` + "none"); agora chama `World.exeSuspendGroup`
+  (+0x48 = 0 no registro do grupo; `exeAsleepGroups` vale para o registro criado depois e vai no save). O teste da m110 confere o
+  +0x48, com o motivo anotado.
+- **Ordem da lista das unidades** ([0x68d2dc]+4): numa entrada nova, o herói vai DEPOIS das unidades do mapa (0x4f2c83 → 0x52b22a no
+  pacote 4; m110_join: herói em 259 de 260). A regra "herói à frente" do `exeSyncWorld` vem dos saves (m10/m20, golden). Agora há
+  `World.heroListFront` (padrão true = a regra do save), e o estado importado desde a carga usa a ordem do despejo. Tirar a regra
+  de todo mundo derruba o golden de 79,43 % para 73,32 %, porque ele é de saves. [est] A entrada nova do nosso jogo ainda segue a
+  regra do save (follow-up: separar a entrada nova da carga de save no `buildMission`).
+- Medidas: as 9 corridas antigas sem divergência; golden 79,99 % (CI ok); loadcmp 46/46; test:sim e test:script verdes.
+  1.ª divergência livre:
+
+  | episódio | antes | agora |
+  |---|---|---|
+  | m30 | T=240 | **T=1076** |
+  | m31 | T=450 | **T=997** |
+  | m50 | T=355 | **T=834** |
+  | m60 | T=13 | T=13 (rng) |
+  | m70 | T=21 | T=21 |
+  | m110 | T=5 | T=5, agora só a perseguição do 24909/24910: o AI_CasterOffensiveSpell lança no 24893 fora do alcance; no nosso, a máquina põe a ação 1 mas o `unitActionChase` (0x56ea52) não monta o caminho, nem nos tiques seguintes — a próxima a ver |

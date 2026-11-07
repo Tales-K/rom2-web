@@ -801,7 +801,7 @@ export class World {
     if (!g) {
       g = this.exeNewGroup();
       const d = g.stats, gs = this.groupState.get(gid);
-      d.f48 = this.alwaysAwake ? (this.alwaysAwake.has(gid) ? 1 : 0) : 1;
+      d.f48 = this.exeAsleepGroups.has(gid) ? 0 : this.alwaysAwake ? (this.alwaysAwake.has(gid) ? 1 : 0) : 1;
       d.f38 = (gs?.base ?? u.groupRadius ?? 0) & 0xff; d.f2d = (gs?.radius ?? gs?.base ?? u.groupRadius ?? 0) & 0xff; d.f30 = gs?.combat ? 1 : 0;
       this.exeGroups.set(gid, g);
     }
@@ -1264,7 +1264,7 @@ export class World {
     const stable = (l: CListPtr, want: (u: Unit) => boolean): void => {
       const ok = new Set(created.filter(want).map(u => u.rec.addr >>> 0));
       const cur = l.values().map(a => a >>> 0);
-      const order = [...cur.filter(a => heroes.has(a)), ...cur.filter(a => !heroes.has(a))].filter(a => ok.has(a));
+      const order = (this.heroListFront ? [...cur.filter(a => heroes.has(a)), ...cur.filter(a => !heroes.has(a))] : cur).filter(a => ok.has(a));
       const seen = new Set(order);
       for (const u of created) { const a = u.rec.addr >>> 0; if (ok.has(a) && !seen.has(a)) { order.push(a); seen.add(a); } }
       l.removeAll();
@@ -1512,6 +1512,20 @@ export class World {
   /** grupos sempre acordados (`+0x3c+0x48`, posto pelos gatilhos do script 0x562745 nos grupos que eles citam). `null` = não modelado:
    *  todos acordados (o jogo normal: `f48` = 1 em todos; o importador do diferencial deduz do estado exportado: ação 0x1b = dormindo) */
   alwaysAwake: Set<number> | null = null;
+  /** grupos com o "Suspend group" do script (0x5781a7: [[grupo]+0x3c]+0x48 = 0, sem o "sempre acordado"); vale também para o
+   *  registro criado depois */
+  readonly exeAsleepGroups = new Set<number>();
+  /** o herói à frente de [0x68d2dc]+4 (o caso do save carregado: os despejos m10/m20 e o golden). Na entrada nova numa missão o exe o
+   *  põe DEPOIS das unidades do mapa (0x4f2c83 → 0x52b22a no pacote 4: m110_join, o herói em 259 de 260); false = a ordem que a lista
+   *  já tem (a do despejo no estado importado desde a carga). [est] O jogo novo ainda usa a regra do save (follow-up). */
+  heroListFront = true;
+  /** "Suspend group" (instantâneo 39 → 0x5781a7): só tira o "sempre acordado" do grupo (+0x48 = 0); as unidades seguem a tarefa e
+   *  dormem pela regra normal do despertar (0x55b5f1). m110_join: o grupo 1 suspenso no 1.º ciclo e o 24695 lança o Shield no mesmo
+   *  pensamento (T=5) e segue lançando. */
+  exeSuspendGroup(group: number): void {
+    this.exeAsleepGroups.add(group);
+    this.exeGroups.get(group)?.stats && (this.exeGroups.get(group)!.stats.f48 = 0);
+  }
   /** a unidade pertence a um grupo acordado (`+0x3c+0x45`, escrito pelo pensamento: 0x55b5f1 a cada 1 s; com mundo+0xbbe8 ≠ 0 todos) */
   awake(u: Unit): boolean { return (this.exeWorld.fbbe8 | 0) !== 0 || (u.rec.type.stats.f45 & 0xff) !== 0; }
 

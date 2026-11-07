@@ -214,7 +214,8 @@ export class MissionHost implements ScriptHost {
     if (p === 1 && was !== 1 && hero && u !== hero && u.alive) attachFollowers(this.world, hero, [u], 3);
     else if (p !== 1 && was === 1 && u !== hero && u.ai?.type === "defend") { u.home = { x: u.cx, y: u.cy }; u.ai = { type: "guard", range: 8 }; this.world.command(u, { type: "none" }); }
   }
-  suspendGroup(g: number): void { for (const u of this.groups.get(g) ?? []) { u.suspended = true; this.world.command(u, { type: "none" }); } }
+  /** "Suspend group" (0x5781a7): o grupo perde o "sempre acordado" (+0x48 = 0); as unidades não param (oráculo m110_join, T=5). */
+  suspendGroup(g: number): void { this.world.exeSuspendGroup(g); }
   addItem(ref: number, item: number): void { this.u(ref)?.items.push(gameItem(item)); }
   removeItem(ref: number, item: number): void { const id = gameItem(item), u = this.carrier(ref, id); if (u) u.items = u.items.filter(i => i !== id); }
   giveItem(from: number, to: number, item: number): void { this.removeItem(from, item); this.addItem(to, item); }

@@ -981,7 +981,9 @@ async function m110(): Promise<void> {
   settle(r, TICKS_PER_SEC * 3);
   check(has(r, 1) && w.diplomacyValue(3, 4) === 1 && w.diplomacyValue(4, 3) === 1, "msg 1: cavaleiros e druidas entram em guerra entre si");
   check(group(r, 38).every(u => u.phased), "Skrakan (grupo 38) fora de fase");
-  check([1, 4, 13, 14].every(g => group(r, g).every(u => u.suspended)), "os grupos 1 (Urd), 4, 13 e 14 ficam suspensos (Suspend group a cada ciclo): ninguém do exército de Urd age");
+  // "Suspend group" do exe (0x5781a7) só zera o "sempre acordado" do grupo ([[grupo]+0x3c]+0x48); as unidades não param — oráculo
+  // m110_join: o 24695 (grupo 1) lança o Shield no pensamento do T=5, depois do Suspend do 1.º ciclo
+  check([1, 4, 13, 14].every(g => w.exeAsleepGroups.has(g) && group(r, g).every(u => !u.suspended)), "os grupos 1 (Urd), 4, 13 e 14 perdem o \"sempre acordado\" (Suspend group a cada ciclo; 0x5781a7)");
   settle(r, TICKS_PER_SEC * 3);   // 5 ciclos do script a 1×/s (0x57485b): ~5 s desde o começo
   check(has(r, 5), "o contador (v71 >= 5) chega a 5 ciclos: msg 5 (\"Brothers!\")");
   check(!r.outcome && r.b.host.scenarioVars.get(779) === undefined, "sem desfecho; a variável de cenário 779 ainda não foi gravada");
