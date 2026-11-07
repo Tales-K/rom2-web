@@ -52,7 +52,7 @@ export interface MapJson extends MapLike {
   heroEntry?: { x: number; y: number }[];
   groups?: { id: number; units: number[] }[];
   /** bloco 9 do .alm: armadilhas/magias de item; `p1` = magia, `p2` = poder, `entries` = pontos (x, 0x2376 << 16 | y) */
-  effects?: { x: number; y: number; p1: number; p2: number; entries?: [number, number][] }[];
+  effects?: { x: number; y: number; mode?: number; p1: number; p2: number; entries?: [number, number][] }[];
 }
 
 export interface MissionData {
@@ -310,15 +310,10 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   for (const [g, list] of host.groups) world.initGroupGuard(g, list, 0, true);   // Guard da carga do mapa (0x570aba)
   for (const u of mapUnits) world.initLoadGuardAlone(u);   // o grupo só dela da unidade sem grupo no .alm (0x562745 → 0x570aba)
   for (const st of map.structures) if (st.id != null) host.bindStructure(st.id, st.hp ?? 100, st.kind, st.x, st.y);
-  // armadilhas Teleport do mapa (bloco 9, magia 23): gatilho em (x, y), 1ª entrada = origem e 2ª = destino, como o "Set trap" do script [est: semântica
-  // deduzida dos mapas 93-96, em que os teleportes de ida/volta dos santuários só existem aqui; as de outras magias (mapa 76) continuam ignoradas]
-  for (const e of map.effects ?? []) {
-    if (e.p1 !== 23 || (e.entries?.length ?? 0) < 2) continue;
-    const [a, b] = e.entries!;
-    const sx = a![0], sy = a![1] & 0xffff, tx = b![0], ty = b![1] & 0xffff;
-    if (sx === tx && sy === ty) continue; // origem = destino: marcador sem efeito
-    host.setTrap(23, e.p2, e.x, e.y, sx, sy, tx, ty);
-  }
+  // armadilhas do bloco 9 do .alm (0x564072 → 0x55ba36): o registro de ocupação da célula com [magia, poder, ponto 1, ponto 2]; quem
+  // entra na célula (0x5503af) é teleportado ao ponto 2 (magia 0x17: IA+0xb0 → Unit_TeleportTo 0x55a96c) ou leva a magia do ponto 1
+  // (0x4f0832; ponte `trapCast` do mundo)
+  world.exeAddMapTraps(map.effects ?? []);
   // "Polymorph unit": a forma polimorfada (parâmetro 2) fica nas células na carga (tique 0 do original: m31 24741, m42 24702); quem a
   // tira de cena é o próprio script, com "Phase out unit" (m31: unidade 165; m42: 126)
   // marcadores fora de fase cuja distância o script mede (MissionHost.measurePhased): Tekel (84) e as "pirâmides" dos santuários (93-96: unidades 27, 51, 50, 49)

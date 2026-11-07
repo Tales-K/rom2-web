@@ -82,7 +82,7 @@ import { randInclusive } from "./exe/rand";
 import { vt30 } from "./exe/vtables";
 import { NotPorted, dirFromDelta16, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkNear } from "./exe/walk_action";
 import { mapObjSetFine, mapObjSubCellCenter } from "./exe/walk";
-import { BACKTRACE_UB, fn_0x5538c7, fn_0x5539e5, fn_0x55be86 } from "./exe/wave";
+import { BACKTRACE_UB, fn_0x5538c7, fn_0x5539e5, fn_0x55ba36, fn_0x55be86 } from "./exe/wave";
 import { EXE_GLOBALS } from "./exe/types";
 import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
@@ -94,7 +94,7 @@ import {
 import { canRevive, healDying, onFell, raiseDead, summonCreature, CORPSE } from "./necro";
 import { selectedSpellRange } from "./spellattack";
 import {
-  EXE_TPS, SPELL, SPHERE_INDEX, isOffensive, powerScale, prismaticRays, spellDefColumns, spellKey, spellLayer, stoneCurseTicksMax, type BuffKind,
+  EXE_TPS, SPELL, SPHERE_INDEX, buildSpell, isOffensive, powerScale, prismaticRays, spellDefColumns, spellKey, spellLayer, stoneCurseTicksMax, type BuffKind,
   type SpellDef, type SpellEffect, type SpellTable,
 } from "./spells";
 import { BLIZZARD_PULSES, PULSE_EXE_TICKS, acidSteps, areaCells, exeDir8 } from "./areas";
@@ -616,6 +616,12 @@ export class World {
     this.exeWorld.allocObj = () => { const a = this.nextObjAddr; this.nextObjAddr = (a + 0x100) >>> 0; return a; };
     // a definição da magia pelo id (0x53e260; lote 5: SpellArea 0x518024): a tabela Spells de data.bin
     this.exeWorld.spellDefCol = (id, col) => { const row = this.spellTable?.[String(id)]; return row ? spellDefColumns(row)[col] ?? 0 : 0; };
+    // a armadilha de magia (0x5503af → 0x4f0832): o conjurador do exe (0x4f06ac, mind 0x1e, poder em +0xa8) ainda não é porta — PONTE:
+    // a magia do ponto (x, y) na unidade pelo motor antigo, com o poder da armadilha
+    this.exeWorld.trapCast = (x, y, r, spell, power) => {
+      const t = this.unitByAddr(r.addr);
+      if (t?.active) this.castFromPoint(buildSpell(spell, this.spellTable?.[String(spell)], power), x, y, t);
+    };
     // a tabela de classes do mundo (+0xa54; igual nas 3 imagens do oráculo) desde a montagem: uma ordem dada antes do 1.º tique
     // (AI_TargetCost 0x5711ea em 0x570946) via tudo "não atacável" com a tabela zerada
     this.exeWorld.classTable.set([2, 1, 2, 4, 4, 2, 1, 0, 2, 1, 4, 0, 2, 1, 2, 4]);
@@ -3173,8 +3179,46 @@ export class World {
     return id ? this.get(id) : undefined;
   }
 
-  /** "Set trap" do script: registra a armadilha (persistente; reage a cada unidade a ≤ 1 célula do gatilho, no máx. 1×/2 s). */
+  /** "Set trap" do script: registra a armadilha (persistente; reage a cada unidade a ≤ 1 célula do gatilho, no máx. 1×/2 s). Motor
+   *  antigo: saves antigos e testes; a missão usa `exeSetTrap` (0x57847e). */
   addTrap(t: Omit<Trap, "ready">): void { this.traps.push({ ...t, ready: 0 }); }
+
+  /** As armadilhas do bloco 9 do .alm na carga (0x564072): entrada com célula ≠ (0, 0) e modo < 4 → 0x55ba36 na célula com [magia, poder,
+   *  x/y do 1.º ponto, x/y do 2.º] (bytes +0 e +2 de cada ponto de 6 bytes). Entram na base do MapRec (resetWorld/save). */
+  exeAddMapTraps(effects: readonly { x: number; y: number; mode?: number; p1: number; p2: number; entries?: number[][] }[]): void {
+    let n = 0;
+    for (const e of effects) {
+      if ((e.x === 0 && e.y === 0) || ((e.mode ?? 0) & 0xffff) >= 4) continue;
+      const p0 = e.entries?.[0] ?? [0, 0], p1 = e.entries?.[1] ?? [0, 0];
+      fn_0x55ba36(this.exe, ((e.y & 0xff) << 8) | (e.x & 0xff), [e.p1, e.p2, p0[0]!, p0[1]!, p1[0]!, p1[1]!]);
+      n++;
+    }
+    if (!n) return;
+    this.exeBase.set(this.exe.mem);
+    this.exeBaseOcc.length = 0;
+    for (const a of this.exe.occ.table ?? []) for (let p = a; p; p = p.next) this.exeBaseOcc.push([p.key, p.value.b.slice()]);
+  }
+
+  /** Armadilhas no MapRec: registros de ocupação com +0x34 ≠ 0 (0x55ba36). */
+  exeTrapCount(): number {
+    let n = 0;
+    for (const a of this.exe.occ.table ?? []) for (let p = a; p; p = p.next) if (p.value.b[0x34] !== 0) n++;
+    return n;
+  }
+
+  /** Os 6 bytes da armadilha da célula (registro de ocupação +0x34: magia, poder, ponto 1, ponto 2), ou null. */
+  exeTrapAt(x: number, y: number): number[] | null {
+    const r = new OccRec();
+    if (!this.exe.occ.lookup(((y & 0xff) << 8) | (x & 0xff), r)) return null;
+    return r.b[0x34] !== 0 ? [...r.b.subarray(0x34, 0x3a)] : null;
+  }
+
+  /** 0x57847e "Set trap" do script (magia, poder, gatilho x/y, origem x/y, destino x/y): 0x55ba36 na célula do gatilho com [magia, poder,
+   *  origem, destino], ou [magia, poder, gatilho, gatilho] quando a origem x é 0. */
+  exeSetTrap(spell: number, power: number, tx: number, ty: number, sx: number, sy: number, gx: number, gy: number): void {
+    const b = sx !== 0 ? [spell, power, sx, sy, gx, gy] : [spell, power, tx, ty, tx, ty];
+    fn_0x55ba36(this.exe, ((ty & 0xff) << 8) + (tx & 0xff), b);
+  }
 
   private inTrapZone(t: Trap, u: Unit): boolean { return Math.abs(u.cx - t.x) <= 1 && Math.abs(u.cy - t.y) <= 1; }
 

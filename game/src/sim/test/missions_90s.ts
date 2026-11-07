@@ -592,7 +592,7 @@ async function shrine(s: Shrine): Promise<void> {
   };
   let r = start();
   let w = r.b.world, h = r.b.hero, host = r.b.host;
-  const base = w.traps.length; // armadilhas Teleport do bloco 9 do mapa
+  const base = w.exeTrapCount(); // armadilhas do bloco 9 do mapa no MapRec (0x55ba36; o "Set trap" 0x57847e grava no mesmo registro)
   const necro = unit(r, s.necro), pyramid = unit(r, s.pyramid), dragon = unit(r, s.dragon);
   check(Math.abs(h.cx - 130) <= 3 && Math.abs(h.cy - 12) <= 3, `herói nasce no Drop Location (131,12): ${h.cx},${h.cy}`);
   check(necro.player === 6 && dragon.player === 7 && pyramid.items.includes(s.prize) && base > 0, `necromante ${s.necro} com os livros, dragão ${s.dragon} (jogador 7), prêmio ${s.prize} no marcador ${s.pyramid}; ${base} armadilhas Teleport do mapa (bloco 9) no início`);
@@ -633,9 +633,9 @@ async function shrine(s: Shrine): Promise<void> {
   check(h.cx === 102 && h.cy === 34 && !has(r, 2), "pisar no teleporte (102,34) com as alavancas desligadas: nada acontece");
   gotoCell(r, [105, 30], 5); // sai de cima do teleporte antes de abri-lo
   host.toggleSwitch(2); settle(r, CYC2);
-  check(host.buildingHealth(2) === 0 && !has(r, 2) && w.traps.length === base, "uma alavanca ligada (0): o teleporte continua fechado");
+  check(host.buildingHealth(2) === 0 && !has(r, 2) && w.exeTrapCount() === base, "uma alavanca ligada (0): o teleporte continua fechado");
   host.toggleSwitch(2); settle(r, CYC2); host.toggleSwitch(2); host.toggleSwitch(3); settle(r, CYC2);
-  check(has(r, 2) && w.traps.length === base + 1, `as duas alavancas ligadas: msg 2 (Dina) e a armadilha Teleport (102,34) -> (74,72) (${w.traps.length - base} nova)`);
+  check(has(r, 2) && w.exeTrapCount() === base + 1, `as duas alavancas ligadas: msg 2 (Dina) e a armadilha Teleport (102,34) -> (74,72) (${w.exeTrapCount() - base} nova)`);
   gotoCell(r, [102, 34], 45);
   check(Math.abs(h.cx - 74) <= 2 && Math.abs(h.cy - 72) <= 2, `o herói pisa no teleporte (102,34) e vai para o centro (74,72): ${h.cx},${h.cy}`);
   settle(r, 20);
@@ -643,20 +643,23 @@ async function shrine(s: Shrine): Promise<void> {
   // enigma: antes de chegar ao ponto, sem msg 4; resolver errado não abre o teleporte
   check(!has(r, 4), "longe do enigma: sem a msg 4");
   // teleporte do mapa (bloco 9) do centro até a área do enigma
-  gotoCell(r, s.pad, 45);   // a armadilha recarrega 2 s depois de disparar (outra unidade pode tê-la usado pouco antes)
+  // no exe a armadilha dispara só para quem entra na célula dela (0x5503af: registro de ocupação +0x34, 0x55ba36); a zona de ±1 célula
+  // do motor antigo era estimativa. Na m96 a unidade 6 (jogador 7) passa por (56,72) atacando a 23 neste tique: espera a célula vagar
+  run(r, TICKS_PER_SEC * 10, () => { const g = r.b.world.grid; if (!g.occ[g.idx(s.pad[0], s.pad[1])]) return true; });
+  gotoCell(r, s.pad, 45);
   check(Math.abs(h.cx - s.padTo[0]) <= 2 && Math.abs(h.cy - s.padTo[1]) <= 2, `o herói pisa no teleporte do mapa em (${s.pad}) e chega a (${s.padTo}): ${h.cx},${h.cy}`);
   gotoCell(r, s.puzzle, 15);
   check(has(r, 4) && sub(r, 1) !== 2, "no ponto do enigma: msg 4 (a frase mágica)");
   if (s.id === 95) check(sub(r, 1) === 1, "msg 4 da 95 mostra o subobjetivo 1");
   s.before?.(r);
   s.wrong(r); settle(r, 30);
-  check(w.traps.length === base + 1 && sub(r, 1) !== 2, `tentativa errada: o teleporte do santuário (${s.trap}) não abre`);
+  check(w.exeTrapCount() === base + 1 && sub(r, 1) !== 2, `tentativa errada: o teleporte do santuário (${s.trap}) não abre`);
   // solução
   r = start(); w = r.b.world; h = r.b.hero; host = r.b.host;
   toPuzzle(r, true);
   const pyramid2 = unit(r, s.pyramid), dragon2 = unit(r, s.dragon);
   s.after?.(r);
-  check(w.traps.length === base + 2 && (s.id === 96 || sub(r, 1) === 2), `enigma resolvido: nova armadilha Teleport (${s.trap}) -> (${s.trapTo}) e sub 1 cumprido (${w.traps.length - base} novas)`);
+  check(w.exeTrapCount() === base + 2 && (s.id === 96 || sub(r, 1) === 2), `enigma resolvido: nova armadilha Teleport (${s.trap}) -> (${s.trapTo}) e sub 1 cumprido (${w.exeTrapCount() - base} novas)`);
   gotoCell(r, s.trap, 45);
   check(Math.abs(h.cx - s.trapTo[0]) <= 2 && Math.abs(h.cy - s.trapTo[1]) <= 2, `o herói pisa em (${s.trap}) e vai ao santuário (${s.trapTo}): ${h.cx},${h.cy}`);
   // pirâmide: o dragão precisa estar morto; o marcador (fora de fase) é medido

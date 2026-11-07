@@ -278,3 +278,28 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   entradas da vtable, ligar o `buildingHp` do script à vida do espelho, gravar pares de uma Fireball num prédio (`synth_spells.py
   --scene fire`, alvo na célula de um prédio) e só então liberar distribuição 3/4 no `spellApplyPorted`. O desenho do prédio
   destruído no cliente (0x504b1d) é à parte.
+
+# Atualização (2026-11-06): armadilhas do MapRec — loadcmp com MapRec 44 → **46/46**
+- Portadas: 0x55ba36 (a armadilha no registro de ocupação da célula: cria com 0x5508a0, copia, grava e reaplica a máscara; 0 se a
+  célula já tinha armadilha ou tem o bit 1 de mapa+0x20000) e 0x55b978 (os 6 bytes em +0x34: magia, poder, ponto 1, ponto 2),
+  Unit_TeleportTo 0x55a96c (+ Unit_CanPlaceAt 0x55a928, Unit_SetPosition 0x54fbf7; para e fica em Stand ground pelo 0x56dba1 do
+  mundo de mapa+0x58d80; Server_Event é stub). A carga (o trecho de 0x564072: entrada do bloco 9 com célula ≠ (0,0) e modo < 4) está
+  em `World.exeAddMapTraps`, que entra na base do MapRec; o "Set trap" do script (0x57847e: [magia, poder, origem, destino], ou o
+  gatilho duas vezes se a origem x é 0) está em `World.exeSetTrap`. O `mission/host.setTrap` e o laço do `setup.ts` não usam mais o
+  `world.addTrap`/`stepTraps` do motor antigo (fica só para saves antigos e testes).
+- Prova: pares sintéticos `tools/re/oracle/synth_traps.py` (m10_start_s1, t=60: dois teleportes no caminho do herói;
+  `refs/oracle/pairs/synth_m10_trap`): 0x55ba36 3/3, 0x55b978 3/3, 0x55a96c 12/12, 0x55a928 12/12, 0x54fbf7 6/6, 0x5503af 23/23;
+  replay do fnprobe IDÊNTICO (42 chamadas).
+- **PONTE**: a armadilha de magia (m76: Fireball/Ice Missile...) vai a 0x4f0832 → o conjurador 0x4f06ac (uma unidade de 0x208 bytes na
+  lista +0x2c do mundo, livro 0x53a600, magia 0x51906d, poder em +0xa8, mind 0x1e, ação 0xd/0xe), que não está portado. O
+  `WorldRec.trapCast` lança pelo motor antigo (`castFromPoint` do ponto 1 na unidade, com o poder da armadilha). Antes, as armadilhas
+  de magia eram ignoradas.
+- Mudança de comportamento, com evidência: no exe a armadilha dispara só para quem entra na célula dela (0x5503af), e não na zona
+  de ±1 célula do motor antigo (estimativa). Ela também não entra na lista [0x6044c4]+0x7c+0x10 que o 0x57a47d percorre, então o
+  gancho `traps` do pensamento (o sorteio 0x57a409 por armadilha) não sorteia mais por elas. Testes: missions_90s conta as armadilhas
+  pelo MapRec (`exeTrapCount`) e, na m96, espera a unidade 6 (jogador 7, só de passagem) sair de (56,72) antes de pôr o herói no
+  gatilho; missions_druids (m53) confere o registro em (15,121) (`exeTrapAt`).
+- Medidas: loadcmp `--no-map` 46/46 e **com MapRec 46/46** (antes 44/46: m76, m93); as 9 corridas livres sem divergência; golden
+  79,99 % (CI ok); test:sim, test:script 49/49 e typecheck verdes.
+- Falta das armadilhas: o conjurador 0x4f06ac e família (0x50dc2b, 0x53a600, 0x51906d, 0x519466, 0x51c29e) no lugar da ponte; e a
+  lista +0x10 do 0x57a47d (os objetos que lançam magia em quem chega perto: 0x57a307 escolhe o alvo), hoje o gancho `traps` sem uso.

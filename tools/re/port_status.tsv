@@ -1293,7 +1293,7 @@ addr	name	size	file	line	status	ts	note
 0x54fa43	FUN_0054fa43	48	game/g_540000.c	13780	ported	mapObjInitPacked	exe_walk.ts: pares 100% (3 episódios)
 0x54fa73	FUN_0054fa73	44	game/g_540000.c	13790	pending		
 0x54fb7f	FUN_0054fb7f	120	game/g_540000.c	13842	ported	fn_0x54fb7f	exe/action.ts; Chebyshev entre objetos de mapa; pares 396/396
-0x54fbf7	Unit_SetPosition	74	game/g_540000.c	13870	pending		
+0x54fbf7	Unit_SetPosition	74	game/g_540000.c	13870	ported	unitSetPosition	exe_walkaction.ts: pares sintéticos (synth_m10_trap) 6/6
 0x54fc41	FUN_0054fc41	103	game/g_540000.c	13886	ported	mapObjSetFine	exe_walk.ts: pares 100% (3 episódios)
 0x54fca8	FUN_0054fca8	207	game/g_540000.c	13900	pending		
 0x54feae	FUN_0054feae	88	game/g_540000.c	13995	ported	fn_0x54feae	exe_spells.ts: pares 100% (m10_mage) 22/22
@@ -1395,8 +1395,8 @@ addr	name	size	file	line	status	ts	note
 0x55a82c	FUN_0055a82c	95	game/g_550000.c	6231	ported	fn_0x55a82c	folha de 0x5189b5 (0x5183a2 6/6)
 0x55a88b	FUN_0055a88b	109	game/g_550000.c	6257	ported	fn_0x55a88b	folha de 0x55a8f8 (5647/5647)
 0x55a8f8	FUN_0055a8f8	48	game/g_550000.c	6285	ported	fn_0x55a8f8	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 5647/5647
-0x55a928	Unit_CanPlaceAt	68	game/g_550000.c	6295	pending		
-0x55a96c	Unit_TeleportTo	181	game/g_550000.c	6315	pending		stub NotPorted em walk_action.ts:unitTeleportTo (exec 0; chamado por 0x555b38 no teleporte da célula)
+0x55a928	Unit_CanPlaceAt	68	game/g_550000.c	6295	ported	unitCanPlaceAt	exe_walkaction.ts: pares sintéticos (synth_m10_trap) 12/12
+0x55a96c	Unit_TeleportTo	181	game/g_550000.c	6315	ported	unitTeleportTo	exe_walkaction.ts: pares sintéticos (synth_m10_trap) 12/12; Server_Event 0xffb é stub
 0x55aa21	AI_AngleTiebreak	84	game/g_550000.c	6345	ported	aiAngleTiebreak	exe/action.ts; pares 497/497
 0x55aa75	FUN_0055aa75	22	game/g_550000.c	6368	pending		
 0x55aa96	FUN_0055aa96	30	game/g_550000.c	6387	pending		
@@ -1407,9 +1407,9 @@ addr	name	size	file	line	status	ts	note
 0x55b879	FUN_0055b879	230	game/g_550000.c	6734	ported	think.ts:fn_0x55b879	pares 2-3 episódios 100% (exe_think.ts; etapa 9 lote 2)
 0x55b95f	FUN_0055b95f	14	game/g_550000.c	6777	ported	fn_0x55b95f	exe_walk.ts: pares 100% (3 episódios)
 0x55b96d	FUN_0055b96d	11	game/g_550000.c	6786	out		destrutor/stub sem estado (só chama destrutor vazio ou retorna)
-0x55b978	FUN_0055b978	31	game/g_550000.c	6795	pending		
+0x55b978	FUN_0055b978	31	game/g_550000.c	6795	ported	fn_0x55b978	exe_walkaction.ts: pares sintéticos (synth_m10_trap) 3/3
 0x55b997	FUN_0055b997	159	game/g_550000.c	6805	pending		
-0x55ba36	FUN_0055ba36	290	game/g_550000.c	6840	pending		
+0x55ba36	FUN_0055ba36	290	game/g_550000.c	6840	ported	fn_0x55ba36	exe_walkaction.ts: pares sintéticos (oracle/synth_traps.py, synth_m10_trap) 3/3; carga (World.exeAddMapTraps) e Set trap
 0x55be86	FUN_0055be86	872	game/g_550000.c	7080	ported	wave.ts:fn_0x55be86	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
 0x55c1fe	FUN_0055c1fe	208	game/g_550000.c	7166	ported	wave.ts:fn_0x55c1fe	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
 0x55c2ce	FUN_0055c2ce	332	game/g_550000.c	7201	ported	wave.ts:fn_0x55c2ce	exe_wave.ts: pares 100% (3 episódios) (objeto de mapa inteiro byte a byte + CMap)
@@ -1782,7 +1782,7 @@ addr	name	size	file	line	status	ts	note
 0x578330	FUN_00578330	142	game/g_570000.c	5183	pending		
 0x5783be	FUN_005783be	130	game/g_570000.c	5214	pending		
 0x578440	FUN_00578440	62	game/g_570000.c	5233	pending		
-0x57847e	FUN_0057847e	225	game/g_570000.c	5245	pending		
+0x57847e	FUN_0057847e	225	game/g_570000.c	5245	ported	World.exeSetTrap	os 6 bytes do Set trap → 0x55ba36 (C lido; sem par: o corpus não roda o script de armadilha)
 0x57855f	FUN_0057855f	30	game/g_570000.c	5292	pending		
 0x57857d	FUN_0057857d	78	game/g_570000.c	5302	pending		
 0x5785cb	FUN_005785cb	203	game/g_570000.c	5317	pending		

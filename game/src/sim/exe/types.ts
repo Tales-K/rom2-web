@@ -688,6 +688,9 @@ export class WorldRec {
   /** não é do exe: o endereço do objeto que `new` 0x401880 aloca (Spell_Apply 0x519db8: carga, preso ao alvo, projétil); a World dá
    *  endereços sintéticos, o arnês de remontagem os do par */
   allocObj: (size: number) => number = () => { throw new Error("WorldRec.allocObj não definido (0x401880)"); };
+  /** Ponte da armadilha de magia (0x5503af → 0x4f0832 → o conjurador 0x4f06ac, não portado): lança a magia `spell` com o poder do
+   *  ponto (x, y) na unidade. Sem ela, NotPorted. */
+  trapCast?: (x: number, y: number, u: UnitRec, spell: number, power: number) => void;
   /** não é do exe: a coluna `col` da definição da magia `id` (0x53e260 na tabela [0x68f5cc]+4, passo 0x20; 0x41e7e0 na coluna); a World
    *  lê a tabela Spells (spellDefColumns), o arnês de remontagem a memória do par */
   spellDefCol: (id: number, col: number) => number = (id) => { throw new Error(`WorldRec.spellDefCol não definido (magia ${id})`); };

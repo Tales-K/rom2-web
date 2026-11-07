@@ -24,7 +24,7 @@ import { cellIdxOff00000, cellIdxOff10000, cellIdxOff20000, cellIndex, cellOff00
 import { mapObjCellX, mapObjCellY, pathCostCellOff, pathUnlabeledTargetRing, unitApproachCell, vtGetSize } from "./path";
 import {
   EXE_GLOBALS, MAP_DEFAULT_COST_OFF, MAP_FOOT_OFF, MAP_DYN_LEN_OFF, MAP_DYN_NEAR_OFF, MAP_HEIGHT_OFF, MAP_MASK_OFF, MAP_OCC_UNIT3_OFF,
-  MAP_OCC_UNIT_OFF, MAP_QA_N_OFF, MAP_QA_OFF, MAP_QA_X_OFF, MAP_QA_Y_OFF, MAP_QB_N_OFF, MAP_QB_OFF, MAP_QB_X_OFF, MAP_QB_Y_OFF,
+  MAP_OCC_KIND_OFF, MAP_OCC_UNIT_OFF, MAP_QA_N_OFF, MAP_QA_OFF, MAP_QA_X_OFF, MAP_QA_Y_OFF, MAP_QB_N_OFF, MAP_QB_OFF, MAP_QB_X_OFF, MAP_QB_Y_OFF,
   MAP_WAVES_DYNAMIC_OFF, MAP_WAVES_STATIC_OFF, MAP_WIDTH_OFF, FLAGS_OFF, PATH_COST_OFF,
   type BookSpellRec, type MapRec, type OccRec, type SpellBookRec, type UnitRec,
 } from "./types";
@@ -765,4 +765,29 @@ export function pathRefreshDynamic(m: MapRec, u: UnitRec, target: UnitRec | null
   fn_0x54d72d(m, u, tgt & 0xff, (tgt >> 8) & 0xff, 0, target);
   if (u.pathDynamic.getCount() === 0 && mode === 1) u.walk.f98 = 1;
   if (n !== 0 && dist <= m.i32(MAP_DYN_NEAR_OFF)) u.pathStatic.removeHead();
+}
+
+/** 0x55b978 (thiscall; registro de ocupação +0x34): copia os 6 bytes da armadilha (0x582470: magia, poder, x, y, x/y de destino). */
+export function fn_0x55b978(m: MapRec, b: ArrayLike<number>): void {
+  for (let i = 0; i < 6; i++) m.mem[MAP_OCC_KIND_OFF + i] = b[i]! & 0xff;
+}
+
+/** 0x55ba36 (thiscall `this` = mapa, ret 8; célula, 6 bytes): a armadilha no registro de ocupação da célula (carga 0x564072, "Set trap"
+ *  0x57847e). Célula com o bit 1 de mapa+0x20000 → 0. Sem registro: cria (0x5508a0), copia, grava (0x55f430), reaplica a máscara
+ *  (0x550a53) e 1; com registro: copia e grava, 1 se a célula não tinha armadilha (+0x34 = 0), senão 0. */
+export function fn_0x55ba36(m: MapRec, cell: number, b: ArrayLike<number>): number {
+  const c = cell & 0xffff;
+  if ((m.mem[c + FLAGS_OFF]! & 1) !== 0) return 0;
+  if (!m.occ.lookup(c, m.occCur)) {
+    fn_0x5508a0(m, c);
+    if (!m.occ.lookup(c, m.occCur)) return 0;
+    fn_0x55b978(m, b);
+    m.occ.setAt(c, m.occCur);
+    fn_0x550a53(m, c);
+    return 1;
+  }
+  const had = m.mem[MAP_OCC_KIND_OFF]! !== 0;
+  fn_0x55b978(m, b);
+  m.occ.setAt(c, m.occCur);
+  return had ? 0 : 1;
 }

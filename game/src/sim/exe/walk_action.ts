@@ -24,11 +24,12 @@ import {
   aiTeleportTargetDist, fn_0x54d72d, fn_0x5508a0, fn_0x550966, fn_0x550a53, fn_0x551edb, fn_0x5563ca, fn_0x55be86, fn_0x55f350,
   pathRefreshDynamic, unitFootprintCheck,
 } from "./wave";
+import { fn_0x56dba1 } from "./action";
 import { CListPtrIter, type CListPtr } from "./mfc";
 import {
   MAP_DIR_CELL_OFF, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_DYN_LEN_OFF, MAP_DYN_TICKS_OFF, MAP_ALT_OFF, MAP_MASK_OFF,
   MAP_OCC_KIND_OFF, MAP_OCC_P04_OFF, MAP_OCC_P08_OFF, MAP_OCC_TX_OFF, MAP_OCC_TY_OFF, MAP_PATH_STATIC_N_OFF, MAP_SPEED_MUL_OFF,
-  OccRec, type MapRec, type UnitRec, type WorldRec,
+  OccRec, type MapObjRec, type MapRec, type UnitRec, type WorldRec,
 } from "./types";
 
 /** Função do exe ainda não portada, alcançada só por um ramo que o corpus não executa (exec = 0). */
@@ -47,9 +48,32 @@ const i16 = (v: number): number => (v << 16) >> 16;
 /** 0x556447 / 0x55643a / 0x55c420: destrutores e métodos vazios (sem estado). */
 function nop(): void {}
 
-/** 0x55a96c Unit_TeleportTo (thiscall, ret 0xc): exec = 0 no corpus; o fecho (Unit_CanPlaceAt, Server_Event, visão) é de outra etapa. */
-export function unitTeleportTo(_m: MapRec, _u: UnitRec, _x: number, _y: number): number {
-  throw new NotPorted("0x55a96c");
+/** 0x55a928 Unit_CanPlaceAt (thiscall, ret 8): a pegada da unidade cabe na célula nos dois planos (0x55c5a0 com 0 e 1). */
+export function unitCanPlaceAt(m: MapRec, u: UnitRec, cell: number): number {
+  if (unitFootprintCheck(m, u, cell & 0xffff, 0) !== 0 && unitFootprintCheck(m, u, cell & 0xffff, 1) !== 0) return 1;
+  return 0;
+}
+
+/** 0x54fbf7 Unit_SetPosition (thiscall; objeto de mapa, x, y): célula (x, y), índice y × 0x100 + x e as frações no centro (0x80). */
+export function unitSetPosition(o: MapObjRec, x: number, y: number): void {
+  o.x = x & 0xff;
+  o.y = y & 0xff;
+  o.cell = (((y & 0xffff) * 0x100 + (x & 0xff)) & 0xffff);
+  o.fx = 0x80;
+  o.fy = 0x80;
+}
+
+/** 0x55a96c Unit_TeleportTo (thiscall `this` = mapa, ret 0xc; unidade, x, y): a pegada não cabe → 1 (fica); senão sai das células
+ *  (0x553891), muda a posição (0x54fbf7), entra nas novas (0x55020a), para e fica em Stand ground ([mapa+0x58d80] 0x56dba1) e avisa o
+ *  cliente (Server_Event 0x502019 0xffb: stub). Devolve 1 se a saída e a entrada deram certo. */
+export function unitTeleportTo(m: MapRec, u: UnitRec, x: number, y: number): number {
+  if (unitCanPlaceAt(m, u, ((y & 0xff) << 8) + (x & 0xff)) === 0) return 1;
+  let local_8 = 1;
+  if (unitRemoveFromCells(m, u) === 0) local_8 = 0;
+  unitSetPosition(u.mapObj, x & 0xff, y & 0xff);
+  if (unitPlaceOnCells(m, u) === 0) local_8 = 0;
+  fn_0x56dba1(m.world!, u);
+  return local_8;
 }
 
 // ------------------------------------------------------------------------------------------------------- giro e direção
@@ -693,8 +717,12 @@ export function fn_0x5503af(m: MapRec, u: UnitRec, x: number, y: number): number
     if (kind !== 0) {
       if (kind === 0x17) {
         u.ai.fb0 = (m.mem[MAP_OCC_TY_OFF] * 0x100 + m.mem[MAP_OCC_TX_OFF]) & 0xffff;
+      } else if (m.world?.trapCast) {
+        // 0x519408 → 1: FUN_004f0832([[0x6044c4]+0x7c], x +0x36, y +0x37, unidade, magia +0x34, poder +0x35): o conjurador da armadilha
+        // (0x4f06ac) ainda não portado; a ponte lança pelo motor antigo do ponto (+0x36, +0x37) na unidade
+        m.world.trapCast(m.mem[MAP_OCC_KIND_OFF + 2]!, m.mem[MAP_OCC_KIND_OFF + 3]!, u, m.mem[MAP_OCC_KIND_OFF]!, m.mem[MAP_OCC_KIND_OFF + 1]!);
       } else {
-        throw new NotPorted("0x4f0832"); // 0x519408 → 1: FUN_004f0832(objeto da célula, unidade)
+        throw new NotPorted("0x4f0832");
       }
     }
     if (m.u32(MAP_OCC_P04_OFF) !== 0) {

@@ -352,10 +352,12 @@ async function m53(): Promise<void> {
   check(w.diplomacyValue(2, 4) === 0 && w.diplomacyValue(4, 2) === 0, "e com os druidas");
   check(sub(r, 2) === 2, "sub 2 cumprido");
   check(has(r, 9), "druida chefe agora fala da armadilha (msg 9)");
-  check(w.traps.length === 0, "armadilha ainda não armada");
+  // "Set trap" (0x57847e) grava no registro de ocupação da célula (0x55ba36): conta pelo MapRec
+  const trap0 = w.exeTrapCount();
+  check(!w.exeTrapAt(15, 121), "armadilha ainda não armada");
   // o druida chefe anda até a armadilha (15,121)/(17,121): ao chegar, arma o teleporte
-  const t = run(r, 20 * 40, () => { if (w.traps.length) return true; });
-  check(w.traps.length === 1 && w.traps[0]!.spell.kind === "teleport", `druida chefe arma a armadilha de teleporte em ${(t / 20).toFixed(0)} s (druida em ${main.cx},${main.cy})`);
+  const t = run(r, 20 * 40, () => { if (w.exeTrapCount() > trap0) return true; });
+  check(w.exeTrapCount() === trap0 + 1 && w.exeTrapAt(15, 121)?.[0] === 23, `druida chefe arma a armadilha de teleporte em ${(t / 20).toFixed(0)} s (druida em ${main.cx},${main.cy})`);
   check(noUnsupported(r), "script sem ações sem suporte (Set trap incluso)");
   // quem pisa em (15,121) vai parar em (13,22)
   at(r, putnik, 15, 121); settle(r, 10);

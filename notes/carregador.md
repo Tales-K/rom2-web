@@ -193,6 +193,9 @@ registro no MapRec o andar portado (0x5503af) passa a dispará-las: 0x17 põe o 
 (NotPorted), as outras chamam 0x4f0832 / 0x4f086f → 0x4f06ac (o lançador de magia da armadilha: aloca um conjurador, 0x51c29e livro,
 0x50dc2b, 0x519466, 0x51906d — pendentes), também NotPorted. Hoje o `mission/host` imita os teleportes (`setTrap`) e ignora as de magia.
 Fechar m76/m93 = portar 0x55ba36/0x55b978, o trecho de 0x564072, 0x55a96c e a família 0x4f06ac, e tirar a imitação do host.
+**Fechado em 06/11** (notes/largar-synccombat.md, "armadilhas do MapRec"): 0x55ba36/0x55b978, o trecho da carga (World.exeAddMapTraps),
+o Set trap 0x57847e e Unit_TeleportTo 0x55a96c portados e provados (synth_traps.py); loadcmp com o MapRec **46 / 46**. A família 0x4f06ac
+(armadilha de magia) segue numa ponte para o motor antigo (`WorldRec.trapCast`).
 
 ## Próximo lote (4)
 1. Feito no 3b. Pendente: commitar o laço WIP `initGroupGuard(..., true)` de `buildMission` (dono: o coordenador).

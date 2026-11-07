@@ -23,9 +23,10 @@
 import {
   NotPorted, aiUnitDistance, dirFromDelta16, fn_0x52b22a, fn_0x54f618, fn_0x5503af, fn_0x550697, fn_0x55073f, fn_0x55532d,
   fn_0x554fd2, fn_0x555c7e, fn_0x5568e4, fn_0x556d78, fn_0x556da2, fn_0x558f64, fn_0x55a147, fn_0x56fc69, gridUnitsInRings,
-  pathClearDynamic, unitActionChase, unitActionWalk, unitPlaceOnCells, unitRemoveFromCells, unitTurnStep, unitWalkFormula,
-  unitWalkNear, unitWalkWait,
+  pathClearDynamic, unitActionChase, unitActionWalk, unitCanPlaceAt, unitPlaceOnCells, unitRemoveFromCells, unitSetPosition,
+  unitTeleportTo, unitTurnStep, unitWalkFormula, unitWalkNear, unitWalkWait,
 } from "../exe/walk_action";
+import { fn_0x55b978, fn_0x55ba36 } from "../exe/wave";
 import {
   aiAngleTiebreak, aiEnemyFilter, aiStandGroundAt, fn_0x53a5a0, fn_0x54fb7f, fn_0x558b75, fn_0x567ddf, fn_0x56d969, fn_0x56dba1,
   fn_0x56dbc6, fn_0x56dbfb, fn_0x56dc24, fn_0x56e8c3, fn_0x56e906, fn_0x56ea52, fn_0x56eab5, fn_0x56ebc0, fn_0x56ed4e, fn_0x56eff3,
@@ -36,12 +37,12 @@ import { CListEvent, CListEventNode, type CListPtr } from "../exe/mfc";
 import { fn_0x57afd0, randUniformObject } from "../exe/rand";
 import { Rng } from "../rng";
 import {
-  EVENT_SIZE, MAP_ALT_OFF, MAP_DIR_CELL_OFF, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_RINGS_OFF, MAP_SPEED_MUL_OFF, MAP_WORLD_OFF, MapObjRec,
+  EVENT_SIZE, MAP_ALT_OFF, MAP_OCC_KIND_OFF, MAP_DIR_CELL_OFF, MAP_DIR_DX_OFF, MAP_DIR_DY_OFF, MAP_RINGS_OFF, MAP_SPEED_MUL_OFF, MAP_WORLD_OFF, MapObjRec,
   MapRec, UnitRec, WorldRec,
 } from "../exe/types";
 import {
   A, AL, AX, CallMem, EAX, M, PAIRS, U, W, WORLD_CAND_OFF, WORLD_DIP_OFF, WR, checkPtrList, eq, eventListFrom, existsSync, join, listFrom,
-  mapObjFrom, proc, ptrListFrom, readFileSync, readdirSync, run, type Check, type Pair,
+  ctx, done, mapObjFrom, packMapObj, proc, ptrListFrom, readFileSync, readdirSync, run, worldRec, type Check, type Pair,
 } from "./exe_recon";
 
 
@@ -132,6 +133,20 @@ const CHECKS: Record<string, Check> = {
   "0x550697": run((c, d) => { const m = M(c, d.this); return fn_0x550697(m, U(c, A(d, 0))); }, EAX),
   "0x553891": run((c, d) => { const m = M(c, d.this); return unitRemoveFromCells(m, U(c, A(d, 0))); }, AL),
   "0x5503af": run((c, d) => { const m = M(c, d.this); return fn_0x5503af(m, U(c, A(d, 0)), A(d, 1), A(d, 2)); }, EAX),
+  // as armadilhas do MapRec (pares sintéticos: tools/re/oracle/synth_traps.py, pasta synth_m10_trap)
+  "0x55ba36": run((c, d) => { const m = M(c, d.this); return fn_0x55ba36(m, A(d, 0) & 0xffff, [0, 1, 2, 3, 4, 5].map(i => c.cm.u8(A(d, 1) + i))); }, EAX),
+  "0x55b978": run((c, d) => { const m = M(c, d.this - MAP_OCC_KIND_OFF); fn_0x55b978(m, [0, 1, 2, 3, 4, 5].map(i => c.cm.u8(A(d, 0) + i))); return null; }),
+  "0x55a96c": run((c, d) => {
+    const m = M(c, d.this);
+    m.world = worldRec(c, c.cm.u32(d.this + MAP_WORLD_OFF), m);
+    return unitTeleportTo(m, U(c, A(d, 0)), A(d, 1) & 0xff, A(d, 2) & 0xff);
+  }, AL),
+  "0x55a928": run((c, d) => { const m = M(c, d.this); return unitCanPlaceAt(m, U(c, A(d, 0)), A(d, 1) & 0xffff); }, EAX),
+  "0x54fbf7": (d, cm) => {
+    const c = ctx(d, cm), o = mapObjFrom(cm, d.this), before = packMapObj(o);
+    unitSetPosition(o, A(d, 0) & 0xff, A(d, 1) & 0xffff);
+    return done(c, null) ?? cm.checkRecord(d.this, before, packMapObj(o));
+  },
   "0x55020a": run((c, d) => { const m = M(c, d.this); return unitPlaceOnCells(m, U(c, A(d, 0))); }, EAX),
 };
 

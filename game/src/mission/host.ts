@@ -261,9 +261,10 @@ export class MissionHost implements ScriptHost {
     if (def.kind === "field" || def.kind === "wall") this.world.castAtPoint(def, fx, fy, tx, ty);
     else if (best) this.world.castFromPoint(def, fx, fy, best);
   }
-  /** "Set trap": armadilha persistente no mundo (Teleport da missão 53: leva quem pisar em (15,121) para (13,22)). */
+  /** "Set trap" (0x57847e): a armadilha no registro de ocupação da célula do gatilho (Teleport da missão 53: leva quem pisar em
+   *  (15,121) para (13,22)). */
   setTrap(spell: number, power: number, tx: number, ty: number, sx: number, sy: number, gx: number, gy: number): void {
-    this.world.addTrap({ x: tx, y: ty, spell: buildSpell(spell, this.spellTable?.[String(spell)], power), fromX: sx, fromY: sy, toX: gx, toY: gy });
+    this.world.exeSetTrap(spell, power, tx, ty, sx, sy, gx, gy);
   }
   /** "Tile Spell Duration" (missão 71: ponte bloqueada pela Wall of Earth até o segundo papo com o rei). */
   setTileSpellDuration(x: number, y: number, spell: number, duration: number): void {
