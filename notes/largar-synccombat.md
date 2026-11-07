@@ -303,3 +303,23 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   79,99 % (CI ok); test:sim, test:script 49/49 e typecheck verdes.
 - Falta das armadilhas: o conjurador 0x4f06ac e família (0x50dc2b, 0x53a600, 0x51906d, 0x519466, 0x51c29e) no lugar da ponte; e a
   lista +0x10 do 0x57a47d (os objetos que lançam magia em quem chega perto: 0x57a307 escolhe o alvo), hoje o gancho `traps` sem uso.
+
+# Item 4 da F2 (episódios desde a carga em ≥ 6 missões) — investigado, NÃO feito: falta o herói no oráculo
+- **Sem herói o mundo dorme**: `load_mission.load(30)` seguido de `o.tick()` roda (200 tiques em 0,6 s; 124 → 117 unidades, o
+  script tira algumas), mas nenhuma vida muda. Os grupos só acordam perto de jogador humano (0x55b5f1 e as máscaras dos humanos), e o
+  despejo da carga não tem herói, porque o cliente o junta depois de 0x4eb715. Um episódio "desde a carga" só com o load_mission não
+  exercita combate, magia nem grupos. Sonda de rascunho fora do git.
+- **Saves de começo de missão** (`refs/original/saves/index.json`, tela `mission_hud`): só m10_start/m10_mage, m20_start/m20_mage e
+  m103_start (este só com o remendo de heróis especiais). Há saves de cidade nos estágios 30 (Kaarg: m30/m31), 50, 60 (druidas:
+  m60/m70), 100/103 e 110. Os episódios do m10/m20 vieram do `dump_state.py` (jogo real pelo harness, imagem no tique 0) e os do
+  troll_chase do espelho (`tools/refcap/mirror/to_oracle.py`).
+- Caminhos, do mais barato ao mais caro:
+  1. **Jogo real** (uma instância, a trava `scratch/refcap.lock`; hoje o espelho a usa): entrar na missão a partir do save de cidade,
+     salvar o `mission_hud` (como `m20_start` foi derivado via `m20_town`) e gravar o tique 0 com `dump_state.py` ou com o espelho
+     (`mirror.py --state ...` + `to_oracle.py`). Depois, um roteiro de ordens por missão no oráculo (como o m10_quest_x1), o
+     `dump_ticks.py` e `free_run.mts`. Missões candidatas pelos saves: 30, 31, 60, 70, 103, 110.
+  2. **A junção do herói no oráculo** (o "lote 5" de notes/carregador.md): depois do `load_mission`, chamar o tratador do servidor que
+     cria o herói do jogador. O candidato é 0x4f254b (1835 bytes; chama Human_CreateByName 0x5143e4, Hero_InitSkills 0x514f59, a
+     colocação 0x54f9b9 e Server_Event; chamado por Server_PacketDispatcher 0x4f515d, 0x4f856a e 0x4ebd5f), com os dados do personagem
+     que o cliente manda. Isso abre as 46 missões sem jogo real, e no nosso lado é o mesmo passo de "criar o herói pelo exe" (F2 item 2).
+- Nada no git mudou por este item.
