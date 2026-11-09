@@ -473,3 +473,25 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - Bateria verde com a correção do livro: 9 corridas sem divergência, golden 79,99 %, loadcmp 46/46, test:sim, test:script.
   Episódios regravados (o despejo com o +0x10 do livro); 1.ª divergência: m30 T=1076, m31 T=997, m50 T=834, m60 T=13, m70 T=21,
   m110 T=5.
+
+# A porta do 0x57a769: a m103 resolvida (cenário); falta o Summon. Patch guardado, NÃO aplicado
+- **(a)** `tools/refcap/diff/export_state.py` no git (49bdc17): só código, sem dado do jogo nem caminho do GOG. Ele importa o
+  `original_episode`, o `orig_mem` e o `orig_trace`, que também estão fora do git (a pasta `tools/refcap/diff` tem ~20 arquivos fora).
+- **(b) m103 "Igles busca a pedra e a cabeça"**: o grupo do Igles NÃO dorme. A ação 0x1b só aparece enquanto ele está petrificado; no
+  fim, o +0x45 do grupo = 1. Ele não coleta porque a célula do saco (12,112) está coberta pela pegada 2×2 de um monstro de lado 2
+  (tipo 66, jogador 7), parado atacando a 101: registro de ocupação +4 dele, legítimo (está no centro de (12,111)). Com a escolha de
+  magia do exe as brigas mudam de lugar; nada indica que o exe deixaria a célula livre. O cenário passou a afastar quem cobre a célula
+  do saco pela pegada (o teste é do fluxo do script), e a m9x passa (531 ok). O cenário no oráculo não foi montado: com essa causa
+  (pegada legítima), a pergunta "o grupo dorme?" já se respondeu no próprio estado. Se quiser a prova no original, o roteiro do
+  teste tem teleportes e mortes forçadas que o oráculo não tem.
+- **ai.ts "giro de 180° antes de lançar"**: o `suspended` do motor antigo não desliga o pensamento portado, e o AI_CasterOffensiveSpell
+  dava ao lich a tarefa de magia por conta própria (9 × 2 tiques). O teste passou o lich para o jogador 1, para medir só o giro da ordem.
+- **Falta: necro.ts "druida inimigo invoca em combate"**. O gancho antigo lançava o Summon EM SI MESMO (`s.kind === "summon" ? r : t`).
+  O C do 0x57a769 passa sempre o alvo (o inimigo) ao AI_CastAtTarget, e o Summon tem alcance 0 e é "Caster Only": o druida
+  persegue e não lança em 40 s. O que o exe faz depende do alcance da instância do Summon (Spell_Instance) e do caso Summon de
+  Spell_Apply 0x519db8 (não portado). Precisa de cenário sintético no oráculo (synth_spells: um conjurador de IA com só o Summon
+  no livro e um inimigo perto, olhando a IA+0x14 e se ele lança).
+- **Patch** (porta + os 3 ajustes de teste, 112 linhas):
+  `side-session-notes/local_c595edc7-3cc5-4c16-8649-e63ff20be6a9/porta-0x57a769.patch`
+  (`git apply` na raiz do repo). Com ele, as 9 corridas antigas seguem sem divergência, o golden fica em 79,99 % e a m110 vai do
+  T=5 ao T=14; o único vermelho é o necro.ts acima. A árvore ficou no HEAD (bateria verde).
