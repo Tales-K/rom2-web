@@ -705,3 +705,9 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   episódio. **Desfeito; o limite fica.**
 - Meta "livre ≥ 99 % em ≥ 6 missões": 5 missões sem divergência (10, 20, 31, 50, 70). A m30 para em 2037/2400 por esse artefato. Para
   a 6.ª: a m60 (T=302) ou a m110 (T=517), ou um episódio da m30 sem a fuga para a célula 0.
+
+# Próximo (m60 T=302)
+- `manamax` da Dina 187 × 186: no original, a experiência do lançamento (11455 → 11462 no T=302) sobe o nível, e o recálculo seguinte
+  dá +1 de mana máx. O nosso companheiro (sem `exeBase`, sem `heroInfo`) fica com a mana máx. do motor antigo. Testado e desfeito:
+  `exeBase` no companheiro importado — sem efeito (falta ver se a experiência do lançamento e a subida de nível rodam para ele: o
+  `xpOnCast` → `exeXp` e o 0x5128cb).
