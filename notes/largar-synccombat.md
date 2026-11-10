@@ -639,3 +639,13 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - O único caminho do GOG era a fonte dos .alm de multijogador em `build_map_units` (só leitura). Agora é a cópia de execução
   `C:\Users\TALES K\Games\a2_run`: os 9 .alm são iguais byte a byte aos da instalação, e os 6 JSON gerados saíram idênticos aos
   de antes. Com a mudança do `effectsRaw` (o texto exato do efeito, com as aspas da Stone Curse).
+
+# Os imports que faltavam ao tools/refcap/diff (passo 3)
+- Lidos inteiros e commitados (código; sem dado do jogo e sem caminho do GOG — só docstrings que dizem que o GOG nunca é tocado):
+  `tools/refcap/original/{audio_hook, make_audio_runtime, build_m103, build_m110}.py` e `tools/refcap/trace/make_lab_runtime.py`.
+  As constantes são endereços e assinaturas de 3 a 9 bytes do exe para conferir o remendo. Os caminhos absolutos são das cópias de
+  execução (`a2_audio`, `a2_diff`, `a2_run`, `a2_lab`). Com isso, `make_diff_runtime`, `levers_audio` e `levers_probe` importam a
+  partir de um clone limpo.
+- Aviso: `audio_hook`/`build_m103` escolhem a cópia pela variável `A2_RUN_DIR`, que o `launch.py` só lê numa mudança local de outra
+  sessão, ainda não commitada (o mesmo vale para os pontos novos de `states.py` e o `dblclick` de `run_steps.py`). Sem ela, eles
+  importam, mas rodam na `a2_run`.
