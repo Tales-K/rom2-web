@@ -507,3 +507,24 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   os da nota anterior.
 - Bateria verde: 9 corridas sem divergência, golden 79,99 % (CI ok), loadcmp 46/46, test:sim, test:script. Corrida livre: m30 T=1076,
   m31 T=997, m50 T=834, m60 T=13, m70 T=21, **m110 T=5 → T=14** (rng).
+
+# As dependências do export_state.py no git (passo 2 do coordenador)
+- Lidos inteiros os 19 arquivos de `tools/refcap/diff` fora do git e os 2 de `tools/refcap/trace` que o export_state importa
+  (`orig_mem.py`, `orig_trace.py`). Todos são código ou configuração da ferramenta, sem dado do jogo. O `causes.json` é a tabela de
+  causas nomeadas do relatório do golden (texto nosso). Os caminhos absolutos que aparecem são das cópias de execução em
+  `C:\Users\TALES K\Games\` (como em ~25 arquivos de `tools/` já no git). O `make_diff_runtime.py` cita "GOG" só em texto
+  ("o GOG nunca é tocado", "allods2.exe GOG"), sem caminho.
+- **Mudança local antes do commit**: a docstring do `orig_mem.py` trazia o caminho da instalação original como aviso ("nunca em
+  C:\GOG Games"). Agora diz "nunca na instalação original". É o único caminho do GOG que havia nesses 21 arquivos.
+- **No git**: `tools/refcap/diff/{causes.json, gen_script, golden_compare.mts, golden_ingest, golden_rerecord, golden_run.mjs,
+  golden_worker.mts, group_episodes, levers_audio, levers_probe, make_diff_runtime, original_episode, rand_ablate, rand_sites,
+  run_pair, show_window, test_randlog, tile_speed, vclock}` e `tools/refcap/trace/{orig_mem, orig_trace}.py`. Com isso, o
+  export_state, o original_episode e o run_pair importam a partir de um clone limpo.
+- **Ficaram de fora** (outra pasta, não fazem parte do pedido nem foram auditados): dependências de 2 dos arquivos commitados que
+  continuam fora do git, então eles NÃO importam a partir de um clone limpo:
+  - `make_diff_runtime.py` importa `tools/refcap/trace/make_lab_runtime.py`;
+  - `levers_audio.py` importa `tools/refcap/original/{audio_hook, make_audio_runtime, build_m103, build_m110}.py`;
+  - `levers_probe.py` importa `tools/refcap/original/{build_m103, build_m110}.py`.
+  Também ficou de fora o resto de `tools/refcap` não versionado (hit_regions/*.json, overlay/, original/ e trace/ restantes), de
+  outras frentes.
+- Nada do sim mudou (a bateria do 89af147 vale; typecheck refeito).

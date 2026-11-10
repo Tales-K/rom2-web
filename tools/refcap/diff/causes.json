@@ -1,0 +1,16 @@
+{
+  "pos|hero|": "caminho do herói: o andar do exe (inundação 0x54d76e, estático + dinâmico por célula) já é reproduzido (135/140 ordens célula a célula); o que sobra são unidades que se mexem durante o andar, o fim de ordem em tique diferente e o alvo automático [FILA I]",
+  "pos|t1|": "m20: camponeses na patrulha do script (tarefa 0xa, 0x569b62: lista de pontos +0x1c4+0xb4, ponto atual +2) — importada como patrulha A↔B; resto: ponto da lista com mais de 2 pontos [FILA I]",
+  "pos|t": "monstro em perseguição (0x55574d + célula de aproximação 0x557f08, reproduzidos): divergências que sobram vêm do alvo/pensamento (ver target|t) e de unidades que se cruzam [FILA I]",
+  "target|hero|o:none/n:hero": "autocast do herói mago: o nosso lança Shield/Heal em si onde o original não lança (efeito importado sem duração real) [FILA I]",
+  "target|hero|o:unit/n:none": "herói não engaja: revide do Stand ground (modo 6) no fim de uma ordem de andar e alvo do pensamento 1×/s [FILA I]",
+  "target|hero|o:none/n:unit": "herói engaja antes: o nosso alvo automático (hold/guard) dispara num pensamento em que o original ainda não [FILA I]",
+  "target|hero|o:unit/n:unit": "escolha do alvo automático do herói entre vários inimigos (o original prefere o anterior/o de menor vida?) [FILA I]",
+  "target|hero|o:unit/n:hero": "mago: o nosso lança em si (autocast) quando o original ataca um inimigo [FILA I]",
+  "target|t": "modo da IA do monstro: o original passa por modo 11 (ocioso da guarda) por 1 pensamento entre golpes e às vezes anda com modo 1 para a célula 0 (vai a (8,8)) mantendo o alvo; o nosso continua no ataque (raio/visão do grupo já são os do exe) [FILA I]",
+  "hp|": "dano e sorteios: a ordem/quantidade de rand() diverge depois do 1º golpe (o rng é copiado no início da janela) e a regeneração de vida a cada 4 s depende do relógio de 1/s [FILA I]",
+  "alive|": "morte em outro momento: consequência do dano/sorteio (ver hp|) [FILA I]",
+  "mana|": "mana: custo/autocast e regeneração (corrigida para 1×/s) [FILA I]",
+  "spawn|": "unidade só num dos lados (criada por script ou por magia) [FILA I]",
+  "task|hero|": "tarefa do herói: fim da ordem de andar/atacar em tique diferente [FILA I]"
+}
