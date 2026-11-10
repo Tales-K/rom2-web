@@ -11,7 +11,7 @@
  */
 import {
   fn_0x517949, fn_0x518024, fn_0x518d1e, fn_0x518efd, fn_0x51e65b, fn_0x52c279, fn_0x5238c5, fn_0x542d50, fn_0x543130, fn_0x54feae,
-  fn_0x54fca8, fn_0x54ff06, fn_0x552079, fn_0x55a8f8, spellApply, spellAreaProgressive, spellAreaApplyAll, spellAreaConstruct, spellAreaHitCell, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
+  fn_0x54fca8, fn_0x54ff06, fn_0x552079, fn_0x55a8f8, fn_0x579d62, spellApply, spellAreaProgressive, spellPrismaticSpray, spellPrismaticTargets, spellAreaApplyAll, spellAreaConstruct, spellAreaHitCell, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
   spellAttachToTarget, spellDamageObject, spellFireDamageObj, spellInstance, spellProjectileDist, spellRelease, unitAddHeal,
 } from "../exe/spells";
 import type { CombatHooks } from "../exe/combat";
@@ -36,7 +36,12 @@ const HX = (w: WorldRec): CombatHooks => {
 const HOOKED = new Set(["0x519db8", "0x5201b2"]);   // 0x5201b2: a área no prédio (#94)
 
 /** Mundo com o mapa remontado (as unidades por endereço: quem lançou +0x44/+0x3c, o alvo +0x48). */
-const world = (c: Ctx): WorldRec => worldRec(c, c.cm.u32(WORLD_PTR), M(c, c.cm.u32(MAP_PTR)));
+const world = (c: Ctx, w?: number): WorldRec => {
+  // o mundo [0x66832c] (ou `this`, no thiscall do mundo) e o mapa de [0x670e48] ou, sem ele no par, o do mundo +0xa50
+  // (Spell_PrismaticTargets: a visão do grupo; como exe_think.ts)
+  const wa = w ?? c.cm.u32(WORLD_PTR);
+  return worldRec(c, wa, M(c, c.cm.has(MAP_PTR) || !c.cm.has(wa + 0xa50) ? c.cm.u32(MAP_PTR) : c.cm.u32(wa + 0xa50)));
+};
 const SPELL_FIELDS: Field[] = [[0x08, 1, "id"], [0x09, 1, "range"], [0x0a, 1, "f0a"], [0x0c, 2, "cost", true], [0x0e, 1, "f0e"], [0x0f, 1, "f0f"], [0x10, 2, "f10", true]];
 /** `runS` + a magia do livro igual ao original. */
 const runSp = (f: (c: Ctx, d: Pair, s: BookSpellRec) => number | null, ret?: (v: number) => number): Check => (d: Pair, cm: CallMem) => {
@@ -122,6 +127,15 @@ const CHECKS: Record<string, Check> = {
     const r = fn_0x54fca8(w, o, A(d, 0) & 0xff, A(d, 1) & 0xff) ? 1 : 0;
     return done(c, null) ?? cm.checkRecord(d.this, before, packMapObj(o)) ?? eq("retorno", r, d.eax & 0xff);
   },
+  // Prismatic Spray (pares do m110_join: tools/re/oracle/join_pairs.py, pasta m110_prism; e synth_spells.py --scene prism)
+  "0x519c04": runSp((c, d, s) => { const w = world(c); spellPrismaticSpray(w, s, U(c, A(d, 0)), T(c, A(d, 1)), HX(w)); return null; }),
+  "0x579ddf": runS((c, d) => {
+    // a lista `param_3` é local de 0x519c04 (0x53c410: CList na pilha); o par confere as escritas nela pelos nós
+    const w = world(c, d.this), l = ptrListFrom(c.cm, A(d, 2));
+    spellPrismaticTargets(w, U(c, A(d, 0)), T(c, A(d, 1)), l, A(d, 3) & 0xff, A(d, 4) & 0xff);
+    return null;
+  }),
+  "0x579d62": runS((c, d) => fn_0x579d62(world(c, d.this), U(c, A(d, 0)), U(c, A(d, 1))), (v) => v & 0xffff),
   "0x519db8": runSp((c, d, s) => { spellApply(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), A(d, 2) & 0xff, A(d, 3) & 0xff, H); return null; }),
   "0x519d7f": runSp((c, d, s) => { spellRelease(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), H); return null; }),
 };

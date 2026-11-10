@@ -56,7 +56,15 @@ export const distTo = (u: Unit, x: number, y: number): number => Math.hypot(u.x 
 export function beside(r: Run, who: Unit, id: number): void { const t = unit(r, id); r.b.world.teleport(who, t.cx + 1, t.cy); }
 export function at(r: Run, who: Unit, x: number, y: number): void { r.b.world.teleport(who, x, y); }
 /** o grupo do jogador (herói, Igles, Dina e quem virar do jogador) é mantido vivo */
-export const keep = (r: Run): void => { for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp; };
+export const keep = (r: Run): void => {
+  for (const u of r.b.world.units) if (u.player === 1 && u.alive) { if (IMMORTAL.has(u)) u.maxHp = IMMORTAL_HP; u.hp = u.maxHp; }
+};
+/** Vida dos "imortais" dos pilotos: a vida +0x94/+0x96 do exe é short (o setter prende a 32767), e o recálculo dos atributos do herói
+ *  (vtable+0x58, 0x51366b) refaz a vida máxima pelo corpo — por isso `keep` a repõe a cada tique (o Prismatic Spray portado, 0x519c04,
+ *  dos dragões/necromantes mata o herói mago de 29 PV num raio). */
+const IMMORTAL = new WeakSet<Unit>();
+const IMMORTAL_HP = 30000;
+export function makeImmortal(u: Unit): void { IMMORTAL.add(u); u.maxHp = u.hp = IMMORTAL_HP; u.stats = { ...u.stats, healthRegen: 0 }; }
 /** deixa o script rodar (o runtime avalia a cada 0,5 s = 10 tiques) mantendo o grupo vivo */
 export const settle = (r: Run, ticks = Math.round(1.25 * TICKS_PER_SEC)): number => run(r, ticks, () => keep(r));
 /** o jogador manda a unidade ficar onde está (stand ground, sem seguir o herói) */
@@ -70,7 +78,7 @@ export const has = (r: Run, m: number): boolean => r.messages.includes(m);
 export const count = (r: Run, m: number): number => r.messages.filter(x => x === m).length;
 
 /** O grupo (herói, Igles, Dina) com vida enorme: inimigos fortes (dragões, lanceiros) matam de um golpe o herói de 55-142 PV e a Dina de 26 PV; `kill` ainda os mata. */
-export function immortal(r: Run): void { for (const id of [10001, 10002, 10003]) { const u = r.b.host.units.get(id); if (u) { u.maxHp = u.hp = 100000; u.stats = { ...u.stats, healthRegen: 0 }; } } }   // sem regeneração: 0x50fc5a estouraria o short de 32767
+export function immortal(r: Run): void { for (const id of [10001, 10002, 10003]) { const u = r.b.host.units.get(id); if (u) makeImmortal(u); } }   // sem regeneração: 0x50fc5a estouraria o short de 32767
 
 /** Dragões e súcubos petrificam quem se aproxima (Stone Curse de chance, poder alto = pedra por muito tempo): tira a pedra do grupo para o piloto seguir.
  *  Todos os efeitos da Stone Curse (18: pedra, defesa, absorção): um que sobre mantém o bit 0x40000 em +0x144 e o despachante 0x56dca2

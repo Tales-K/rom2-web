@@ -4,7 +4,7 @@
  *    sem item em uso (+0x68) paga o custo +0xc da mana +0x9a (sem mana → 0: a máquina tenta de novo no tique seguinte); invisível
  *    (efeito 0xc) que lança em outro marca o efeito para acabar (+0x42 = 1 na lista +0x20, como 0x516b2f);
  *    arma que lança magia sem livro (+0x74 = +0x68) → 1 sem aviso; sem definição → 0; Prismatic Spray (0xb): Spell_CasterPower +
- *    0x519c04 (exec 0: gancho `spellPrismatic`); senão o aviso ao cliente 0x5041d6 (alvo; definição[4] = 1, 0x519441) ou 0x5042ba
+ *    0x519c04 (Spell_PrismaticSpray: os alvos 0x579ddf e Spell_Apply em cada); senão o aviso ao cliente 0x5041d6 (alvo; definição[4] = 1, 0x519441) ou 0x5042ba
  *    (célula). O ponto alvo (0x54f955/0x54feae/0x54ff06/0x54f9b9/0x54fc41) e o tempo de voo (Spell_ProjectileDist 0x516aae ÷ [7]) só
  *    vão no pacote: não portados (cliente).
  *  - 0x5041d6 / 0x5042ba: o pacote 0x86/0x8b ao cliente (stub; 0x503bef envia) e, se vtable+0x2c da unidade ≠ 0, +0x138 = relógio de
@@ -48,15 +48,15 @@
  *  - NotPorted (exec 0, áreas de dano): SpellArea_ApplyAll 0x518833 (modo 0), SpellArea_Wall
  *    0x5182b6 ([8] = 4), a Fireball em 0x518681 (0x51e5db).
  */
-import { fn_0x53a5a0 } from "./action";
+import { aiAngleTiebreak, fn_0x53a5a0 } from "./action";
 import { deletePayload as deleteFx, EFFECT_CASES, fn_0x51ce12, spellApplyEffect } from "./effects";
 import { fn_0x5106d2, fn_0x53b120fx, fn_0x542560, fn_0x56e6b8, unitPhysicalDamage, type CombatHooks } from "./combat";
-import { CListPtrIter } from "./mfc";
+import { CListPtr, CListPtrIter } from "./mfc";
 import { crtFtol, mapObjCellX, mapObjCellY, mapObjFineX, mapObjFineY, unitCenterX, unitCenterY, vtGetSize } from "./path";
 import { randInclusive, randOne } from "./rand";
-import { fn_0x550d9f, fn_0x550db3, fn_0x55b507 } from "./think";
+import { aiGroupVisibleEnemies, fn_0x550d9f, fn_0x550db3, fn_0x55b507 } from "./think";
 import { cellOff10000, crtAbs, fn_0x55f330, mapObjCellOf, mapObjInit, mapObjInitPacked16, mapObjSetFine, occRecIsEmpty } from "./walk";
-import { dirFromDelta16, NotPorted, unitSetPosition } from "./walk_action";
+import { aiUnitDistance, dirFromDelta16, fn_0x5568e4, NotPorted, unitSetPosition } from "./walk_action";
 import { fn_0x5508a0, fn_0x550966, fn_0x550a53, fn_0x551edb, fn_0x559bc9 } from "./wave";
 import { vt2c, vt34, vt6c, vt70 } from "./vtables";
 import {
@@ -79,8 +79,8 @@ export interface SpellHooks {
   /** não é do exe: o cliente desenha o projétil/efeito que sai (o pacote do gasto 0x5041d6 já levou o tempo de voo) — `ticks` de 16/s
    *  até chegar (0 = já no tique seguinte). */
   clientMissile?(spell: number, u: UnitRec, t: UnitRec | null, ticks: number): void;
-  /** Spell_CasterPower 0x519483 + Spell_PrismaticSpray 0x519c04 (exec 0 no corpus): o jato sai já no gasto (motor antigo). */
-  spellPrismatic?(spell: number, u: UnitRec, t: UnitRec | null, x: number, y: number): void;
+  /** não é do exe: 0x504391 (o pacote 0x8a/0x8c do Prismatic Spray ao cliente, com os alvos): a apresentação. */
+  clientPrismatic?(spell: number, u: UnitRec, targets: UnitRec[]): void;
   /** vtable+0x58 da unidade (recálculo dos atributos, 0x51366b nos humanos) depois de um efeito mudar (0x51d436): no mundo o motor antigo
    *  ainda é dono dos atributos (`syncCombat`); sem gancho, a porta (exe/effects.ts). */
   recompute?(u: UnitRec): void;
@@ -116,7 +116,7 @@ function clientSpellPacket(s: BookSpellRec, u: UnitRec, t: UnitRec | null, x: nu
 }
 
 /** 0x519998 Spell_SpendMana (thiscall; magia `s`, unidade, alvo ou null, x, y): ver o cabeçalho. 1 = a magia começa; 0 = não. */
-export function spellSpendMana(wd: WorldRec, s: BookSpellRec, u: UnitRec, t: UnitRec | null, x: number, y: number, h: SpellHooks): number {
+export function spellSpendMana(wd: WorldRec, s: BookSpellRec, u: UnitRec, t: UnitRec | null, x: number, y: number, h: CombatHooks): number {
   if (fn_0x53a5a0(u) !== 0 && u.f68 === null) {
     if (((u.mana << 16) >> 16) < ((s.cost << 16) >> 16)) {
       h.noMana?.(s.addr, u);
@@ -137,12 +137,100 @@ export function spellSpendMana(wd: WorldRec, s: BookSpellRec, u: UnitRec, t: Uni
     return 1;
   }
   if ((s.id & 0xff) === 0xb) {
-    if (!h.spellPrismatic) throw new NotPorted("0x519c04");
-    h.spellPrismatic(s.addr, u, t, x, y);
+    spellPrismaticSpray(wd, s, u, t, h);
     return 1;
   }
   clientSpellPacket(s, u, t, x, y, h);   // 0x5041d6 (fn_0x519441) ou 0x5042ba: o mesmo efeito no servidor
   return 1;
+}
+
+/** 0x511913 (thiscall; unidade, esfera): habilidade da esfera (+0xa8 + 2 × esfera) − 30 + Mind (+0x88), 0 se negativo. */
+export function fn_0x511913(u: UnitRec, sphere: number): number {
+  const uVar1 = (((u.dmg.sk[sphere & 0xff] ?? 0) << 16) >> 16) - 0x1e + ((u.f88 << 16) >> 16);
+  return uVar1 < 0 ? 0 : uVar1 >>> 0;
+}
+
+/** 0x579d62 (thiscall; mundo, quem lança, candidato): AI_UnitDistance × 0x100 + o desempate pelo ângulo (AI_AngleTiebreak do rumo de
+ *  quem lança, andar+0, contra 0x5568e4), em u16. */
+export function fn_0x579d62(wd: WorldRec, param_1: UnitRec, param_2: UnitRec): number {
+  const iVar1 = aiUnitDistance(wd.map, param_1, param_2);
+  const uVar2 = aiAngleTiebreak(param_1.walk.dir & 0xff, fn_0x5568e4(param_1, param_2));
+  return ((iVar1 * 0x100) + (uVar2 & 0xff)) & 0xffff;
+}
+
+/** 0x57b080 (fastcall; lista): tira o último nó (RemoveTail; FreeNode 0x53b540) e devolve o dado. */
+export function fn_0x57b080(l: CListPtr): number {
+  const p = l.tail!;
+  l.tail = p.prev;
+  if (l.tail === null) l.head = null;
+  else l.tail.next = null;
+  l.count = (l.count - 1) | 0;
+  return p.data >>> 0;
+}
+
+/** 0x579ddf Spell_PrismaticTargets (thiscall; mundo, quem lança, alvo, lista, número, alcance): esvazia a lista, avisa o alvo (0x56e6b8
+ *  com 0), os inimigos que o grupo de quem lança vê (AI_GroupVisibleEnemies: mundo+0xa68 de pé e +0xa88 caídos); sem nenhum de pé,
+ *  só o alvo. Senão: os de pé com 0x579d62 ≤ alcance × 0x100 (a distância em +0xc74) e os caídos (a distância × 0x100); escolhe os
+ *  `número` menores (comparação com sinal contra o u16 guardado; o escolhido vira 0xffdc), põe o alvo e os escolhidos (≠ alvo) e
+ *  tira do fim (0x57b080) até sobrar `número`. */
+export function spellPrismaticTargets(wd: WorldRec, param_1: UnitRec, param_2: UnitRec | null, param_3: CListPtr, param_4: number, param_5: number): void {
+  param_3.removeAll();
+  if (param_2 !== null) fn_0x56e6b8(wd, param_1, param_2, 0);
+  aiGroupVisibleEnemies(wd, param_1.type);
+  const tAddr = param_2 === null ? 0 : param_2.addr >>> 0;
+  if (wd.cand.getCount() === 0) {
+    param_3.addTail(tAddr);
+    return;
+  }
+  const local_1e8: number[] = new Array(10).fill(0xfffa);
+  const local_1d4: number[] = new Array(10).fill(0xfffa);
+  const local_19c: number[] = [];
+  const local_8 = (param_5 & 0xff) << 8;
+  let local_1f0 = 0;
+  for (const a of wd.cand.values()) {
+    const uVar1 = fn_0x579d62(wd, param_1, wd.map.unitAt(a));
+    if (uVar1 <= local_8) { wd.fc74[local_1f0] = uVar1; local_19c[local_1f0] = a >>> 0; local_1f0++; }
+  }
+  for (const a of wd.dead.values()) {
+    const uVar1 = fn_0x579d62(wd, param_1, wd.map.unitAt(a));
+    if (uVar1 <= local_8) { wd.fc74[local_1f0] = (uVar1 << 8) >>> 0; local_19c[local_1f0] = a >>> 0; local_1f0++; }
+  }
+  const n = param_4 & 0xff;
+  for (let k = 0; k < n; k++) {
+    for (let j = 0; j < local_1f0; j++) {
+      if ((wd.fc74[j]! | 0) < local_1e8[k]!) { local_1e8[k] = wd.fc74[j]! & 0xffff; local_1d4[k] = j; }
+    }
+    if (local_1d4[k]! < 60000) wd.fc74[local_1d4[k]!] = 0xffdc;
+  }
+  param_3.addTail(tAddr);
+  for (let k = 0; k < n; k++) {
+    if (local_1d4[k]! < 65000 && local_1e8[k]! < 65000 && local_19c[local_1d4[k]!] !== tAddr) param_3.addTail(local_19c[local_1d4[k]!]!);
+  }
+  while (param_3.getCount() > n) fn_0x57b080(param_3);
+}
+
+/** 0x519c04 Spell_PrismaticSpray (thiscall; magia, unidade, alvo): o número de raios = min(poder ÷ 20 + 2, 7), com o poder da esfera
+ *  (0x511913 da definição[2]) ou, com o item em uso (+0x68), o +0x42 do efeito 0x29 (o caractere ")") da lista +0x20 do item; os alvos
+ *  de Spell_PrismaticTargets no alcance +9; o pacote ao cliente (0x504391, `clientPrismatic`; ele também põe +0x138 = relógio) e
+ *  Spell_Apply em cada alvo. */
+export function spellPrismaticSpray(wd: WorldRec, s: BookSpellRec, param_1: UnitRec, param_2: UnitRec | null, h: CombatHooks): void {
+  let uVar1: number;
+  if (param_1.f68 === null) {
+    const local_4c = s.def[2]! & 0xff;
+    uVar1 = Math.trunc((fn_0x511913(param_1, local_4c) & 0xff) / 0x14);
+  } else {
+    let local_40 = 0;
+    for (const m of param_1.f68.magic) if ((m.f3c & 0xff) === 0x29) { local_40 = (m.f42 << 16) >> 16; break; }
+    uVar1 = Math.trunc(local_40 / 0x14);
+  }
+  const local_38 = Math.min(uVar1 + 2, 7);
+  const local_30 = new CListPtr();   // 0x53c410(10)
+  spellPrismaticTargets(wd, param_1, param_2, local_30, local_38, s.range & 0xff);
+  const ts = local_30.values().map(a => wd.map.unitAt(a >>> 0));
+  // 0x504391: o pacote 0x8a/0x8c ao cliente (stub: `clientPrismatic`) e, na unidade (vtable+0x2c), +0x138 = o relógio de 16/s
+  if (vt2c(param_1) !== 0) param_1.f138 = EXE_GLOBALS.clock16 >>> 0;
+  h.clientPrismatic?.(s.addr, param_1, ts);
+  for (const t of ts) spellApply(wd, s, param_1, t, 0, 0, h);
 }
 
 /** 0x519d7f Spell_Release (thiscall; magia, unidade, alvo): a magia sai — Spell_Apply 0x519db8, salvo Prismatic Spray (0xb), que saiu

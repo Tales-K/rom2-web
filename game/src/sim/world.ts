@@ -2281,7 +2281,9 @@ export class World {
     noMana: (_sp, r) => { const u = this.unitByAddr(r.addr); if (u?.isHero && this.tick - u.noManaTick >= TICKS_PER_SEC * 2) { u.noManaTick = this.tick; this.events.push({ type: "message", text: "Not enough mana" }); } },
     // Spell_Apply 0x519db8 portado (exe/spells.ts) na cura e no dano preso ao alvo; os outros `case` ainda são o motor antigo
     spellApply: (sp, r, t, x, y) => this.hookRelease(sp, r, t, x, y),
-    spellPrismatic: (sp, r, t, x, y) => { this.hookCastStart(sp, r, t, x, y); this.hookRelease(sp, r, t, x, y); },
+    // 0x519c04 portado (exe/spells.ts): o pacote dos raios (0x504391) começa a apresentação no 1.º alvo; os raios são os projéteis de
+    // Spell_Apply em cada alvo (clientMissile)
+    clientPrismatic: (sp, r, ts) => this.hookCastStart(sp, r, ts[0] ?? null, 0, 0),
     // vtable+0x70 / +0x6c dos humanos (exe/xp.ts: 0x5131ef, 0x513128 → 0x5128cb); no herói, a experiência volta à `heroInfo`
     xpOnCast: (r, t, id) => this.exeXp(r, () => fn_0x5131ef(this.exeWorld, r, t, id, this.exeHooks)),
     revive: r => { const u = this.unitByAddr(r.addr); if (u && !u.alive) this.revive(u, u.hp); },

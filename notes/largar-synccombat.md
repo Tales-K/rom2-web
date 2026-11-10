@@ -563,3 +563,18 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   portada decide pelo bit 4 de +0x4c (0x53a5a0). São 104 modelos com arma assim em data.bin (xamãs orcs, esqueletos magos, druidas,
   catapultas...). Bateria igual (9 corridas sem divergência, golden 79,99 %, loadcmp 46/46, test:sim, test:script); **m110 T=27 → T=49**
   (`flee_cell`/`hit_clock16`/`look_hit` do 24908).
+- **T=49** (`look_hit`/`hit_clock16`/`flee_cell` do 24908): gancho de escrita no oráculo — 0x50f485 (máquina) → 0x519998 → 0x519c04
+  **Spell_PrismaticSpray** → 0x579ddf → 0x56e6b8 (o aviso ao alvo). O Prismatic Spray ainda era o motor antigo (`spellPrismatic`).
+  **Portados**: 0x519c04 (raios = min(poder ÷ 20 + 2, 7), poder pela esfera 0x511913 ou pelo efeito 0x29 do item em uso), 0x579ddf
+  Spell_PrismaticTargets (avisa o alvo; AI_GroupVisibleEnemies do grupo de quem lança; os de pé e os caídos com 0x579d62 ≤ alcance ×
+  0x100, rascunho em mundo+0xc74; os `n` menores, o alvo primeiro, e RemoveTail 0x57b080 até `n`), 0x579d62 (AI_UnitDistance × 0x100 +
+  AI_AngleTiebreak) e o +0x138 = relógio do 0x504391 (o resto do pacote é stub: `clientPrismatic`, que começa a apresentação; os raios
+  são os projéteis de Spell_Apply em cada alvo). Prova: `tools/re/oracle/join_pairs.py` (novo: grava pares do fnprobe num episódio da
+  junção, a partir de `join_episode.start` e do roteiro do ep.json; sem replay, por falta da imagem) — pasta `m110_prism`, lançamentos
+  reais da IA da m110 nos tiques 40..700: 0x519c04 20/20, 0x579ddf 20/20, 0x579d62 99/99; e `synth_spells.py --scene prism` 6/6. O
+  arnês do exe_spells pega o mundo de `this` (thiscall do mundo) e o mapa de mundo+0xa50 quando o [0x670e48] não está no par.
+  **Testes** (missions_90s, com o motivo anotado): o Prismatic do exe pega sempre o alvo e os inimigos que o grupo vê. Na m90, o raio do
+  necromante mata a Dina de 26 PV ao lado do herói; nos santuários 95/96, o dragão mata o herói mago de 29 PV. O "imortal" dos pilotos
+  (vida 100000) não valia para o herói: a vida +0x94/+0x96 é short e o recálculo 0x51366b refaz a máxima pelo corpo. Agora há
+  `makeImmortal` (pilot.ts): 30000 PV, e o `keep` repõe a máxima a cada tique.
+  Bateria igual (9 corridas sem divergência, golden 79,99 %, loadcmp 46/46, test:sim, test:script); **m110 T=49 → T=85** (rng).

@@ -639,6 +639,8 @@ export class WorldRec {
   cand = new CListPtr();
   /** +0xa88 (objeto +0xa84) CList<void*> dos candidatos caídos (vida +0x94 < 1; 0x567ddf). */
   dead = new CListPtr();
+  /** +0xc74 u32[] rascunho das distâncias dos candidatos do Prismatic Spray (0x579ddf): distância × 0x100 + ângulo; 0xffdc = já escolhido. */
+  fc74: number[] = [];
   /** +0xaa8 (objeto +0xaa4) CList<void*> dos candidatos SEM guerra com a unidade (0x567c56: aliados e neutros vistos; AI_Autocast
    *  0x56bc7b e o caso Heal de AI_CastChosenSpell 0x56b059 procuram nela o alvo da magia de apoio). */
   friends = new CListPtr();

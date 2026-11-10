@@ -20,7 +20,7 @@ import type { Unit } from "../world";
 import { loadData, proc, run, startRun, type Run } from "./loader";
 import {
   at, beside, BOTH, campaignContract, campaignData, castAt, castOn, check, companionsFail, count, dist, distTo, failCause, failed, failedWith, group, has, heroOf, hold, immortal,
-  keep, killAll, messagesHaveText, noUnsupported, offeredBy, ofPlayer, pickupAt, settle, sub, summary, unit, unstone, VARIANTS,
+  keep, killAll, makeImmortal, messagesHaveText, noUnsupported, offeredBy, ofPlayer, pickupAt, settle, sub, summary, unit, unstone, VARIANTS,
 } from "./pilot";
 import { healDying } from "../necro";
 import { pickupText, sackAtCell } from "../../mission/pickup";
@@ -67,6 +67,9 @@ async function m90(): Promise<void> {
   // podstava sozinho antes do druida: msg 1 e sub 2
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
   hold(r, unit(r, 10002)); hold(r, unit(r, 10003)); at(r, h, 81, 117); settle(r);
+  // o Prismatic Spray dos necromantes do exe (0x579ddf: o alvo e os inimigos que o grupo vê) pega também o Igles e a Dina ao lado do herói,
+  // e a Dina de 26 PV cai no 1.º raio (33): o grupo com 30000 PV (short +0x94) para o piloto seguir o fluxo do script
+  for (const u of all3(r)) makeImmortal(u);
   check(has(r, 1) && sub(r, 2) === 1 && !has(r, 13), "perto da podstava (81,119): msg 1 e sub 2 (matar os druidas) ativo");
   // atacar a podstava: necromantes hostis -> emboscada aparece (msg 13) -> matar o grupo 7 = vitória
   w.damage(h, unit(r, 78), 1); settle(r, 30);
@@ -576,7 +579,9 @@ async function shrine(s: Shrine): Promise<void> {
     const q = startRun(data, hero, undefined, { companions: BOTH });
     hold(q, unit(q, 10002)); hold(q, unit(q, 10003)); // ficam no ponto de partida (Igles/Dina não participam dos enigmas)
     // os dragões que guardam as pirâmides matam um herói de 55-142 PV de um golpe: o grupo é "imortal" nestes pilotos (companionsFail ainda o mata com kill)
-    for (const id of [10001, 10002, 10003]) { const u = unit(q, id); u.maxHp = u.hp = 100000; u.stats = { ...u.stats, healthRegen: 0 }; }
+    // `makeImmortal` (pilot.ts): o `keep` repõe a vida máxima a cada tique, que o recálculo do herói (0x51366b) refaz pelo corpo; o
+    // Prismatic Spray portado dos dragões (0x519c04: sempre o alvo) mata o herói mago de 29 PV num raio
+    for (const id of [10001, 10002, 10003]) makeImmortal(unit(q, id));
     // morcegos e feras soltas (jogador 7) arrastariam o herói "hold" para dentro dos teleportes; só os dragões guardiões ficam
     for (const u of ofPlayer(q, 7)) if (u.name !== "Dragon") q.b.world.kill(u);
     return q;
