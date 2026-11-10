@@ -790,3 +790,19 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   70); sem divergência nomeada do motor antigo: não. A lista do que ficou de fora está no `docs/PLANO-FIDELIDADE-JOGO.md` (F2) e as
   pontes/estimativas no `docs/GAPS.md` ([F2] Fechamento). Para a 6.ª missão: o companheiro criado pelo exe (m60) ou a contagem do grupo
   do script (m110).
+
+# Valores do script no começo do ciclo (m110 de T=517 para 533)
+- O exe calcula todos os valores da lista +0xeaac no começo do ciclo (0x57485b: 0x574899 → 0x574955) e só depois avalia os gatilhos
+  (0x574ba1). A ação de um gatilho (v70++, fala, diplomacia) só aparece nas condições do ciclo seguinte. Oráculo da m110_join: "Druids
+  dead" no ciclo 517, "Some followers dead" (v70 > 0) só no 533. `ScriptRuntime` com `valuesAtCycleStart` (padrão true): os
+  valores ficam num mapa que só vale dentro do ciclo (fora dele não é estado; o snapshot comparava o mapa).
+- `World.setDiplomacy` escreve também na tabela do exe (mundo+0xa8bc), que é a diplomacia do exe. Antes, o `syncDiplomacyBack` do
+  mesmo passo lia a guerra velha da cópia e a reabria (m53: "Self to Beasts became neutral" desfeito no tique).
+- Testes (motivo anotado em cada um): os cenários esperam um ciclo a mais (`CYC1 = TICKS_PER_SEC`) em cada gatilho que reage a outro.
+  Na m7x, os três "crown to …" disparam no mesmo ciclo (Igles e Dina saem de perto do elfo). Na m53, a paz com o herói é conferida pela
+  ação do script, porque uma fera que já golpeava alguém do grupo reabre a guerra no mesmo tique (0x56e6b8 → 0x57977a, flag 0).
+- Commit só dos meus trechos. Nos testes kaarg, 80s e druids, a troca de `20 *` por `TICKS_PER_SEC` é de outra sessão e ficou fora; a
+  versão commitada é HEAD + o diff de refs/backup/wip-2026-11-10 para a árvore, com o "um ciclo a mais" escrito sobre os números do HEAD.
+- Bateria: test:sim, test:script 49/49 e typecheck verdes; golden `--ci` 80,75 %; loadcmp 46/46 com e sem MapRec; tickcmp `--all` sem
+  divergência; `--joins`: m30 2037, m31/m50/m70 sem divergência, m60 302, m110 **533**. Próxima na m110: post/mana/act de 24895/24896 e
+  g_radius do G11 (o=0, n=19) depois da troca de dono.

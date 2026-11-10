@@ -29,6 +29,10 @@ export interface RuntimeOptions {
   maxCyclesPerUpdate?: number;
   /** parar de avaliar gatilhos depois de "Mission Complete/Fail" (padrão false: continua, mas só o 1º desfecho vale) */
   stopOnOutcome?: boolean;
+  /** os valores do ciclo são calculados no começo dele, antes dos gatilhos (0x57485b: 0x574899 → 0x574955 em cada valor da lista
+   *  +0xeaac, depois 0x574ba1 os gatilhos): a ação de um gatilho (v70++) só aparece nas condições do ciclo seguinte — m110_join, "Druids
+   *  dead" no ciclo 517 e "Some followers dead" (v70 > 0) só no 533 (oráculo: 0x576fc8). Padrão true; false = cálculo na hora (antigo) */
+  valuesAtCycleStart?: boolean;
   /** tamanho do histórico de eventos guardado em `history` (padrão 500) */
   historySize?: number;
   /** chamado a cada gatilho disparado / ação executada */
@@ -99,6 +103,7 @@ export class ScriptRuntime {
       maxCyclesPerUpdate: options.maxCyclesPerUpdate ?? 5,
       stopOnOutcome: options.stopOnOutcome ?? false,
       historySize: options.historySize ?? 500,
+      valuesAtCycleStart: options.valuesAtCycleStart ?? true,
       onEvent: options.onEvent,
     };
     this.tstate = script.triggers.map(() => ({ fired: 0, last: -Infinity }));
@@ -152,6 +157,17 @@ export class ScriptRuntime {
     this.cycle++;
     this.started = true;
     this.actionsThisCycle = 0;
+    this.cycleValues = null;
+    if (this.options.valuesAtCycleStart) {
+      const vals = new Map<number, number>();
+      for (const v of this.script.valueList) vals.set(v.seq, this.evaluate(v.seq));
+      this.cycleValues = vals;
+    }
+    // só vale dentro do ciclo: fora dele não é estado (snapshot)
+    try { this.runTriggers(); } finally { this.cycleValues = null; }
+  }
+
+  private runTriggers(): void {
     const trig = this.script.triggers;
     for (let i = 0; i < trig.length; i++) {
       const t = trig[i]!;
@@ -183,8 +199,10 @@ export class ScriptRuntime {
 
   /** Todas as condições do gatilho verdadeiras (AND). Sem condições = verdadeiro. */
   checkTrigger(t: ScriptTrigger): boolean {
+    // as condições leem os valores do começo do ciclo (`valuesAtCycleStart`); as ações calculam os delas na hora
+    const ev = (seq: number): number => this.cycleValues?.get(seq) ?? this.evaluate(seq);
     for (const c of t.conditions) {
-      if (!compare(this.evaluate(c.a), c.op, this.evaluate(c.b))) return false;
+      if (!compare(ev(c.a), c.op, ev(c.b))) return false;
     }
     return true;
   }
@@ -206,6 +224,8 @@ export class ScriptRuntime {
   // ------------------------------------------------------------------------------------------ valores
 
   /** Valor numérico do registro de valor `seq` (condição/variável/constante). Inexistente: 0. */
+  /** os valores calculados no começo do ciclo (`valuesAtCycleStart`) */
+  private cycleValues: Map<number, number> | null = null;
   evaluate(seq: number): number {
     const v = this.script.values.get(seq);
     if (!v) return 0;

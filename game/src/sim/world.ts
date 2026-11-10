@@ -1370,6 +1370,9 @@ export class World {
     const nv = (old & ~3) | (value === 1 ? DIP_WAR : value === 2 ? 2 : 0);
     if (nv === old) return;
     this.dip[a]![b] = nv;
+    // a tabela do exe (mundo+0xa8bc) é a diplomacia do exe: a mudança (script, 0x57977a) vale nela já — senão o `syncDiplomacyBack` do
+    // mesmo passo lia a guerra velha da cópia e a reabria (m53: "Self to Beasts became neutral" desfeito no tique)
+    if (a < 0x46 && b < 0x46 && a !== b && this.exeWorld) this.exeWorld.dipTable[8 + a * 0x46 + b] = nv & 0xff;
     this.events.push({ type: "diplomacy", a, b, value });
     // fim da guerra: unidades da IA de `a` largam o alvo de `b` (senão o golpe seguinte reabre a guerra) [est: o exe escolhe alvos só entre
     // inimigos (0x567a16) a cada pensamento; o ataque em curso de uma unidade do jogador humano continua]

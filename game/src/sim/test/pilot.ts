@@ -66,7 +66,7 @@ const IMMORTAL = new WeakSet<Unit>();
 const IMMORTAL_HP = 30000;
 export function makeImmortal(u: Unit): void { IMMORTAL.add(u); u.maxHp = u.hp = IMMORTAL_HP; u.stats = { ...u.stats, healthRegen: 0 }; }
 /** deixa o script rodar (o runtime avalia a cada 0,5 s = 10 tiques) mantendo o grupo vivo */
-export const settle = (r: Run, ticks = Math.round(1.25 * TICKS_PER_SEC)): number => run(r, ticks, () => keep(r));
+export const settle = (r: Run, ticks = Math.round(2.25 * TICKS_PER_SEC)): number => run(r, ticks, () => keep(r));
 /** o jogador manda a unidade ficar onde está (stand ground, sem seguir o herói) */
 export function hold(r: Run, u: Unit): void { u.ai = { type: "hold" }; r.b.world.command(u, { type: "none" }); }
 export function killAll(r: Run, us: Unit[]): void { for (const u of us) if (u.alive) r.b.world.kill(u, r.b.hero); }

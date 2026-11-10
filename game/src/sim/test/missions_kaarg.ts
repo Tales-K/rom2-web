@@ -20,6 +20,7 @@ import type { HeroState } from "../../core/state";
 import type { Unit } from "../world";
 import { defaultHero } from "../../mission/setup";
 import { loadData, proc, run, startRun, type Run } from "./loader";
+import { TICKS_PER_SEC } from "../types";
 
 let passes = 0, failures = 0;
 function check(cond: unknown, msg: string): void {
@@ -46,7 +47,8 @@ const dist = (a: Unit, b: Unit): number => Math.hypot(a.x - b.x, a.y - b.y);
 function beside(r: Run, who: Unit, id: number): void { const t = unit(r, id); r.b.world.teleport(who, t.cx + 1, t.cy); }
 function at(r: Run, who: Unit, x: number, y: number): void { r.b.world.teleport(who, x, y); }
 /** deixa o script rodar (o runtime avalia a cada 0,5 s = 10 tiques) */
-const settle = (r: Run, ticks = 25): number => run(r, ticks);
+/** um ciclo do script a mais: os valores das condições são os do começo do ciclo (0x57485b → 0x574899) */
+const settle = (r: Run, ticks = 25 + TICKS_PER_SEC): number => run(r, ticks);
 function killAll(r: Run, us: Unit[]): void { for (const u of us) if (u.alive) r.b.world.kill(u, r.b.hero); }
 const failCause = (r: Run): number | undefined => (r.outcome && !r.outcome.ok ? r.outcome.cause : undefined);
 const noUnsupported = (r: Run): boolean => !r.logs.some(l => /não implementa|não suportado/.test(l.msg));

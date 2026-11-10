@@ -27,6 +27,9 @@ import { availableMissions, availableTowns, enterLocation, innPatrons, isDone, n
 import type { CampaignData, CampaignState } from "../../campaign/types";
 
 import { TICKS_PER_SEC } from "../types";
+/** um ciclo do script a mais: os valores das condições são os do começo do ciclo (0x57485b → 0x574899), e cada gatilho que reage a
+ *  outro (variável, fala) dispara no ciclo seguinte (m110_join, oráculo) */
+const CYC1 = TICKS_PER_SEC;
 let passes = 0, failures = 0;
 function check(cond: unknown, msg: string): void {
   if (cond) { passes++; console.log(`  ok   ${msg}`); } else { failures++; console.log(`  FALHOU: ${msg}`); }
@@ -63,7 +66,7 @@ const distTo = (u: Unit, x: number, y: number): number => Math.hypot(u.x - x, u.
 function beside(r: Run, who: Unit, id: number): void { const t = unit(r, id); r.b.world.teleport(who, t.cx + 1, t.cy); }
 function at(r: Run, who: Unit, x: number, y: number): void { r.b.world.teleport(who, x, y); }
 /** deixa o script rodar (o runtime avalia a cada 0,5 s = 10 tiques); o grupo (herói, Igles, Dina e quem virar do jogador) é mantido vivo */
-const settle = (r: Run, ticks = Math.round(1.25 * TICKS_PER_SEC)): number => run(r, ticks, () => {
+const settle = (r: Run, ticks = Math.round(2.25 * TICKS_PER_SEC)): number => run(r, ticks, () => {
   for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp; // inclui quem passa para o jogador (necromantes da 77)
 });
 function killAll(r: Run, us: Unit[]): void { for (const u of us) if (u.alive) r.b.world.kill(u, r.b.hero); }
@@ -158,16 +161,19 @@ async function m70(): Promise<void> {
   beside(r, h, 54); settle(r);
   check(has(r, 3) && sub(r, 1) === 2 && sub(r, 2) === 1, "herói com o elfo: msg 3, sub 1 cumprido, sub 2 (matar o necromante) ativo");
   check(!has(r, 6) && !r.outcome, "sem o necromante morto: sem coroa");
-  killAll(r, group(r, 37)); settle(r, 40);
+  // com os valores do começo do ciclo, os três "crown to hero/knight/dina" (v74 == 0) disparam no mesmo ciclo se os três estão perto
+  // do elfo (o último vence): Igles e Dina saem de perto; a cadeia (necros dead → elf quest → crown → receive → complete) leva 5 ciclos
+  { const e = unit(r, 54); at(r, unit(r, 10002), e.cx - 8, e.cy); at(r, unit(r, 10003), e.cx - 8, e.cy + 1); }
+  killAll(r, group(r, 37)); settle(r, 40 + 4 * CYC1);
   check(sub(r, 2) === 2 && has(r, 6) && r.outcome?.ok === true, `necromante morto com o herói ao lado: sub 2 cumprido, msg 6 (coroa) e Mission Complete (${JSON.stringify(r.outcome)})`);
   check(h.items.includes("3664") && !unit(r, 54).items.includes("3664"), `herói recebe a coroa 12 do elfo (item 3664) (${h.items.join(",")})`);
   check(noUnsupported(r), "script sem ações sem suporte");
   campaignContract(70, r);
 
   console.log("[70] variantes da coroa: Dina e Igles recebem; esteve na 80 (vars[778])");
-  r = start(); settle(r, 5); beside(r, r.b.hero, 54); settle(r); killAll(r, group(r, 37)); beside(r, unit(r, 10003), 54); at(r, r.b.hero, 100, 100); settle(r, 40);
+  r = start(); settle(r, 5); beside(r, r.b.hero, 54); settle(r); killAll(r, group(r, 37)); beside(r, unit(r, 10003), 54); at(r, r.b.hero, 100, 100); settle(r, 40 + 4 * CYC1);
   check(r.outcome?.ok === true && unit(r, 10003).items.includes("3664") && has(r, 6), `Dina perto do elfo na hora da coroa: ela a recebe (${unit(r, 10003).items.join(",")})`);
-  r = start({ 778: 1 }); settle(r, 5); beside(r, r.b.hero, 54); settle(r); killAll(r, group(r, 37)); settle(r, 40);
+  r = start({ 778: 1 }); settle(r, 5); beside(r, r.b.hero, 54); settle(r); killAll(r, group(r, 37)); settle(r, 40 + 4 * CYC1);
   check(r.outcome?.ok === true && has(r, 10) && r.b.hero.items.includes("18118") && !r.b.hero.items.includes("3664"), `com 778 = 1 o herói recebe a coroa inteira do portador 207 (18118) e a msg 10 (${r.b.hero.items.join(",")})`);
   check(Object.keys(sceneVars(r, { 778: 1 })).every(k => Number(k) >= 752), "MissionResult não devolve a variável 778 semeada");
 
@@ -182,11 +188,11 @@ async function m70(): Promise<void> {
   check(has(r, 9) && group(r, 10).every(u => u.ai?.type === "defend") && r.b.world.diplomacyValue(6, 1) === 1, "Igles com o druida: msg 9 e o grupo 10 o defende (sem pacto: v71 não sobe)");
 
   console.log("[70] falhas");
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 128), 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 128), 1); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `atacar os druidas: falha causa 5 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 54), 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 54), 1); settle(r, 30 + CYC1);
   check(failCause(r) === 6, `atacar o elfo: falha causa 6 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.kill(unit(r, 54)); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.kill(unit(r, 54)); settle(r, 30 + CYC1);
   check(failCause(r) === 7, `elfo morto: falha causa 7 (${JSON.stringify(r.outcome)})`);
   companionsFail(start);
 }
@@ -224,9 +230,9 @@ async function m71(): Promise<void> {
   check(w.diplomacyValue(5, 1) === 2 && w.diplomacyValue(1, 5) === 0 && wall().length === 1, "esquilos aliados do herói (2) e o herói em paz com eles (0); a ponte ainda fechada");
   check(!has(r, 5) && wall().length === 1, "(ainda sem segunda conversa: faltam 3 bandos de ogros) e a ponte fechada");
   for (const k of [1, 2]) killAll(r, ogres[k]!);
-  settle(r, 20);
+  settle(r, 20 + CYC1);
   check(!has(r, 5) && wall().length === 1, "3 de 4 bandos de ogros mortos: sem segunda conversa");
-  killAll(r, ogres[3]!); settle(r, 40);
+  killAll(r, ogres[3]!); settle(r, 40 + CYC1);
   check(squirrels.every(g => g.every(u => u.ai?.type === "swarm")), "todos os ogros mortos: os 4 bandos de esquilos marcham");
   check(has(r, 5) && !r.outcome, "rei ainda ao lado do herói: segunda conversa (msg 5)");
   check(wall().length === 0, "Tile Spell Duration 1: a parede da ponte (66,50) sumiu");
@@ -239,7 +245,7 @@ async function m71(): Promise<void> {
   const t = run(r, TICKS_PER_SEC * 90, () => { for (const id of [10001, 10002, 10003]) { const u = unit(r, id); if (u.alive) u.hp = u.maxHp; } if (distTo(hunter, 63, 16) <= 4) return true; });
   console.log(`  info: caçador 41 chega ao ancião em ${(t / TICKS_PER_SEC).toFixed(0)} s (da ponte (66,54)): ${hunter.cx},${hunter.cy}`);
   check(hunter.alive && distTo(hunter, 63, 16) <= 4 + 1, `os caçadores atravessam a ponte e chegam ao ancião (${hunter.cx},${hunter.cy})`);
-  settle(r, 30);
+  settle(r, 30 + CYC1);
   check(r.outcome?.ok === true && has(r, 9) && r.gold === 100000 && sub(r, 3) === 2, `ancião agradece: msg 9, sub 3, 100000 de ouro e Mission Complete (${JSON.stringify(r.outcome)}, ouro ${r.gold})`);
   campaignContract(71, r);
 
@@ -248,11 +254,11 @@ async function m71(): Promise<void> {
   check(has(r, 3) && sub(r, 2) === 1, "Igles com o rei: msg 3 e pacto");
   r = start(); settle(r, 5); beside(r, unit(r, 10003), 40); settle(r);
   check(has(r, 4) && sub(r, 2) === 1, "Dina com o rei: msg 4 e pacto");
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 40), 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 40), 1); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `atacar o rei: falha causa 5 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 41), 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 41), 1); settle(r, 30 + CYC1);
   check(failCause(r) === 6, `atacar os caçadores/camponeses: falha causa 6 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); killAll(r, group(r, 8)); settle(r, 30);
+  r = start(); settle(r, 5); killAll(r, group(r, 8)); settle(r, 30 + CYC1);
   check(failCause(r) === 7, `família de esquilos (grupo 8) toda morta: falha causa 7 (${JSON.stringify(r.outcome)})`);
   companionsFail(start);
 }
@@ -282,7 +288,7 @@ async function m72(): Promise<void> {
     if (u.alive) w.kill(u, h);
     check(hasBag && w.loot.some(l => l.items.includes(x.item)), `${rune}: ${u.name} (${x.unit}) morre e larga a runa (${x.item}) no chão`);
     const l = w.loot.find(q => q.items.includes(x.item))!;
-    at(r, h, l.x, l.y + 1); w.command(h, { type: "pickup", x: l.x, y: l.y }); settle(r, 60);
+    at(r, h, l.x, l.y + 1); w.command(h, { type: "pickup", x: l.x, y: l.y }); settle(r, 60 + CYC1);
     check(h.items.includes(x.item), `${rune}: herói pega a runa`);
   };
   const toDina = (rune: keyof typeof RUNES): void => {
@@ -298,14 +304,14 @@ async function m72(): Promise<void> {
   settle(r);
   check(dina.items.length === 4 && !r.outcome, "Dina com as 4 runas, longe dos painéis: sem desfecho");
   // painel 2 (20,47) com a runa da água ainda antes do painel 1: não completa
-  at(r, dina, 102, 78); settle(r, 30);
+  at(r, dina, 102, 78); settle(r, 30 + CYC1);
   check(has(r, 2) && has(r, 3) && has(r, 4) && !has(r, 5), "painel 1 (102,78): runas do ar, terra e fogo usadas (msgs 2, 3, 4)");
   check(dina.items.length === 1 && dina.items[0] === RUNES.water.item, "restou a runa da água com a Dina");
   check(has(r, 10), "runa da água no painel 1 (errado): msg 10");
   check([3, 5, 6].every(p => w.diplomacyValue(p, 1) === 0 && w.diplomacyValue(1, p) === 0 && w.diplomacyValue(p, 7) === 1 && w.diplomacyValue(p, 2) === 1), "ar, terra e fogo: em paz com o herói e hostis aos orcs (2) e monstros (7)");
   check(w.diplomacyValue(4, 1) === 1 && sub(r, 1) === 2 && sub(r, 3) === 2 && sub(r, 4) === 2 && sub(r, 2) === 1, "água ainda hostil; subs 1, 3, 4 cumpridos e sub 2 (água) ativo");
   check(!r.outcome, "falta o painel 2");
-  at(r, dina, 20, 47); settle(r, 30);
+  at(r, dina, 20, 47); settle(r, 30 + CYC1);
   check(has(r, 5) && w.diplomacyValue(4, 1) === 0 && sub(r, 2) === 2, "painel 2 (20,47): runa da água, msg 5 e sub 2 cumprido");
   check(r.outcome?.ok === true && r.gold === 500000, `quatro elementais em paz: 500000 de ouro e Mission Complete (${JSON.stringify(r.outcome)}, ouro ${r.gold})`);
   check(noUnsupported(r), "script sem ações sem suporte");
@@ -316,20 +322,20 @@ async function m72(): Promise<void> {
   r = start(); w = r.b.world; h = r.b.hero; dina = unit(r, 10003);
   settle(r, 5);
   for (const k of ["water", "air", "earth", "fire"] as const) dina.items.push(RUNES[k].item);
-  at(r, dina, 20, 47); settle(r, 30);
+  at(r, dina, 20, 47); settle(r, 30 + CYC1);
   check(has(r, 5) && w.diplomacyValue(4, 1) === 0 && !r.outcome, "água primeiro: painel 2 abre a água, sem desfecho");
   check(has(r, 8) && sub(r, 3) === 1, "runa do ar direto com a Dina: msg 8 (v74 = 2) e subs 3/4");
-  at(r, dina, 102, 78); settle(r, 30);
+  at(r, dina, 102, 78); settle(r, 30 + CYC1);
   check(r.outcome?.ok === true && r.gold === 500000, `painel 1 depois: Mission Complete + 500000 (${JSON.stringify(r.outcome)})`);
   // a mochila do jogo ainda é só do herói: as runas ficam com ele e a Dina nos painéis basta (MissionHost.heroItemsCountForCompanions)
   r = start(); w = r.b.world; h = r.b.hero; dina = unit(r, 10003);
   settle(r, 5);
   for (const k of ["air", "earth", "fire", "water"] as const) h.items.push(RUNES[k].item);
-  at(r, dina, 102, 78); settle(r, 30);
+  at(r, dina, 102, 78); settle(r, 30 + CYC1);
   check(has(r, 2) && has(r, 3) && has(r, 4) && h.items.length === 1 && h.items[0] === RUNES.water.item && dina.items.length === 0, `runas no bolso do herói: a Dina no painel 1 as usa e elas saem do herói (${h.items.join(",")})`);
-  at(r, dina, 20, 47); settle(r, 30);
+  at(r, dina, 20, 47); settle(r, 30 + CYC1);
   check(r.outcome?.ok === true && r.gold === 500000 && h.items.length === 0, `painel 2 com a runa da água do herói: Mission Complete + 500000 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.kill(unit(r, 10003)); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.kill(unit(r, 10003)); settle(r, 30 + CYC1);
   check(failCause(r) === 4, `Dina morta (a missão depende dela): falha causa 4 (${JSON.stringify(r.outcome)})`);
   companionsFail(start, false);
 }
@@ -372,18 +378,18 @@ async function m73(): Promise<void> {
   console.log(`  info: guerreiros (grupo 3) a ${c0.toFixed(0)} -> ${(al.reduce((a, u) => a + Math.hypot(u.x - 60, u.y - 77), 0) / Math.max(1, al.length)).toFixed(0)} células de (60,77) em 20 s; ${defenders().length} defensores vivos`);
   // vitória: nenhum defensor vivo (unidades do jogador 6)
   const some = defenders();
-  killAll(r, some.slice(1)); settle(r, 25);
+  killAll(r, some.slice(1)); settle(r, 25 + CYC1);
   check(!r.outcome, "um defensor vivo: sem desfecho");
-  killAll(r, some); settle(r, 25);
+  killAll(r, some); settle(r, 25 + CYC1);
   check(r.outcome?.ok === true, `todos os defensores mortos: Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r), "script sem ações sem suporte");
   check(messagesHaveText(r, fighterHero()), "todas as falas disparadas têm texto");
   campaignContract(73, r);
 
   console.log("[73] falhas");
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 69), 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 69), 1); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `atacar o ancião/aldeões: falha causa 5 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, group(r, 1)[3]!, 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, group(r, 1)[3]!, 1); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `atacar um aldeão qualquer: falha causa 5 (${JSON.stringify(r.outcome)})`);
   companionsFail(start);
 }
@@ -419,21 +425,21 @@ async function m74(): Promise<void> {
   check(ogre.downed && ogre.corpseHp === 0 && ogre.helpless && r.b.host.unitAlive(35) && r.b.host.unitParameter(35, 6) === 0, `ogro meio morto (35): vida do script 0 (Set Unit Parameter) = inconsciente de verdade (vida exatamente 0, estável), existe para o script, sem o gatilho "Ogre healed" no 1º ciclo`);
   check(!has(r, 2) && w.diplomacyValue(1, 3) === 1, "ogros (jogador 3) hostis ao herói até acordarem o ogro");
   // ogro acorda quando o grupo chega perto: msg 2, paz com os ogros e ele marcha até (132,131)
-  at(r, h, ogre.cx + 2, ogre.cy); settle(r, 40);
+  at(r, h, ogre.cx + 2, ogre.cy); settle(r, 40 + CYC1);
   check(!ogre.helpless && has(r, 2) && w.diplomacyValue(1, 3) === 0 && w.diplomacyValue(3, 1) === 0, "herói perto do ogro: msg 2 e paz com os ogros");
   check(ogre.ai?.type === "move" && ogre.ai.x === 132 && ogre.ai.y === 131, "o ogro volta a andar até o ponto (132,131)");
   const g0 = distTo(ogre, 132, 131);
   run(r, TICKS_PER_SEC * 60, () => { h.hp = h.maxHp; });
   console.log(`  info: ogro a ${g0.toFixed(0)} -> ${distTo(ogre, 132, 131).toFixed(0)} células de (132,131) em 60 s`);
   check(distTo(ogre, 132, 131) < g0 - 10, "o ogro caminha para o ponto de encontro");
-  w.kill(unit(r, 32), h); settle(r, 20);
+  w.kill(unit(r, 32), h); settle(r, 20 + CYC1);
   check(w.diplomacyValue(1, 3) === 1 && w.diplomacyValue(3, 1) === 1, "ogro 32 morto: ogros hostis de novo (Ogre dead)");
   r = start(); w = r.b.world; h = r.b.hero;
   // o 1.º ciclo do script (gatilho Start: "Ogre health to 0") é o do 1.º pensamento (0x56fe4d → 0x57485b, relógio ≡ 7), não o 1.º tique
-  settle(r, TICKS_PER_SEC + 4); w.revive(unit(r, 35), Math.ceil(unit(r, 35).maxHp * 0.3), true); settle(r, 30);   // cura (os ogros são hostis ao herói: o Heal do jogador não vale; aqui o script/cura de fora)
+  settle(r, TICKS_PER_SEC + 4); w.revive(unit(r, 35), Math.ceil(unit(r, 35).maxHp * 0.3), true); settle(r, 30 + CYC1);   // cura (os ogros são hostis ao herói: o Heal do jogador não vale; aqui o script/cura de fora)
   check(has(r, 2) && w.diplomacyValue(1, 3) === 0, "ogro curado (vida >= 25%) acorda mesmo sem ninguém perto");
   r = start(); w = r.b.world; h = r.b.hero;
-  settle(r, 5); at(r, h, 66, 125); settle(r, 60);
+  settle(r, 5); at(r, h, 66, 125); settle(r, 60 + CYC1);
   check(unit(r, 35).alive || (unit(r, 35).downed && unit(r, 35).corpseHp === 0), "ogro meio morto não é atacado pela IA do grupo enquanto dorme (vivo ou ainda na vida 0)");
   // xamã Minge (112,38)
   r = start(); w = r.b.world; h = r.b.hero;
@@ -442,27 +448,27 @@ async function m74(): Promise<void> {
   check(group(r, 5).concat(group(r, 6), group(r, 7)).every(u => u.ai?.type !== "swarm") && !sub(r, 1), "orcs parados e sem sub 1 longe do xamã");
   at(r, h, 112, 52); settle(r);
   check(group(r, 5).concat(group(r, 6), group(r, 7)).every(u => u.ai?.type === "swarm") && sub(r, 1) === 1, "herói a <= 15 de (112,38): grupos 5, 6 e 7 vêm (swarm) e sub 1 ativo");
-  beside(r, h, 102); settle(r, 15);
+  beside(r, h, 102); settle(r, 15 + CYC1);
   check(!has(r, 4) && !r.outcome, "orcs vivos: o xamã não fala");
-  killAll(r, orcs().filter(u => u !== sh).slice(1)); settle(r, 15);
+  killAll(r, orcs().filter(u => u !== sh).slice(1)); settle(r, 15 + CYC1);
   check(!has(r, 4) && !r.outcome, "sobram 2 orcs (o xamã e mais um): não fala");
-  killAll(r, orcs().filter(u => u !== sh)); beside(r, h, 102); settle(r, 30);   // o herói pode ter saído de perto lutando (sorteios)
+  killAll(r, orcs().filter(u => u !== sh)); beside(r, h, 102); settle(r, 30 + CYC1);   // o herói pode ter saído de perto lutando (sorteios)
   check(has(r, 4) && sub(r, 1) === 2 && r.outcome?.ok === true, `só o xamã vivo + herói perto: msg 4, sub 1 cumprido e Mission Complete (${JSON.stringify(r.outcome)})`);
   check(sh.alive && noUnsupported(r), "xamã vivo; script sem ações sem suporte");
   check(messagesHaveText(r, heroOf(false, false)), "todas as falas têm texto para o guerreiro");
   campaignContract(74, r, false, false);
 
   console.log("[74] Igles e Dina falam com o xamã; variantes do herói (as 4 completam a missão); falhas");
-  r = start(); settle(r, 5); at(r, r.b.hero, 112, 52); killAll(r, orcs().filter(u => u !== unit(r, 102))); beside(r, unit(r, 10002), 102); settle(r, 30);
+  r = start(); settle(r, 5); at(r, r.b.hero, 112, 52); killAll(r, orcs().filter(u => u !== unit(r, 102))); beside(r, unit(r, 10002), 102); settle(r, 30 + CYC1);
   check(has(r, 5) && r.outcome?.ok === true, "Igles com o xamã: msg 5 + Mission Complete");
-  r = start(); settle(r, 5); at(r, r.b.hero, 112, 52); killAll(r, orcs().filter(u => u !== unit(r, 102))); beside(r, unit(r, 10003), 102); settle(r, 30);
+  r = start(); settle(r, 5); at(r, r.b.hero, 112, 52); killAll(r, orcs().filter(u => u !== unit(r, 102))); beside(r, unit(r, 10003), 102); settle(r, 30 + CYC1);
   check(has(r, 6) && r.outcome?.ok === true, "Dina com o xamã: msg 6 + Mission Complete");
   for (const v of VARIANTS) {
     const hero = heroOf(v.mage, v.female);
-    r = start(hero); settle(r, 5); at(r, r.b.hero, 112, 52); killAll(r, orcs().filter(u => u !== unit(r, 102))); beside(r, r.b.hero, 102); settle(r, 30);
+    r = start(hero); settle(r, 5); at(r, r.b.hero, 112, 52); killAll(r, orcs().filter(u => u !== unit(r, 102))); beside(r, r.b.hero, 102); settle(r, 30 + CYC1);
     check(r.outcome?.ok === true && has(r, 4) && messagesHaveText(r, hero), `${v.label}: xamã convencido, Mission Complete e falas com texto`);
   }
-  r = start(); settle(r, 5); r.b.world.kill(unit(r, 102)); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.kill(unit(r, 102)); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `xamã morto antes da conversa: falha causa 5 (${JSON.stringify(r.outcome)})`);
   companionsFail(start);
   talenaChain();
@@ -491,7 +497,7 @@ async function m75(): Promise<void> {
   at(r, h, son.cx + 1, son.cy); settle(r);
   check(has(r, 8) && sub(r, 1) === 1, "filho de novo (depois do líder): msg 8 e sub 1 ativo");
   // Igles precisa chegar ao líder (<= 1): luta/conversa (msg 11), sub 1 cumprido
-  at(r, knight, leader.cx - 3, leader.cy); settle(r);
+  at(r, knight, leader.cx - 3, leader.cy); settle(r, Math.round(1.25 * TICKS_PER_SEC));   // curto: com mais tempo ele anda até o líder
   check(!has(r, 11), "Igles a 3 células do líder: ainda não");
   at(r, knight, leader.cx - 1, leader.cy); settle(r);
   check(has(r, 11) && sub(r, 1) === 2 && !r.outcome, "Igles junto ao líder: msg 11 e sub 1 cumprido");
@@ -507,7 +513,7 @@ async function m75(): Promise<void> {
   });
   console.log(`  info: moça a ${d0.toFixed(0)} células do filho -> ${dist(girl, son).toFixed(0)} em ${(t / TICKS_PER_SEC).toFixed(0)} s`);
   check(dist(girl, son) <= 4.5 && girl.alive, `a moça chega até o filho seguindo Igles (${girl.cx},${girl.cy})`);
-  settle(r, 30);
+  settle(r, 30 + CYC1);
   check(has(r, 12) && r.outcome?.ok === true, `Igles com o filho depois da fuga: msg 12 + Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r), "script sem ações sem suporte");
   check(messagesHaveText(r, hero0()), "todas as falas disparadas têm texto para a guerreira");
@@ -519,7 +525,7 @@ async function m75(): Promise<void> {
     settle(q, 5);
     at(q, q.b.hero, qs.cx + 1, qs.cy); settle(q); at(q, q.b.hero, ql.cx + 1, ql.cy + 1); settle(q); at(q, q.b.hero, qs.cx + 1, qs.cy); settle(q);
     at(q, qk, ql.cx - 1, ql.cy); settle(q); at(q, qk, qg.cx + 1, qg.cy); settle(q);
-    at(q, qg, qs.cx - 2, qs.cy); at(q, qk, qs.cx + 1, qs.cy); settle(q, 40);
+    at(q, qg, qs.cx - 2, qs.cy); at(q, qk, qs.cx + 1, qs.cy); settle(q, 40 + CYC1);
     return q;
   };
   for (const v of VARIANTS) {
@@ -533,13 +539,13 @@ async function m75(): Promise<void> {
   check(has(r, 3), "Igles com o filho: msg 3");
   r = start(); settle(r, 5); at(r, unit(r, 10002), unit(r, 66).cx + 1, unit(r, 66).cy + 1); settle(r);
   check(has(r, 6), "Igles com o líder: msg 6");
-  r = start(); settle(r, 5); r.b.world.kill(unit(r, 66)); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.kill(unit(r, 66)); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `líder morto: falha causa 5 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.kill(unit(r, 81)); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.kill(unit(r, 81)); settle(r, 30 + CYC1);
   check(failCause(r) === 6, `filho morto: falha causa 6 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.kill(unit(r, 67)); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.kill(unit(r, 67)); settle(r, 30 + CYC1);
   check(failCause(r) === 7, `moça morta: falha causa 7 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, group(r, 2)[0]!, 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, group(r, 2)[0]!, 1); settle(r, 30 + CYC1);
   check(failCause(r) === 8, `atacar um humano: falha causa 8 (${JSON.stringify(r.outcome)})`);
   companionsFail(start);
 }
@@ -565,13 +571,13 @@ async function m76(): Promise<void> {
   beside(r, h, 62); settle(r);
   check(has(r, 5) && sub(r, 1) === 1, "druida sábio com a maga: msg 5 e sub 1 (caçadores) ativo");
   check(!has(r, 8) && sub(r, 2) === 0, "caçadores vivos: ele não vai com o grupo");
-  killAll(r, hunters().slice(1)); settle(r, 20);
+  killAll(r, hunters().slice(1)); settle(r, 20 + CYC1);
   check(sub(r, 1) === 1 && !has(r, 8), "um caçador vivo: sub 1 em aberto");
-  killAll(r, hunters()); settle(r, 30);
+  killAll(r, hunters()); settle(r, 30 + CYC1);
   check(sub(r, 1) === 2 && has(r, 8) && sub(r, 2) === 1, "caçadores mortos: sub 1 cumprido, msg 8 e sub 2 (levar o druida às flores) ativo");
   check(smart.ai?.type === "follow" && smart.ai.unit === h.id, `druida sábio passa a seguir a maga (ai ${JSON.stringify(smart.ai)})`);
   // caminhada real: a maga vai até as flores (46,17) e o druida (127,47) a acompanha, 85 células
-  at(r, h, 120, 48); settle(r, 20);
+  at(r, h, 120, 48); settle(r, 20 + CYC1);
   const dd0 = distTo(smart, 46, 17);
   // o piloto teleporta a maga para o ninho do ogro/morcegos (jogador 4) junto às flores; com a guarda do exe (raio em Chebyshev, LAB
   // notes/ai-original.md) os monstros do caminho alcançam a maga/Dina e matam numa rajada — o teste é da escolta, não do combate:
@@ -585,7 +591,7 @@ async function m76(): Promise<void> {
   console.log(`  info: druida sábio a ${dd0.toFixed(0)} -> ${distTo(smart, 46, 17).toFixed(0)} células das flores (46,17) em ${(t / TICKS_PER_SEC).toFixed(0)} s`);  check(distTo(smart, 46, 17) <= 8.5 && !r.outcome, `o druida atravessa o mapa seguindo a maga (a ~8 células das flores: ${smart.cx},${smart.cy})`);
   // os morcegos perto das flores seguram o druida (o grupo precisa limpar o caminho): último trecho por teletransporte
   at(r, smart, 46, 17); at(r, h, 47, 18);
-  settle(r, 40);
+  settle(r, 40 + CYC1);
   check(r.outcome?.ok === true && has(r, 11) && sub(r, 2) === 2, `druida nas flores com a maga: msg 11, sub 2 cumprido e Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r), "script sem ações sem suporte");
   check(messagesHaveText(r, hero0()), "todas as falas disparadas têm texto para a maga");
@@ -596,8 +602,8 @@ async function m76(): Promise<void> {
     const q = start(hero); const qs = unit(q, 62), qw = unit(q, who);
     settle(q, 5);
     at(q, qw, qs.cx + 1, qs.cy); settle(q);
-    killAll(q, hunters(q)); settle(q, 30);
-    at(q, qs, 46, 17); at(q, qw, 47, 17); settle(q, 40);
+    killAll(q, hunters(q)); settle(q, 30 + CYC1);
+    at(q, qs, 46, 17); at(q, qw, 47, 17); settle(q, 40 + CYC1);
     return q;
   };
   for (const v of VARIANTS) {
@@ -611,9 +617,9 @@ async function m76(): Promise<void> {
   check(q.outcome?.ok === true && has(q, 13), "Dina leva o druida às flores: msg 13");
   r = start(); settle(r, 5); beside(r, unit(r, 10002), 57); settle(r); beside(r, unit(r, 10003), 62); settle(r);
   check(has(r, 3) && has(r, 7), "Igles com o druida 57 (msg 3) e Dina com o sábio (msg 7)");
-  r = start(); settle(r, 5); r.b.world.kill(unit(r, 62)); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.kill(unit(r, 62)); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `druida sábio morto: falha causa 5 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 57), 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 57), 1); settle(r, 30 + CYC1);
   check(failCause(r) === 6, `atacar os druidas: falha causa 6 (${JSON.stringify(r.outcome)})`);
   companionsFail(start);
 }
@@ -711,11 +717,11 @@ async function m77(): Promise<void> {
   // (a 16/s um aliado do mapa, tipo 23, morria num tique para o morto-vivo 47 e a falha 4 saía antes da 8: vida alta só aqui)
   at(r, unit(r, 144), 100, 90); at(r, unit(r, 175), 99, 90); run(r, TICKS_PER_SEC * 26, () => { for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp = Math.max(u.maxHp, 5000); });
   check(failCause(r) === 8 && has(r, 12), `bom necromante longe (> 15) quando o feitiço acontece: falha causa 8 + msg 12 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); beside(r, r.b.hero, 139); settle(r); beside(r, r.b.hero, 144); settle(r); r.b.world.kill(unit(r, 144)); settle(r, 30);
+  r = start(); settle(r, 5); beside(r, r.b.hero, 139); settle(r); beside(r, r.b.hero, 144); settle(r); r.b.world.kill(unit(r, 144)); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `bom necromante morto: falha causa 5 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.kill(unit(r, 175)); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.kill(unit(r, 175)); settle(r, 30 + CYC1);
   check(failCause(r) === 5, `amigo necromante morto: falha causa 5 (${JSON.stringify(r.outcome)})`);
-  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 139), 1); settle(r, 30);
+  r = start(); settle(r, 5); r.b.world.damage(r.b.hero, unit(r, 139), 1); settle(r, 30 + CYC1);
   check(failCause(r) === 6, `atacar os necromantes: falha causa 6 (${JSON.stringify(r.outcome)})`);
   // guardas dos zumbis (59): se atacam o grupo, falha 7 ("Guards caught us")
   r = start(); settle(r, 5); beside(r, r.b.hero, 59); run(r, TICKS_PER_SEC * 20, () => { for (const u of r.b.world.units) if (u.player === 1 && u.alive) u.hp = u.maxHp; });
