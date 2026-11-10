@@ -607,3 +607,15 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   (world.ts ~2158) já tinha passado.
 - **Próximo**: achar, no C, quando o exe processa o "Attack unit" (o instante e a IA+8 que ele escreve) de uma unidade recém-voltada
   de fase, e fazer a conversão ordem → tarefa não depender da posição na lista. Depois religar os 3 trechos acima.
+
+# m70 T=21 FECHADO: o Phase out/in do exe religado; a m70_join sem divergência em 2400 tiques
+- **Evidência do oráculo para o teste da m60** (sonda de rascunho, fora do git: `join_episode.start(60)`, 60 tiques, Dina e herói
+  teleportados por 0x55a96c para (72,92)/(73,93)): os morcegos do grupo 9 ficam FORA de [0x68d2dc]+4 com +0x4c = 0x18 (bit 8) enquanto
+  estão fora de fase. No tique do "Phase In bats" + "Bats attack mage", eles voltam à lista com +0x4c = 0x10, classe 3, alvo IA+0xc =
+  Dina, **IA+8 = 0 e ação 0x1b por 16 tiques**, e só no pensamento seguinte vão para IA+8 = 5 e ação 1. Com a porta, o nosso faz o mesmo
+  (tique 153 → 169). Sem a porta, a tarefa 5 aparecia no mesmo tique. O teste "e atacam a maga (Dina)" (missions_druids) passou a
+  esperar 1 s antes de conferir, com o motivo anotado.
+- Religados os 3 trechos de `world.ts` (`phaseOut` 0x5102a3: fora de `lists.all`, +0x4c |= 8; `phaseIn` 0x5103ae: AddTail, +0x4c &= ~8;
+  `stable` sem as fora de fase). port_status: 0x5102a3, 0x5103ae, 0x57821e, 0x578236.
+- Medidas: **m70_join livre: nenhuma divergência** (antes T=21); m30 1076, m31 997, m50 834, m60 33, m110 85 iguais; as 9 corridas
+  antigas sem divergência; golden 79,99 % (CI ok); loadcmp 46/46 (com e sem MapRec); test:sim, test:script e typecheck verdes.

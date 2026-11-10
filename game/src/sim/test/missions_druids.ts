@@ -433,7 +433,11 @@ async function m60(): Promise<void> {
   // emboscada de morcegos (73,93)
   at(r, dina, 72, 92); at(r, h, 73, 93); settle(r, 12);
   check(bats.every(u => !u.phased && u.alive), "morcegos entram em campo ao chegar em (73,93)");
-  check(bats.every(u => u.order.type === "attack" && u.order.target === dina.id), "e atacam a maga (Dina)");
+  // no exe o "Phase In Group" + "Group Command : Attack" deixam classe 3 e o alvo IA+0xc = Dina com IA+8 = 0 (ação 0x1b) até o
+  // pensamento seguinte, que põe a tarefa 5 (oráculo, m60_join: Dina e herói teleportados para (72,92)/(73,93); 16 tiques depois do
+  // Phase In): a unidade volta ao fim de [0x68d2dc]+4 (0x5103ae) e só pensa no próximo ciclo
+  settle(r, TICKS_PER_SEC);
+  check(bats.every(u => u.order.type === "attack" && u.order.target === dina.id), "e atacam a maga (Dina) a partir do pensamento seguinte");
   check(!has(r, 3), "morcegos vivos: sem msg 3");
   killAll(r, bats); settle(r);
   check(has(r, 3), "morcegos mortos: msg 3");

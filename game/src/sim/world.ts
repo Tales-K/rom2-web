@@ -1184,17 +1184,23 @@ export class World {
     u.rec.walk.stepTick = 0; u.rec.walk.stepTicks = 0;
   }
 
+  /** "Phase out unit" (instante 16 → 0x57821e → 0x5102a3): com +0x4c sem o bit 8, tira das células (Unit_RemoveFromCells), liga o bit 8 e
+   *  sai do contentor [0x68d2dc]+4 (`lists.all`: não pensa, não age, não regenera); os pacotes ao cliente (0x5053a8) são stub. */
   phaseOut(u: Unit): void {
     if (u.phased) return;
     this.release(u);
+    if ((u.rec.f4c & 8) === 0) { u.rec.f4c = (u.rec.f4c | 8) & 0xff; this.exeWorld.lists.all.remove(u.rec.addr); }
     u.phased = true;
     this.walkAbort(u); u.order = { type: "none" }; u.target = 0;
     if (u.state !== "dead" && u.state !== "dying") this.setState(u, "idle");
   }
 
+  /** "Phase in unit" (instante 17 → 0x578236 → 0x5103ae): a colocação (0x510089, aqui a célula livre mais perto [est]), volta ao fim do
+   *  contentor [0x68d2dc]+4 (0x52b22a, AddTail) e apaga o bit 8 de +0x4c. */
   phaseIn(u: Unit): void {
     if (!u.phased) return;
     u.phased = false;
+    if ((u.rec.f4c & 8) !== 0) { u.rec.f4c = u.rec.f4c & 0xf7; if (!this.exeWorld.lists.all.values().includes(u.rec.addr >>> 0)) this.exeWorld.lists.all.addTail(u.rec.addr); }
     const c = this.grid.nearestFree(u.cx, u.cy, u.flying, 12, u.id) ?? { x: u.cx, y: u.cy };
     u.x = c.x + 0.5; u.y = c.y + 0.5;
     this.occupy(u);
@@ -1262,7 +1268,7 @@ export class World {
     // "vivas" daqui a tirava e a seguinte a punha no fim: m20_start, a 24609 caída em T=727)
     // contentor [0x68d2dc] (World_SecondTick): todas as não consumadas (caídas incluídas), as criadas por magia e os cadáveres (na ordem
     // em que entraram: a da morte, como no exe)
-    stable(w.lists.all, u => !u.bodyDead);
+    stable(w.lists.all, u => !u.bodyDead && !u.phased);   // fora de fase: fora do contentor (0x5102a3)
     stable(w.lists.corpses, u => u.bodyDead);
     stable(w.lists.magic, u => !!(u.dynamic || u.summoner));
   }

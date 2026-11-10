@@ -374,9 +374,9 @@ addr	name	size	file	line	status	ts	note
 0x50fc5a	Unit_Regen	723	game/g_500000.c	11170	ported	unitRegen	pares 0x50fc5a.jsonl 100% - 6026 chamadas, 3 episodios; exe/regen.ts
 0x50ff2d	FUN_0050ff2d	348	game/g_500000.c	11240	ported	combat.ts:fn_0x50ff2d	pares 3 episódios 100% (exe_combat.ts; etapa 8a lote 2) (2064 amostradas, stride 4)
 0x510089	FUN_00510089	538	game/g_510000.c	3	review		carregador (raio 0): só a célula do .alm presa por 0x54fca8 (World.spawn exactCell); falta o teste 0x5563ca (não cabe = sem unidade) e o raio > 0 (invocações); loadcmp 46 despejos
-0x5102a3	FUN_005102a3	117	game/g_510000.c	60	pending		
+0x5102a3	FUN_005102a3	117	game/g_510000.c	60	ported	world.ts:phaseOut	fora de [0x68d2dc]+4 e +0x4c|8 (oráculo m60_join: os morcegos fora da lista até o Phase In); m70_join livre T=21 -> nenhuma
 0x510318	FUN_00510318	150	game/g_510000.c	76	pending		
-0x5103ae	FUN_005103ae	214	game/g_510000.c	98	pending		
+0x5103ae	FUN_005103ae	214	game/g_510000.c	98	ported	world.ts:phaseIn	AddTail em [0x68d2dc]+4 e +0x4c&~8; a colocação 0x510089 é a célula livre mais perto [est]; oráculo m60_join (tarefa 5 só no pensamento seguinte)
 0x510484	Unit_AddHeal	176	game/g_510000.c	132	ported	unitAddHeal	exe_spells.ts: pares 100% (m10_mage) 3/3; Unit_Revive 0x510534 = gancho revive (exec 0)
 0x510534	Unit_Revive	178	game/g_510000.c	159	review		Unit_Revive: gancho SpellHooks.revive (exec 0)
 0x5105e6	FUN_005105e6	236	game/g_510000.c	188	pending		
@@ -1773,8 +1773,8 @@ addr	name	size	file	line	status	ts	note
 0x5781a7	FUN_005781a7	29	game/g_570000.c	5075	pending		
 0x5781c4	FUN_005781c4	45	game/g_570000.c	5085	pending		
 0x5781f1	FUN_005781f1	45	game/g_570000.c	5096	pending		
-0x57821e	FUN_0057821e	24	game/g_570000.c	5107	pending		
-0x578236	FUN_00578236	24	game/g_570000.c	5117	pending		
+0x57821e	FUN_0057821e	24	game/g_570000.c	5107	ported	world.ts:phaseOut	instante 16 Phase out unit (host.phaseOutUnit)
+0x578236	FUN_00578236	24	game/g_570000.c	5117	ported	world.ts:phaseIn	instante 17 Phase in unit (host.phaseInUnit)
 0x57824e	FUN_0057824e	67	game/g_570000.c	5127	pending		
 0x578291	FUN_00578291	41	game/g_570000.c	5145	pending		
 0x5782ba	FUN_005782ba	85	game/g_570000.c	5155	pending		
