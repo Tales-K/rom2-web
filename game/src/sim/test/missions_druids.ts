@@ -625,12 +625,16 @@ async function m63(): Promise<void> {
   check(m1 < m0 - 5, "o bando anda para a aldeia");
   killAll(r, monsters); xy(40, 80); settle(r);
   check(has(r, 5) && xara.player === 1 && sub(r, 1) === 1, `bando morto: Xara fala (msg 5), passa para o jogador e sub 1 ativo (jogador ${xara.player})`);
-  check(xara.ai?.type === "defend", `Xara acompanha o grupo (ai ${JSON.stringify(xara.ai)})`);
-  // ela segue o herói andando
-  w.command(h, { type: "move", x: 45, y: 70 });
-  run(r, 20 * 15, () => { for (const u of [h, knight, dina, xara]) if (u.alive) u.hp = u.maxHp; if (h.order.type === "none") w.command(h, { type: "move", x: 45, y: 70 }); });
+  // a troca de dono (0x4f0568) a põe sozinha num grupo novo do jogador em Stand ground: não segue o herói (oráculo m110_join, T=533:
+  // os cavaleiros e druidas que viram do jogador ficam no grupo próprio, comando 3, e o grupo do script fica vazio)
+  check(xara.ai?.type === "hold" && xara.rec.type.members.count === 1 && xara.rec.type.stats.f20 === 3,
+    `Xara no grupo dela, em Stand ground (ai ${JSON.stringify(xara.ai)}, comando ${xara.rec.type.stats.f20})`);
+  // o jogador a manda andar com o herói
+  const go = (): void => { for (const u of [h, xara]) if (u.order.type === "none") w.command(u, { type: "move", x: 45, y: 70 }); };
+  w.command(h, { type: "move", x: 45, y: 70 }); w.command(xara, { type: "move", x: 45, y: 70 });
+  run(r, 20 * 15, () => { for (const u of [h, knight, dina, xara]) if (u.alive) u.hp = u.maxHp; go(); });
   console.log(`  info: Xara a ${dist(xara, h).toFixed(0)} células do herói em (${h.cx},${h.cy})`);
-  check(dist(xara, h) < 12, "Xara anda atrás do herói");
+  check(dist(xara, h) < 12, "Xara anda com o herói (ordem do jogador)");
   // cidade em ruínas (81,42): Xara reconhece
   at(r, xara, 81, 42); settle(r);
   check(has(r, 8) && !has(r, 9), "Xara na cidade em ruínas: msg 8");
@@ -646,8 +650,9 @@ async function m63(): Promise<void> {
   check(xara.player === 1 && !r.outcome, "Xara na torre com o bando 16 vivo: continua com o jogador");
   killAll(r, tower); settle(r);
   check(xara.player === 2 && xara.ai?.type === "hold" && sub(r, 2) === 2, `bando 16 morto: Xara volta aos humanos e fica na torre, sub 2 cumprido (jogador ${xara.player})`);
-  // fala final: o herói está ao lado, o gatilho do herói vence (msg 10)
-  settle(r, 25 + CYC1);
+  // fala final: o herói está ao lado, o gatilho do herói vence (msg 10). O herói fica ao lado dela: a tarefa de andar do exe que sobrou
+  // da ordem de pegar o saco (104,124) o leva embora, e a Xara (Stand ground, 0x4f0568) não o acompanha
+  run(r, 25 + CYC1, () => { if (Math.max(Math.abs(h.cx - xara.cx), Math.abs(h.cy - xara.cy)) > 2) beside(r, h, 40); });
   check(r.outcome?.ok === true && has(r, 10), `herói com Xara na torre: msg 10 + Mission Complete (${JSON.stringify(r.outcome)})`);
   check(noUnsupported(r), "script sem ações sem suporte");
   check(Object.keys(sceneVars(r)).every(k => Number(k) >= 752), "63 não grava variáveis de cenário (só subobjetivos)");

@@ -806,3 +806,15 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - Bateria: test:sim, test:script 49/49 e typecheck verdes; golden `--ci` 80,75 %; loadcmp 46/46 com e sem MapRec; tickcmp `--all` sem
   divergência; `--joins`: m30 2037, m31/m50/m70 sem divergência, m60 302, m110 **533**. Próxima na m110: post/mana/act de 24895/24896 e
   g_radius do G11 (o=0, n=19) depois da troca de dono.
+
+# Troca de dono pelo exe (0x4f0568): m110 de T=533 para 560
+- "Change group's owner" (0x5782ba) e "Change unit's owner" (0x578291) chamam o 0x4f0568 em cada unidade. A unidade sai do grupo
+  (0x52afd2), passa ao dono novo e entra sozinha num grupo novo dele, com AI_NewGroupStandGround (0x570f2b). O grupo antigo fica vazio
+  com o dono antigo (oráculo m110_join: G11 com raio 0). `fn_0x4f0568` (exe/orders.ts) e `World.changeOwner`, chamada por
+  `MissionHost.setOwner`, que antes ligava `attachFollowers` (o motor antigo punha a unidade seguindo o herói).
+- Testes (m63 Xara, m77 o bom necromante, m110 os druidas): a unidade que passa ao jogador fica no grupo dela, em Stand ground (`hold`,
+  comando 3), e o jogador manda ela andar. Na m63, a fala final mantém o herói ao lado da Xara: a tarefa de andar do exe que sobrou da
+  ordem de pegar o saco o leva embora (era assim antes; passava porque a Xara o seguia).
+- Bateria verde: test:sim, test:script, typecheck, golden 80,75 %, loadcmp 46/46 ×2, tickcmp `--all`; `--joins` igual, com a m110 em
+  **560**: o 24897 (druida que passou ao jogador) lança magia no exe (act 0xd, mana 238 → 233) e no nosso não. Suspeita: a classe 8 do
+  lado humano (0x5696e8, ponte da fila) ou o AutoCasting do jogador.

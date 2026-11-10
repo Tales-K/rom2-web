@@ -88,7 +88,7 @@ import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
 import { castAt, exeFlee, legacyThink, pickOffensive } from "./ai";
 import {
-  ClientOrder, EMPTY_GROUP, fn_0x52afd2, aiGroupCmdGuard, aiGroupCmdMove, aiGroupCmdSwarm2, aiGuardLoad, clientOrder, fn_0x52ae43, fn_0x52af8c, fn_0x53d690,
+  ClientOrder, EMPTY_GROUP, fn_0x52afd2, aiGroupCmdGuard, aiGroupCmdMove, aiGroupCmdSwarm2, aiGuardLoad, clientOrder, fn_0x4f0568, fn_0x52ae43, fn_0x52af8c, fn_0x53d690,
   aiNewGroupStandGround, fn_0x5708ff, fn_0x570946, fn_0x570b8b, fn_0x570d26,
 } from "./exe/orders";
 import { canRevive, healDying, onFell, raiseDead, summonCreature, CORPSE } from "./necro";
@@ -716,6 +716,24 @@ export class World {
     g.addr = this.exeWorld.allocGroupAddr() >>> 0;
     this.exeWorld.groupsByAddr.set(g.addr, g);
     return g;
+  }
+  /** Troca de dono pelo script ("Change unit's owner" 0x578291, "Change group's owner" 0x5782ba → 0x4f0568): a unidade fica sozinha
+   *  num grupo novo do dono novo, em Stand ground (AI_NewGroupStandGround 0x570f2b) — não segue o herói nem guarda o grupo antigo. No
+   *  motor: o modo `hold` (o Stand ground do grupo, `exeGroupCmdKey` "h", já aplicado) e sem grupo do script (`group` 0). A morte
+   *  consumada já saiu da lista do script (0x51618e) e não passa aqui. */
+  changeOwner(u: Unit, p: number): void {
+    if (u.bodyDead) return;
+    u.player = p;
+    u.group = 0;
+    u.groupTarget = 0;
+    u.suspended = false;
+    u.ai = { type: "hold" };
+    if (this.exeExact) return;
+    const g = this.exeNewGroup();
+    fn_0x4f0568(this.exeWorld, u.rec, this.exePlayer(p), g);
+    this.exeGroups.set(-u.id, g);
+    this.groupCmdApplied.set(g.addr, "h");
+    this.humanScriptCmd.delete(u.id);
   }
   /** Assinatura do comando de grupo que o `AiMode` da unidade pede ao exe (o despachante do script 0x577cee → AI_GroupCmd_*), ou null
    *  quando nada muda por aqui (Guard de grupo do script: `initGroupGuard`; modos do motor antigo). */

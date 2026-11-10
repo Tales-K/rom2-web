@@ -1032,7 +1032,9 @@ async function m110(): Promise<void> {
   killAll(r, knights(r)); settle(r, CYC2);
   check(has(r, 3) && !has(r, 2) && r.b.host.scenarioVars.get(779) === 1, "cavaleiros mortos: msg 3 (druidas triunfam) e 779 = 1");
   check(druids(r).filter(u => u.alive).length >= 10 && druids(r).every(u => u.player === 1), "os druidas sobreviventes passam ao jogador (Make druids ours)");
-  check(druids(r).every(u => !u.alive || u.ai?.type === "defend" || u.ai?.type === "follow"), "os druidas do jogador passam a acompanhar o grupo");
+  // a troca de dono (0x4f0568) põe cada um sozinho num grupo novo do jogador, em Stand ground (oráculo m110_join, T=533: o G12 fica vazio)
+  check(druids(r).every(u => !u.alive || (u.ai?.type === "hold" && u.rec.type.members.count === 1 && u.rec.type.stats.f20 === 3)),
+    "os druidas do jogador ficam cada um no seu grupo, em Stand ground");
   check(!r.outcome, "só a facção vencedora: sem desfecho (falta matar Urd)");
   const grp = r;
   // o super-lich morto: msg 4

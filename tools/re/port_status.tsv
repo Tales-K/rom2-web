@@ -194,7 +194,7 @@ addr	name	size	file	line	status	ts	note
 0x4eff90	FUN_004eff90	574	game/g_4e0000.c	10022	pending		
 0x4f04cf	Server_WorldTick	121	game/g_4f0000.c	118	pending		
 0x4f0548	FUN_004f0548	32	game/g_4f0000.c	143	pending		
-0x4f0568	FUN_004f0568	324	game/g_4f0000.c	154	pending		
+0x4f0568	FUN_004f0568	324	game/g_4f0000.c	154	ported	orders.ts:fn_0x4f0568	pelo script (0x578291/0x5782ba, World.changeOwner); sem a lista de unidades do dono, a máscara +0x18 e o aviso ao cliente; m110_join livre T=533 -> 560
 0x4f06ac	FUN_004f06ac	390	game/g_4f0000.c	199	pending		
 0x4f0832	FUN_004f0832	61	game/g_4f0000.c	263	pending		stub NotPorted em walk_action.ts:fn_0x5503af (exec 0; objeto de célula de tipo ≠ 0x17)
 0x4f086f	FUN_004f086f	70	game/g_4f0000.c	278	pending		

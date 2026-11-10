@@ -122,6 +122,19 @@ export function fn_0x52af8c(param_1: UnitTypeRec, u: UnitRec): void {
   param_1.owner = u.owner;
 }
 
+/** 0x4f0568 (unidade, dono novo; "Change unit's owner" 0x578291 e "Change group's owner" 0x5782ba por membro da lista +0x60 do valor
+ *  do script): a unidade sai do grupo (0x52afd2), passa ao dono novo (+0x14) e entra sozinha num grupo novo (`new` 0x50 + 0x52ae43, `g`)
+ *  no fim da lista de grupos dele (0x53d690), com AI_NewGroupStandGround 0x570f2b — o grupo antigo fica (vazio, se era o último) com o
+ *  dono antigo. Não espelhados: a lista de unidades do dono ([+0x24]+4: 0x53afb0 tira, 0x52b22a põe), a máscara +0x18 (&= ~ as +0x30
+ *  dos dois donos), o aviso 0xffb ao cliente (Server_Event) e +0x204 = 1. */
+export function fn_0x4f0568(wd: WorldRec, u: UnitRec, p: PlayerRec, g: UnitTypeRec): void {
+  if (u.type !== EMPTY_GROUP) fn_0x52afd2(u.type, u);
+  u.owner = p;
+  fn_0x53d690(p.groups, g.addr);
+  fn_0x52af8c(g, u);
+  aiNewGroupStandGround(wd, g);
+}
+
 // ---------------------------------------------------------------------------------------------------------- por unidade
 
 /** 0x56d032 (thiscall; unidade, x byte, y u16): ordem de andar — 0x56dbfb, destino limitado à área útil (mapa+0x58eb8..bb), classe +0x50

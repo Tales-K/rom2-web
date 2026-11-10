@@ -649,7 +649,9 @@ async function m77(): Promise<void> {
   check(has(r, 2) && sub(r, 1) === 1, "chefe com o herói: msg 2, sub 1 (achar o bom necromante) ativo");
   beside(r, h, 144); settle(r);
   check(has(r, 5) && sub(r, 1) === 2 && good.player === 1, `bom necromante com o herói: msg 5, sub 1 cumprido e ele passa para o jogador (jogador ${good.player})`);
-  check(good.ai?.type === "defend", `ele acompanha o grupo (ai ${JSON.stringify(good.ai)})`);
+  // a troca de dono (0x4f0568) o põe sozinho num grupo novo do jogador, em Stand ground: não segue o herói (oráculo m110_join, T=533)
+  check(good.ai?.type === "hold" && good.rec.type.members.count === 1 && good.rec.type.stats.f20 === 3,
+    `ele fica no grupo dele, em Stand ground (ai ${JSON.stringify(good.ai)}, comando ${good.rec.type.stats.f20})`);
   // túmulo (48,25): o bom necromante levanta o fantasma
   check(!has(r, 8) && !sub(r, 2), "(ainda não no túmulo)");
   at(r, h, 80, 20); at(r, good, 48, 26); settle(r);

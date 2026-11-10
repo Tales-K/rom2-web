@@ -5,7 +5,6 @@
 import { FAR_AWAY, HERO_UNIT_ID, type Cell, type GroupCommand, type ScriptHost, type ScriptLogLevel } from "../script";
 import type { Unit, World } from "../sim/world";
 import { buildSpell, type SpellTable } from "../sim/spells";
-import { attachFollowers } from "../sim/behaviors";
 
 export interface HostCallbacks {
   message(n: number): void;
@@ -205,15 +204,9 @@ export class MissionHost implements ScriptHost {
   }
   changeUnitOwner(ref: number, p: number): void { const u = this.u(ref); if (u) this.setOwner(u, p); }
   changeGroupOwner(g: number, p: number): void { for (const u of this.groups.get(g) ?? []) this.setOwner(u, p); }
-  /** Troca de dono. Quem passa para o jogador 1 (Xara da 63, druidas 60/62 da 62) acompanha o herói como os companheiros (formação/autocast,
-   *  `attachFollowers`); quem sai do jogador 1 volta a guardar o lugar onde está. */
-  private setOwner(u: Unit, p: number): void {
-    const was = u.player;
-    u.player = p;
-    const hero = this.hero;
-    if (p === 1 && was !== 1 && hero && u !== hero && u.alive) attachFollowers(this.world, hero, [u], 3);
-    else if (p !== 1 && was === 1 && u !== hero && u.ai?.type === "defend") { u.home = { x: u.cx, y: u.cy }; u.ai = { type: "guard", range: 8 }; this.world.command(u, { type: "none" }); }
-  }
+  /** Troca de dono (0x4f0568): a unidade vai sozinha para um grupo novo do dono novo, em Stand ground — quem passa para o jogador 1
+   *  (Xara da 63, druidas 60/62 da 62, cavaleiros e druidas da 110) não segue o herói (`World.changeOwner`; m110_join, T=533). */
+  private setOwner(u: Unit, p: number): void { this.world.changeOwner(u, p); }
   /** "Suspend group" (0x5781a7): o grupo perde o "sempre acordado" (+0x48 = 0); as unidades não param (oráculo m110_join, T=5). */
   suspendGroup(g: number): void { this.world.exeSuspendGroup(g); }
   addItem(ref: number, item: number): void { this.u(ref)?.items.push(gameItem(item)); }
