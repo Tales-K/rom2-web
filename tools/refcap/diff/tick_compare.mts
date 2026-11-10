@@ -41,6 +41,7 @@ const gzLines = (p: string): string[] => {
 };
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 const EPISODES = ["m10_start_s1", "m10_mage_s102", "m20_start_s203"];
+const JOINS = ["m30_join", "m31_join", "m50_join", "m60_join", "m70_join", "m110_join"];
 
 /** Campos do oráculo que o nosso motor não representa (não contam como divergência). */
 export const NAO_MODELADO: Record<string, string> = {
@@ -516,7 +517,8 @@ function printNaoModelado(): void {
 async function main(): Promise<void> {
   const a = process.argv.slice(2);
   const arg = (k: string): string | undefined => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : undefined; };
-  const ids = a.includes("--all") ? EPISODES : (arg("--episode") ?? EPISODES[0]!).split(",");
+  // --joins: os 6 episódios da junção do oráculo (missão desde a carga, tools/re/oracle/join_episode.py) — bateria da F2 item 4
+  const ids = a.includes("--all") ? EPISODES : a.includes("--joins") ? JOINS : (arg("--episode") ?? EPISODES[0]!).split(",");
   const opt: Opts = { fields: arg("--fields") ? new Set(arg("--fields")!.split(",")) : null, replay: a.includes("--replay"), resync: !a.includes("--no-resync"),
     max: arg("--max") ? Number(arg("--max")) : undefined, quiet: a.includes("--quiet"), dump: arg("--dump"), freeFrom: arg("--free-from") ? Number(arg("--free-from")) : undefined,
     freeShow: arg("--free-show") ? Number(arg("--free-show")) : undefined };

@@ -774,3 +774,13 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   - ai.ts lança o Poison Cloud depois do fim da Wall of Fire: a área com fogo do exe anula a nuvem nas células dela.
 - Bateria: test:sim, test:script 49/49 e typecheck verdes; as 9 antigas, m31, m50 e m70 sem divergência; golden 80,75 % (sai com 0);
   loadcmp 46/46 com e sem MapRec.
+
+# tickcmp reancorado dos episódios da junção: a patrulha importada; `tickcmp --joins` na bateria
+- Erro `CList::GetNext com POSITION nula` em 0x569b62 (aiTaskPatrol) na m30/m60/m70: o ponto corrente da patrulha (IA+2) vem do
+  despejo, mas a lista IA+0xb4 não (o despejo para em IA+0xb4, REC_N). A nossa lista era a A↔B da ordem do motor antigo, ou vazia
+  (24629 da m70: a classe 0xa no original, sem patrulha no nosso). A importação agora põe o ponto corrente no fim da lista, quando ele
+  falta [est: a lista real não vem no despejo; para fechar, despejar a CList de IA+0xb4 no `dump_ticks`].
+- `npm run tickcmp -- --joins` roda os 6 episódios da junção (reancorado + corrida livre). Medida de hoje: m30 99,1 % (livre 2037),
+  m31 99,9 % (livre sem divergência), m50 96,5 % (livre sem), m60 93,1 % (livre 302), m70 93,8 % (livre sem), m110 87,6 % (livre 517).
+  O reancorado fica abaixo do livre nas que não divergem: a janela importada não traz tudo (as listas de patrulha, os gatilhos já
+  disparados do script).

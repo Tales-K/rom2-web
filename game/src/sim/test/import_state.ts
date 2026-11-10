@@ -481,6 +481,12 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
     // registro do exe (fonte de verdade do andar): exato com o despejo da etapa 6, senão derivado do estado (janelas do golden)
     if (o.exe) {
       unitRecFromOrig(u.rec, o, addrOf);
+      // o ponto corrente da patrulha (IA+2) do despejo sempre está na lista IA+0xb4 do exe, mas a lista não vem no despejo (REC_N = 0xb4):
+      // a nossa é a A↔B da ordem do motor antigo. Fora dela, entra no fim [est] — senão 0x569b62 lê GetNext de POSITION nula (tickcmp
+      // reancorado das m30/m60/m70: o script põe patrulhas de mais de 2 pontos)
+      // (lista vazia na tarefa de patrulha, classe 0xa: a unidade patrulha no original e não no nosso — o ponto corrente vira a lista)
+      { const pt = u.rec.ai.patrol, cur = u.rec.ai.f02 & 0xffff;
+        if (cur !== 0 && !pt.find(cur, null) && (pt.getCount() > 0 || (u.rec.task & 0xff) === 0xa || (u.rec.ai.task & 0xff) === 0xa)) pt.addTail(cur); }
       // a instância do livro do despejo (Spell_Instance de quando o livro nasceu: o exe não a refaz pelo poder de agora; m110_join, o
       // 24909 com o Stone Missile de alcance 7, não os 11 do poder atual)
       const bk = o.book as { slot?: number; id: number; range?: number; dmin?: number; damp?: number; f10?: number }[] | undefined;
