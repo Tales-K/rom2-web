@@ -2395,8 +2395,13 @@ export class World {
     // [est: estado importado sem o despejo do exe — janelas do golden] a magia em curso (+0x64) não vem no estado exportado: a do motor
     // antigo (no exe +0x64 nunca é 0 com a ação 0xd/0xe)
     if ((r.act === 0xd || r.act === 0xe) && (r.f64 >>> 0) === 0 && u.castSpell) r.f64 = this.spellAddr(u.castSpell);
+    const task0 = r.ai.task & 0xff;
     try {
       unitActionMachine(this.exeWorld, r, this.exeHooks);
+      // lado humano: a ordem do cliente é de uma vez (o pacote põe a tarefa). Se o despachante a larga (0x56dca2, cauda do caminho
+      // dinâmico vazio: IA+8 = 0 e 0x56ed4e), ela não volta — a ordem apresentada do motor antigo acaba junto (m60_join T=97: o herói
+      // perto do alvo que anda fica parado, IA+8 = 0, até a ordem seguinte)
+      if (task0 === 5 && (r.ai.task & 0xff) === 0 && u.order.type === "attack" && u.exeTask && !this.isAiPlayerUnit(u)) u.order = { type: "none" };
     } catch (e) {
       if (!(e instanceof NotPorted)) throw e;
       // ramo do exe ainda não portado (exec 0 no corpus): a unidade para em vez de derrubar o jogo

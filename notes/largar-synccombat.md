@@ -664,3 +664,16 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - Medidas: **m60 T=33 → T=98** (o herói larga o alvo no original: `act` 0 × 1, `target` 0 × 24641, a mesma assinatura da m30 em 1076 e
   da m50 em 834 — a próxima a ver). As outras iguais (m70 e as 9 antigas sem divergência; m30 1076, m31 1840, m50 834, m110 517);
   golden 80,75 % (sai com 0); loadcmp 46/46; test:sim, test:script e typecheck verdes.
+
+# m60 T=98, m30 T=1076, m50 T=834: a ordem do cliente acaba quando o despachante larga a tarefa
+- Assinatura comum (`act` 0 × 1, `target` 0 × alvo, `walk_static` vazio × caminho): no original o herói, ao lado do alvo que anda, fica
+  parado. Gancho de escrita (m60_join T=97): na perseguição (0x55574d → 0x555ace), o caminho dinâmico até a célula final (a dele) sai
+  vazio, e walk+0x98 = 1 (0x555f47). Na cauda do despachante 0x56dca2, com a classe 3, vem IA+8 = 0 (0x56e341) e 0x56ed4e. A IA+8 fica
+  0 até a ordem seguinte. Os pares do fnprobe gravados nesse trecho por `join_pairs.py` (pasta `m60_chase`) batem com a porta
+  (0x56dca2 855/855, 0x55574d 1/1): o nosso fazia o mesmo no tique, mas o laço de ordens do motor antigo ("lado humano pelo porte")
+  repunha a tarefa 5 no tique seguinte, a partir da ordem `attack` que seguia em `u.order`.
+- **Correção** (`World.machine`): numa unidade do lado humano com a tarefa do exe, quando a máquina/despachante leva a IA+8 de 5 a 0
+  com a ordem `attack` apresentada, a ordem acaba (`none`). No exe, a ordem do cliente vale uma vez (o pacote põe a tarefa).
+- Medidas: **m50_join livre: nenhuma divergência** (antes 834); **m30 1076 → 2037**; **m60 98 → 282** (o `speed_eff`/`turn` da Dina:
+  18 × 20, o fim do Haste); m70 e as 9 antigas sem divergência; m31 1840 e m110 517 iguais; golden 80,75 % (sai com 0); loadcmp
+  46/46; test:sim, test:script e typecheck verdes.
