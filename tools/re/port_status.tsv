@@ -425,7 +425,7 @@ addr	name	size	file	line	status	ts	note
 0x5160ef	FUN_005160ef	21	game/g_510000.c	3602	ported	unitByte43	exe_walk.ts: pares 100% (3 episódios)
 0x516104	Cheat_KillAll	97	game/g_510000.c	3611	pending		
 0x516165	FUN_00516165	41	game/g_510000.c	3638	pending		
-0x51618e	FUN_0051618e	93	game/g_510000.c	3650	pending		
+0x51618e	FUN_0051618e	93	game/g_510000.c	3650	ported	world.ts:consumeDeath	a morte consumada sai do grupo (0x52afd2) e o grupo vazio de dono humano sai do dono; a lista +0x24 do dono não é espelhada; m110_join livre T=85 -> 517
 0x516238	Cheat_CreateGold	55	game/g_510000.c	3682	pending		
 0x5162f6	FUN_005162f6	726	game/g_510000.c	3743	pending		
 0x5165dd	FUN_005165dd	489	game/g_510000.c	3830	pending		

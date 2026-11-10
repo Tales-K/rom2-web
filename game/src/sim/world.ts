@@ -88,7 +88,7 @@ import { VIS_COST, VIS_PARENT } from "./vision_tables";
 import { Rng, type RandSite } from "./rng";
 import { castAt, exeFlee, legacyThink, pickOffensive } from "./ai";
 import {
-  ClientOrder, EMPTY_GROUP, aiGroupCmdGuard, aiGroupCmdMove, aiGroupCmdSwarm2, aiGuardLoad, clientOrder, fn_0x52ae43, fn_0x52af8c, fn_0x53d690,
+  ClientOrder, EMPTY_GROUP, fn_0x52afd2, aiGroupCmdGuard, aiGroupCmdMove, aiGroupCmdSwarm2, aiGuardLoad, clientOrder, fn_0x52ae43, fn_0x52af8c, fn_0x53d690,
   aiNewGroupStandGround, fn_0x5708ff, fn_0x570946, fn_0x570b8b, fn_0x570d26,
 } from "./exe/orders";
 import { canRevive, healDying, onFell, raiseDead, summonCreature, CORPSE } from "./necro";
@@ -774,6 +774,7 @@ export class World {
    *  0x570b8b [est]) e que só as ordens do cliente (`command` → `clientOrder`) trocam. Jogador de IA: o grupo do script (`u.group`) ou um
    *  por unidade; o comando vem do `AiMode` pela porta (`exeApplyGroupCmd`), aplicado uma vez por mudança. */
   private exeGroupSync(u: Unit): UnitTypeRec {
+    if (u.bodyDead) return u.rec.type;   // a morte consumada já saiu do grupo (0x51618e): não volta
     const p = this.exePlayer(u.player);
     if (u.rec.owner !== p) u.rec.owner = p;
     if (!this.isAiPlayerUnit(u)) {
@@ -3164,6 +3165,14 @@ export class World {
     if (this.grid.occ[i] === t.id) this.grid.occ[i] = 0;
     t.bodyDead = true;
     this.exeWorld.lists.all.remove(t.rec.addr); this.exeWorld.lists.corpses.addTail(t.rec.addr);   // contentor [0x68d2dc] (0x52bbb7)
+    // 0x52b459 (ação 0x10) → 0x51618e: sai do grupo (0x52afd2: +0x70 = 0) e o grupo que ficou vazio, de dono humano (+0x2c = 0), sai da
+    // lista do dono (0x539d50); a lista de unidades do dono (+0x24) não é espelhada. Sem isso o pensamento do grupo seguia rodando o
+    // morto (m110_join T=85: o 24911 caído chamava AI_CasterOffensiveSpell)
+    const g0 = t.rec.type;
+    if (g0 !== EMPTY_GROUP) {
+      fn_0x52afd2(g0, t.rec);
+      if (g0.members.count === 0 && g0.owner && (g0.owner.f2c >>> 0) === 0) g0.owner.groups.remove(g0.addr);
+    }
     const killer = t.felledBy ? this.get(t.felledBy) : undefined;
     if (t.silentFall) { t.silentFall = false; this.onDeath?.(t, killer); }   // caiu por "vida 0" do script (knockOut): as regras de falha só agora
     this.events.push({ type: "death", unit: t.id, killer: t.felledBy });

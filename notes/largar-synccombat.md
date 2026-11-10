@@ -619,3 +619,14 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   `stable` sem as fora de fase). port_status: 0x5102a3, 0x5103ae, 0x57821e, 0x578236.
 - Medidas: **m70_join livre: nenhuma divergência** (antes T=21); m30 1076, m31 997, m50 834, m60 33, m110 85 iguais; as 9 corridas
   antigas sem divergência; golden 79,99 % (CI ok); loadcmp 46/46 (com e sem MapRec); test:sim, test:script e typecheck verdes.
+
+# m110 T=85 → T=517: a morte consumada sai do grupo (0x52b459 → 0x51618e)
+- Sorteios do T=85: o original tem 16+9 sorteios de AI_CasterOffensiveSpell (0x57a862/0x57a7b8), o nosso 17+10. Pelos chamadores
+  (gancho em 0x57a769 no oráculo e no nosso), o nosso chama a magia para o 24911, que já está morto (ação 0x10, vida −34, nos dois).
+- No exe, 0x52b459 (o laço das unidades) faz, com a ação 0x10: 0x51618e = 0x52afd2 (sai da lista de membros do grupo, +0x70 = 0),
+  e o grupo vazio de dono humano (dono+0x2c = 0) sai da lista do dono (0x539d50). Depois tira de [0x68d2dc]+4. O nosso
+  `consumeDeath` só trocava de lista; o pensamento do grupo seguia rodando o morto. Agora ele sai do grupo, e o `exeGroupSync` não
+  põe de volta quem tem a morte consumada. A lista de unidades do dono (+0x24) não é espelhada.
+- Medidas: **m110 T=85 → T=517** (`player` de 24895–24897: 3 × 1 — troca de dono); **m31 T=997 → T=1840**; **golden 79,99 % →
+  80,75 %** (1 janela pior, 14 melhores; CI saiu com 0); m70 e as 9 corridas antigas sem divergência; m30 1076, m50 834, m60 33
+  iguais; loadcmp 46/46; test:sim, test:script e typecheck verdes.
