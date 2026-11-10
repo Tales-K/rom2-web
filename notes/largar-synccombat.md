@@ -711,3 +711,25 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   dá +1 de mana máx. O nosso companheiro (sem `exeBase`, sem `heroInfo`) fica com a mana máx. do motor antigo. Testado e desfeito:
   `exeBase` no companheiro importado — sem efeito (falta ver se a experiência do lançamento e a subida de nível rodam para ele: o
   `xpOnCast` → `exeXp` e o 0x5128cb).
+
+# 6.ª missão: m60 e m110 travadas por blocos de trabalho (investigado, NÃO corrigido)
+- **m60 T=302** (mana máx. da Dina 186 → 187 no original): a experiência do lançamento (0x5131ef → 0x513128/0x5128cb) roda para o
+  companheiro pela porta (`exeXp` chama a porta em toda unidade), mas o registro dele não tem a experiência +0x23c nem as
+  habilidades-base +0x116: o `import_state` só põe o `xp` do despejo na `heroInfo` do herói. E o recálculo vtable+0x58 do companheiro
+  sem `exeBase` é o `syncCombat` do motor antigo (mana máx. dos dados). Testado e desfeito: importar +0x23c/+0x116/+0x130 e ligar
+  `exeBase` no companheiro. Aí o 0x51366b portado refaz tudo pelos atributos-base (que o despejo não traz inteiros: corpo/mente-base,
+  bônus) e dá mana máx. 24, e a Dina morre no T=14. **Bloco**: o companheiro precisa do registro da criação portada (0x5145d1 pelo
+  modelo de herói do estágio, como o `createMapUnit` faz para o mapa) ou do despejo dos atributos-base.
+- **m110 T=517** (o dono de 24895–24897, 3 × 1): o gatilho "Some followers dead" (v70 > 0 → "Make knights ours") dispara no nosso no
+  T=517 e no original no T=534 (o ciclo seguinte do script). O v70 vem de "Druids dead" ("How many units contains this group" 12 ==
+  0). Os 14 druidas estão na ação 0x10 nos dois desde o T=506 (morte consumada). O valor do exe ainda não é 0 no ciclo de 517. Falta
+  achar o que o exe conta (a lista do grupo do script, +0x60 do valor, e quando a unidade sai dela) ou se os valores do ciclo são
+  calculados antes da morte. Ver também a nota de 31/10 (`bugs-2026-10-31-fase1.md` §3) e o item (b) do "script do oráculo" acima
+  (valores no começo do ciclo, 0x574899).
+- Meta: continua em 5 missões (10, 20, 31, 50, 70).
+
+# Incidente (2026-11-10): o `git checkout HEAD -- game/src/mission/host.ts` desta sessão apagou mudanças de outra sessão
+- Para tirar um log de rascunho, restaurei o host.ts do HEAD. Isso apagou as mudanças não commitadas que já estavam lá (useTarget/
+  useFrom/areaHitStructures/exists/wake/teleportation...). O coordenador foi avisado na hora, e o arquivo foi restaurado por outra
+  sessão. Conferido contra a última compilação em cache do tsx antes do incidente (`%TEMP%\tsx-TALES K\17940-e497…`, 06/11 23:26):
+  idêntico, salvo `groupUnits` (`this.exists(u)` antes × `u.alive` no restaurado) — avisado.
