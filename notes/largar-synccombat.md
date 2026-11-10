@@ -692,3 +692,16 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   m60 em 302. Obs.: o tickcmp reancorado (`--episode mXX_join`) quebra na m30/m60/m70 (CList::GetNext com POSITION nula em 0x5692d5,
   a patrulha importada na janela) — o modo reancorado dos episódios da junção não estava na bateria; a medida da meta é a corrida
   livre.
+
+# m30 T=2037: do episódio (lixo de pilha no oráculo), não do motor — o limite [est] do destino fica
+- Sintoma: `walk_goal` 0 × 0x808 em 24714–24717. Ganchos no oráculo: 0x5728fa (comando 0x12) → AI_MoveTo(IA+0x9c = 0), e o despachante
+  manda 0x555411 andar para a célula 0. A onda até (0,0) dá caminho estático vazio, então destino 0 e fim de caminho no mesmo passo
+  (walk+0x98 = 1), e a IA+8 volta a 0xb. Os pares do trecho (`join_pairs.py`, pasta `m30_walk`: 0x555411 4/4, 0x56dca2 218/218)
+  batem com a porta.
+- O nosso diverge pelo [est] do `World.order` (case "move"): o destino fora da área útil é limitado a 8..lado−9. Esse [est] vem de
+  medida no JOGO REAL (m20_mage_s404, 24639, T=288: o original anda para oeste); no exe, a volta do caminho até a célula 0 lê lixo de
+  pilha (0x54e886). Testado sem o limite: a m30 fica sem divergência em 2400 tiques, mas o golden cai de 80,75 % para 79,76 % (17
+  janelas piores, todas de saves do jogo real). O lixo de pilha do Unicorn não é o do jogo, então o que o oráculo faz aqui é do
+  episódio. **Desfeito; o limite fica.**
+- Meta "livre ≥ 99 % em ≥ 6 missões": 5 missões sem divergência (10, 20, 31, 50, 70). A m30 para em 2037/2400 por esse artefato. Para
+  a 6.ª: a m60 (T=302) ou a m110 (T=517), ou um episódio da m30 sem a fuga para a célula 0.
