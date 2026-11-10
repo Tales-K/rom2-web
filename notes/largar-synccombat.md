@@ -578,3 +578,16 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   (vida 100000) não valia para o herói: a vida +0x94/+0x96 é short e o recálculo 0x51366b refaz a máxima pelo corpo. Agora há
   `makeImmortal` (pilot.ts): 30000 PV, e o `keep` repõe a máxima a cada tique.
   Bateria igual (9 corridas sem divergência, golden 79,99 %, loadcmp 46/46, test:sim, test:script); **m110 T=49 → T=85** (rng).
+
+# m60 T=13 (rng): do episódio, não do motor — a importação não criava os companheiros; agora T=33
+- Gancho no rand() cru do CRT (0x583290, com `ctl_flush_tb`; os ganchos nos envoltórios não viam este): no T=13 o original sorteia 3
+  vezes, o nosso 2. O 3.º é o Rand_Inclusive(3) de 0x50f7b7 (a espera da fase 7 da máquina 0x50f12c) da **Dina** (id 2 do original,
+  jogador 1, tipo 0x24, 26 PV), que lança desde o T=5. No nosso mundo importado a Dina não existia: a junção cria os companheiros pelo
+  Server_InnNpcCreate antes do StartMap, e o `worldFromState` só montava o mapa e o herói. O `spawnUnmatched` também não a criava (não
+  há modelo de tipo 0x24 no unit-templates). Faltava também o livro: o companheiro nasce do modelo sem magias.
+- **Correção (só a importação, `game/src/sim/test/import_state.ts`)**: com `from_load`, os companheiros nascem do modelo
+  (`spawnCompanions`: Igles 10002 para o tipo 0x21, Dina 10003 para o 0x24) pelas unidades do jogador 1 do original além do herói, sem o
+  `attachFollowers` dos pilotos. As magias do livro do despejo que a unidade não tem (contando as de chance e a da arma, que também
+  vão ao livro espelhado) entram em `u.spells`; a instância continua vindo do despejo (`keep`). m30/m50/m70 ganham o Igles; m60 a Dina.
+- Medidas: **m60 T=13 → T=33** (`turn` do herói: 19 × 16); m30 1076, m31 997, m50 834, m70 21 e m110 85 iguais; as 9 corridas
+  antigas sem divergência; golden 79,99 % (CI ok); loadcmp 46/46; test:sim e test:script verdes.

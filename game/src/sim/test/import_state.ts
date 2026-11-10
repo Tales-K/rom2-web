@@ -8,7 +8,7 @@
  *   npx tsx src/sim/test/import_state.ts --state ../refs/trace/diff/state_m10_start.json [--json]
  */
 import type { HeroState } from "../../core/state";
-import { defaultHero, spawnFromTemplate, spellDef } from "../../mission/setup";
+import { defaultHero, spawnCompanions, spawnFromTemplate, spellDef } from "../../mission/setup";
 import { snapshotMission, restoreMission, type MissionSnapshot } from "../snapshot";
 import { thinkPhaseFor, World, type Unit } from "../world";
 import { TICKS_PER_SEC } from "../types";
@@ -283,6 +283,14 @@ export async function worldFromState(st: OrigState): Promise<Imported> {
   if (st.terrain_speed) {
     st.terrain_speed.forEach((row, y) => row.forEach((f, x) => { w.exeBase[y * 256 + x] = f & 0xff; w.exe.mem[y * 256 + x] = f & 0xff; }));
   }
+  // entrada nova (a junção do oráculo, tools/re/oracle/join_episode.py): o Server_InnNpcCreate cria os companheiros antes do
+  // Server_StartMap; aqui eles nascem do modelo (Igles 10002, o guerreiro de tipo 0x21; Dina 10003, a maga de tipo 0x24) pelas unidades
+  // do jogador 1 do original além do herói, e casam com elas (sem o `attachFollowers` dos pilotos: no exe são unidades do jogador
+  // humano, sem seguir o herói). m60_join: sem a Dina, a 1.ª divergência era o sorteio da magia dela (T=13, 0x50f7b7)
+  if (st.from_load) {
+    const comp = st.units.filter(o => o.player === 1 && o.id !== st.hero && origAlive(o)).map(o => (o.type === 0x24 ? 10003 : o.type === 0x21 ? 10002 : 0)).filter(Boolean);
+    spawnCompanions(r.b, data, comp);
+  }
   const idmap = matchUnits(w, st, r.b.hero);
   // unidades do original sem par (criadas pelo script antes do save, ex.: 3 humanos do jogador 3 na m20_start): cria do template do
   // mesmo tipo (o de vida máx. mais próxima) no lugar delas; o estado (stats, vida, ordem) vem do applyState
@@ -462,6 +470,14 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
       if (!u.orderArmed) u.orderTick = w.tick - TICKS_PER_SEC;
     }
     else if (u.order.type === "attack" || u.order.type === "move" || u.order.type === "cast") w.command(u, { type: "none" });
+    // as magias do livro do original que a nossa unidade não tem (o companheiro da entrada nova nasce do modelo sem livro; no exe o
+    // Server_InnNpcCreate dá o livro do estágio: m60_join, a Dina com Fire Arrow, Protection from Fire, Bless, Haste, Heal e Shield)
+    const bk0 = o.book as { id: number }[] | undefined;
+    if (bk0?.length && w.spellTable) {
+      // (as magias de chance e a da arma também vão ao livro espelhado: não contam como faltando)
+      const have = new Set([...u.spells, ...u.procSpells.map(p => p.spell), ...(u.weaponSpell ? [u.weaponSpell] : [])].map(sp => Number(sp.base ?? sp.id)));
+      for (const b of bk0) if (!have.has(b.id) && w.spellTable[String(b.id)]) u.spells.push(spellDef(b.id, w.spellTable[String(b.id)] as never, 0));
+    }
     // registro do exe (fonte de verdade do andar): exato com o despejo da etapa 6, senão derivado do estado (janelas do golden)
     if (o.exe) {
       unitRecFromOrig(u.rec, o, addrOf);
