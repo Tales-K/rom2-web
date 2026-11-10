@@ -630,3 +630,12 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - Medidas: **m110 T=85 → T=517** (`player` de 24895–24897: 3 × 1 — troca de dono); **m31 T=997 → T=1840**; **golden 79,99 % →
   80,75 %** (1 janela pior, 14 melhores; CI saiu com 0); m70 e as 9 corridas antigas sem divergência; m30 1076, m50 834, m60 33
   iguais; loadcmp 46/46; test:sim, test:script e typecheck verdes.
+
+# derive.py e databin.py no git (passo 2)
+- `tools/data/derive.py` (gera o `game/public/data/*.json`, que continua fora) e `tools/data/databin.py` (o leitor do data.bin, que ele
+  importa) lidos inteiros: são código. Há só rótulos e nomes de campo, os tetos de atributo do exe (0x5136a5) e as descrições das
+  fórmulas, escritas por nós. A pasta `/tools/data/` está no .gitignore; os dois entram rastreados mesmo assim (os outros arquivos da
+  pasta continuam fora).
+- O único caminho do GOG era a fonte dos .alm de multijogador em `build_map_units` (só leitura). Agora é a cópia de execução
+  `C:\Users\TALES K\Games\a2_run`: os 9 .alm são iguais byte a byte aos da instalação, e os 6 JSON gerados saíram idênticos aos
+  de antes. Com a mudança do `effectsRaw` (o texto exato do efeito, com as aspas da Stone Curse).
