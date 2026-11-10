@@ -510,7 +510,7 @@ addr	name	size	file	line	status	ts	note
 0x51fa4e	Rand_One	23	game/g_510000.c	9913	ported	randOne	pares 0x51fa4e.jsonl 100% - 3; exe/rand.ts
 0x51fb4d	FUN_0051fb4d	28	game/g_510000.c	10003	pending		
 0x520137	FUN_00520137	123	game/g_520000.c	31	pending		raiz extra: executada no corpus sem chamador no callgraph (vtable/ponteiro)
-0x5201b2	FUN_005201b2	234	game/g_520000.c	50	pending		
+0x5201b2	FUN_005201b2	234	game/g_520000.c	50	ported	spells.ts:fn_0x5201b2	pares synth_m10_bldg 19/19 (dano > 0 em todos; a vida +0x42 conferida em 0x51e65b 22/22); a lista [[0x6044c4]+0x7c]+0x10 não é espelhada (PONTE)
 0x521083	Shop_RegenerateMsg3f	22	game/g_520000.c	806	pending		
 0x521099	FUN_00521099	48	game/g_520000.c	818	pending		
 0x5210c9	FUN_005210c9	66	game/g_520000.c	831	pending		

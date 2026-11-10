@@ -155,6 +155,7 @@ export function mapRecFromGrid(g: Grid): MapRec {
     const st = new CellStructRec();
     st.mapObj.x = s.x & 0xff; st.mapObj.y = s.y & 0xff; st.mapObj.cell = ((s.y & 0xff) << 8) | (s.x & 0xff);
     st.width = s.w & 0xff; st.cellMask = s.pass >>> 0;
+    st.hpMax = ((s.hpMax ?? 0) << 16) >> 16; st.hp = ((s.hp ?? st.hpMax) << 16) >> 16; st.sid = s.sid ?? 0;   // 0x51ff33 (+0x44, +0x42)
     m.structs.set(addr, st);
     for (let dy = 0; dy < s.h; dy++) for (let dx = 0; dx < s.w; dx++) {
       if (dy * s.w + dx >= s.n) break;   // colocação interrompida (Grid.fromMap, 0x5599df)

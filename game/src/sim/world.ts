@@ -596,6 +596,10 @@ export class World {
   /** células atingidas por magia de área que também age sobre ESTRUTURAS (Fireball, pulsos de Blizzard) [exe 0x518833 → 0x518681 com
    *  Map_StructureAtCell]: o host liga as alavancas atingidas (mission/host.ts `areaHitStructures`; medido na 103) */
   onAreaCells?: (cells: [number, number][], spell: string) => void;
+  /** áreas progressivas do exe (Blizzard) que já dissiparam as nuvens do motor antigo */
+  private readonly dispelledBy = new Set<number>();
+  /** a vida nova de um prédio do exe (dano 0x5201b2): `sid` = id da estrutura no script */
+  onStructHp?: (sid: number, hp: number) => void;
 
   /** objeto de mapa/caminho do servidor do exe (grades, ocupação: fonte de verdade do andar), o mundo dele e a memória do mapa sem
    *  unidades (base para refazer a ocupação depois de restaurar um save antigo) */
@@ -1129,6 +1133,8 @@ export class World {
       return true;
     },
     traps: () => { for (let i = 0; i < this.traps.length; i++) this.rng.draw(0x57a409); },
+    // PONTE: a classe 8 do lado humano (0x5696e8) fica com a ordem `cast` do motor antigo (o passo põe a tarefa 8 do exe)
+    castClass: () => true,
     // o script roda dentro do pensamento (0x57485b), antes do AI_PlayerThink: a diplomacia e os comandos de grupo que ele dá já valem
     // neste pensamento (o exe os escreve direto no mundo e nos grupos; aqui passam pelo motor antigo e são espelhados de novo)
     script: () => {
@@ -2305,10 +2311,12 @@ export class World {
     clientAreaPulse: (o, cells) => {
       const id = o.fc & 0xffff, src = o.f3c ? this.unitByAddr(o.f3c) : undefined;
       if (id === 7 && this.onAreaCells) this.onAreaCells(cells, String(id));
+      // PONTE [est, como no motor antigo]: a Blizzard dissipa as nuvens do motor antigo no 1.º passo (o raio da área)
+      if (id === 7 && !this.dispelledBy.has(o.addr >>> 0)) { this.dispelledBy.add(o.addr >>> 0); this.dispelClouds(o.mapObj.x & 0xff, o.mapObj.y & 0xff, o.f4d & 0xff); }
       this.events.push({ type: "blast", spell: String(id), x: cells[0]![0] + 0.5, y: cells[0]![1] + 0.5, radius: 0.5, unit: src?.id ?? 0 });
     },
-    // PONTE (#94): o dano da área progressiva no prédio (0x5201b2) não está portado; o prédio fica como estava
-    areaHitObject: () => { /* nada */ },
+    // o dano no prédio (0x51e65b → 0x5201b2, exe/spells.ts): a vida do script ("Health of building") segue a do prédio do exe
+    clientStructHit: s => { if (s.sid) this.onStructHp?.(s.sid, (s.hp << 16) >> 16); },
     clientHit: (a, t, dmg) => this.hookHit(a, t, dmg),
     xpOnHit: (a, t, dmg, p3) => this.exeXp(a, () => unitXpOnHit(this.exeWorld, a, t, dmg, p3, this.exeHooks)),
     fell: r => this.hookFell(r),
@@ -2544,6 +2552,9 @@ export class World {
       return;
     }
     if (i >= 0) { this.areas[i]!.cells = cells; return; }
+    // PONTE [est, como no motor antigo]: a Wall of Fire / a explosão da Fireball do exe dissipam as nuvens (camada 2) do motor antigo que
+    // cobrem (o enigma da missão 95); as nuvens do mapa/script não são SpellArea do exe, e o 0x5189b5 não as vê
+    if ([SPELL.WallOfFire, SPELL.Fireball].includes((o.fc & 0xffff) as never)) this.dispelClouds(cx, cy, r);
     const src = o.f3c ? this.unitByAddr(o.f3c) : undefined, never = Number.MAX_SAFE_INTEGER;
     const a: SpellArea = {
       id: this.nextId++, spell: String(o.fc & 0xffff), kind: "field", owner: src?.id ?? 0, player: src?.player ?? 0, x: cx, y: cy, radius: r,

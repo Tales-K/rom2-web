@@ -74,6 +74,12 @@ BLIZ_FNS = [SPELL_APPLY, 0x517C1A, 0x517CFE, 0x51806C, 0x54FCA8, 0x518681, 0x552
 PRISM_OUT = "synth_m10_prism"
 PRISM_SCENE = [(0xB, MAGE, MONSTER, 0), (0xB, MAGE, MONSTER2, 100), (0xB, MAGE, ALLY, 255), (0xB, MAGE, MONSTER, 140),
                (0xB, ALLY, MONSTER, 60), (0xB, ALLY, MAGE, 200)]
+# `--scene bldg` (#94, o dano no prédio): Fireball, Blizzard e Acid Stream no chão, nas células de uma casa (27, Leg's House 100/100) e
+# da casa dos ogros (6, 500/500) da m10 — 0x518681 no objeto do mapa da célula → 0x51e65b → 0x5201b2 (vida +0x42)
+BLDG_OUT = "synth_m10_bldg"
+BLDG_SCENE = [(2, 35, 37, 100), (2, 43, 68, 255), (7, 35, 37, 200), (9, 43, 68, 150), (2, 35, 37, 255)]
+BLDG_FNS = [SPELL_APPLY, 0x518D1E, 0x518EFD, 0x517C1A, 0x517CFE, 0x518833, 0x518681, 0x51E65B, 0x5201B2, 0x51806C, 0x54FCA8,
+            0x552079, 0x542D50]
 PRISM_FNS = [0x519C04, 0x579DDF, 0x579D62, 0x57B080, SPELL_APPLY, 0x518D1E, 0x518EFD, 0x51E65B, 0x51366B, 0x5118BE]
 
 
@@ -138,7 +144,7 @@ def main():
     ticks, nver = int(opt("--ticks", "400")), int(opt("--verify", "0"))
     only = int(opt("--verify-only", "0"))
     sc = opt("--scene", "")
-    fire, bliz, prism = sc == "fire", sc == "bliz", sc == "prism"
+    fire, bliz, prism, bldg = sc == "fire", sc == "bliz", sc == "prism", sc == "bldg"
     global OUT, FNS
     if fire:
         OUT, FNS = FIRE_OUT, FIRE_FNS
@@ -146,6 +152,8 @@ def main():
         OUT, FNS = BLIZ_OUT, BLIZ_FNS
     if prism:
         OUT, FNS = PRISM_OUT, PRISM_FNS
+    if bldg:
+        OUT, FNS = BLDG_OUT, BLDG_FNS
     if only:                                                         # só o replay dos pares já gravados
         verify(only)
         return
@@ -159,6 +167,10 @@ def main():
     pr.refresh_objects()
     us = units(o)
     scene = FIRE_SCENE if fire else BLIZ_SCENE if bliz else PRISM_SCENE if prism else SCENE
+    if bldg:                                                         # no chão, na célula do prédio
+        for sid, x, y, p in BLDG_SCENE:
+            cast(o, pr, sid, us[MAGE], None, p, x, y)
+        scene = []
     for sid, c, t, p, *g in scene:
         if prism:
             if o.u32(us[c] + 0x140):
@@ -181,7 +193,7 @@ def main():
     pr.t = T0 + ticks
     pr.refresh_objects()
     n = 0
-    for sid in ([] if fire or bliz or prism else SWEEP):
+    for sid in ([] if fire or bliz or prism or bldg else SWEEP):
         for p in range(0, 256, SWEEP_STEP.get(sid, 17)):
             tgt = us[MONSTER] if sid in (0x12, 0x1D, 0x1C) and MONSTER in us else us[MAGE]
             cast(o, pr, sid, us[MAGE], tgt, p, no_xp=True)

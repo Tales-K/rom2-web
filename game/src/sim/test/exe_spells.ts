@@ -11,7 +11,7 @@
  */
 import {
   fn_0x517949, fn_0x518024, fn_0x518d1e, fn_0x518efd, fn_0x51e65b, fn_0x52c279, fn_0x5238c5, fn_0x542d50, fn_0x543130, fn_0x54feae,
-  fn_0x54fca8, fn_0x54ff06, fn_0x552079, fn_0x55a8f8, fn_0x579d62, spellApply, spellAreaProgressive, spellPrismaticSpray, spellPrismaticTargets, spellAreaApplyAll, spellAreaConstruct, spellAreaHitCell, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
+  fn_0x51e65bStruct, fn_0x5201b2, fn_0x54fca8, fn_0x54ff06, fn_0x552079, fn_0x55a8f8, fn_0x579d62, spellApply, spellAreaProgressive, spellPrismaticSpray, spellPrismaticTargets, spellAreaApplyAll, spellAreaConstruct, spellAreaHitCell, spellAreaHitStructure, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
   spellAttachToTarget, spellDamageObject, spellFireDamageObj, spellInstance, spellProjectileDist, spellRelease, unitAddHeal,
 } from "../exe/spells";
 import type { CombatHooks } from "../exe/combat";
@@ -33,7 +33,7 @@ const HX = (w: WorldRec): CombatHooks => {
   return h;
 };
 /** NotPorted esperado: os `case` de Spell_Apply fora da porta (gancho `spellApply` do motor antigo) e o dano no prédio. */
-const HOOKED = new Set(["0x519db8", "0x5201b2"]);   // 0x5201b2: a área no prédio (#94)
+const HOOKED = new Set(["0x519db8"]);
 
 /** Mundo com o mapa remontado (as unidades por endereço: quem lançou +0x44/+0x3c, o alvo +0x48). */
 const world = (c: Ctx, w?: number): WorldRec => {
@@ -49,6 +49,8 @@ const runSp = (f: (c: Ctx, d: Pair, s: BookSpellRec) => number | null, ret?: (v:
   return done(c, f(c, d, s), ret) ?? checkSpellWorld(c) ?? checkFields(cm, s.addr, s as unknown as Rec, SPELL_FIELDS, "magia");
 };
 const T = (c: Ctx, a: number) => (a === 0 ? null : U(c, a));
+/** o objeto é um prédio (vtable 0x5d1268/0x5d1228: Map_ObjectAtCell 0x559b7f) */
+const isBuilding = (c: Ctx, a: number): boolean => { const v = c.cm.u32(a) >>> 0; return v === 0x5d1268 || v === 0x5d1228; };
 /** o objeto `this` de um método chamado pelo despacho virtual (a vtable foi lida pelo chamador) */
 function obj(c: Ctx, w: WorldRec, a: number, vt: number): SpellObjRec {
   const o = spellObjFrom(c.cm, a, vt);
@@ -88,7 +90,8 @@ const CHECKS: Record<string, Check> = {
   "0x51e65b": runS((c, d) => {
     const w = world(c), p = payloadFrom(c.cm, d.this, VT_DIRECT_DAMAGE);
     w.payloads.set(p.addr, p);
-    fn_0x51e65b(w, p, U(c, A(d, 0)), HX(w));
+    if (isBuilding(c, A(d, 0))) fn_0x51e65bStruct(w, p, w.map.structAt(A(d, 0)), HX(w));   // o prédio da ocupação +0xc (0x5201b2)
+    else fn_0x51e65b(w, p, U(c, A(d, 0)), HX(w));
     return null;
   }),
   "0x52c279": runS((c, d) => {
@@ -102,7 +105,12 @@ const CHECKS: Record<string, Check> = {
   // lote 5: SpellArea (pares sintéticos: tools/re/oracle/synth_spells.py)
   "0x517c1a": runS((c, d) => { const w = world(c); return spellAreaConstruct(w, w.payloadAt(A(d, 0)), mapObjFrom(c.cm, A(d, 1)), A(d, 2) & 0xff).addr; }, (v) => v >>> 0),
   "0x517cfe": runS((c, d) => { const w = world(c); spellAreaProcess(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
-  "0x518681": runS((c, d) => { const w = world(c); spellAreaHitCell(w, obj(c, w, d.this, VT_SPELL_AREA), T(c, A(d, 0)), HX(w)); return null; }),
+  "0x518681": runS((c, d) => {
+    const w = world(c), o = obj(c, w, d.this, VT_SPELL_AREA);
+    if (A(d, 0) !== 0 && isBuilding(c, A(d, 0))) spellAreaHitStructure(w, o, w.map.structAt(A(d, 0)), HX(w));
+    else spellAreaHitCell(w, o, T(c, A(d, 0)), HX(w));
+    return null;
+  }),
   "0x5183a2": runS((c, d) => { const w = world(c); spellAreaMarkCells(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
   "0x518024": runS((c, d) => { const w = world(c); fn_0x518024(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
   "0x518594": runS((c, d) => { const w = world(c); spellAreaUnmark(w, obj(c, w, d.this, VT_SPELL_AREA), H); return null; }),
@@ -136,6 +144,11 @@ const CHECKS: Record<string, Check> = {
     return null;
   }),
   "0x579d62": runS((c, d) => fn_0x579d62(world(c, d.this), U(c, A(d, 0)), U(c, A(d, 1))), (v) => v & 0xffff),
+  // o dano no prédio (#94; synth_spells.py --scene bldg, pasta synth_m10_bldg): `this` = o prédio, o dano = a carga +0x48
+  "0x5201b2": runS((c, d) => {
+    const w = world(c), s = w.map.structAt(d.this);
+    return fn_0x5201b2(w, s, A(d, 0) === 0 ? null : payloadFrom(c.cm, A(d, 0) - 0x48, VT_DIRECT_DAMAGE).dmg);
+  }, EAX),
   "0x519db8": runSp((c, d, s) => { spellApply(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), A(d, 2) & 0xff, A(d, 3) & 0xff, H); return null; }),
   "0x519d7f": runSp((c, d, s) => { spellRelease(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), H); return null; }),
 };

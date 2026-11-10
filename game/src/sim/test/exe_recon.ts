@@ -161,6 +161,10 @@ export class TestMap extends MapRec {
       s.mapObj = mapObjFrom(this.cm, this.cm.u32(addr + 0x10));
       s.width = this.cm.u8(addr + 0x60);
       s.cellMask = this.cm.u32(addr + 0x64);
+      // o prédio (0x5201b2): vtable, vida +0x42 e máxima +0x44 (lidas só se o par as leu)
+      if (this.cm.has(addr)) s.vtbl = this.cm.u32(addr) >>> 0;
+      if (this.cm.has(addr + 0x42)) s.hp = (this.cm.u16(addr + 0x42) << 16) >> 16;
+      if (this.cm.has(addr + 0x44)) s.hpMax = (this.cm.u16(addr + 0x44) << 16) >> 16;
       this.structs.set(addr >>> 0, s);
     }
     return s;
@@ -974,6 +978,11 @@ export function done(c: Ctx, r: number | null, ret?: (v: number) => number): str
   for (const [a, g] of c.cm.groups) {
     const e = checkFields(c.cm, c.cm.u32(a + 0x3c), g.stats as unknown as Rec, GROUP_FIELDS, "grupo") ?? checkPtrList(c.cm, a, g.members, "grupo.membros");
     if (e) return `grupo 0x${a.toString(16)}: ${e}`;
+  }
+  // os prédios tocados (a vida +0x42 do dano 0x5201b2)
+  if (c.map) for (const [a, s] of c.map.structs) {
+    const e = checkFields(c.cm, a, s as unknown as Rec, [[0x42, 2, "hp", true], [0x44, 2, "hpMax", true]], "prédio");
+    if (e) return `prédio 0x${a.toString(16)}: ${e}`;
   }
   for (const [a, p] of c.cm.players) {
     const e = checkFields(c.cm, a, p as unknown as Rec, PLAYER_FIELDS, "dono");

@@ -153,8 +153,10 @@ export interface MapRecJson {
   occ: { n: number; count: number; null: boolean; b: Record<string, [number, string][]> };
   /** lista-rascunho de 0x54ec6a (MapRec+0x54010): unidades da última busca em anéis */
   ring?: number[];
-  /** +0x42 de cada estrutura do mapa ([endereço, valor]; 0x55b507 escreve a cada pensamento) */
+  /** saves antigos: um +0x42 das estruturas tido como máscara (0x55b507 escreve o +0x42 dos objetos de MAGIA, não dos prédios); ignorado */
   sf?: [number, number][];
+  /** a vida +0x42 dos prédios (endereço, vida) */
+  sh?: [number, number][];
 }
 
 const toHex = (b: Uint8Array): string => Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
@@ -171,7 +173,7 @@ export function mapRecToJson(m: MapRec, base: Uint8Array): MapRecJson {
   const b: Record<string, [number, string][]> = {};
   const t = m.occ.table;
   if (t) t.forEach((a, h) => { const c: [number, string][] = []; for (let p: CMapAssoc | null = a; p; p = p.next) c.push([p.key, toHex(p.value.b)]); if (c.length) b[h] = c; });
-  return { mem, occ: { n: m.occ.tableSize, count: m.occ.count, null: t === null, b }, ring: m.ringUnits.values(), sf: [...m.structs].map(([a, st]) => [a, st.f42]) };
+  return { mem, occ: { n: m.occ.tableSize, count: m.occ.count, null: t === null, b }, ring: m.ringUnits.values(), sh: [...m.structs].map(([a, st]) => [a, st.hp]) };
 }
 
 /** Aplica trechos de memória sobre o buffer do MapRec. */
@@ -202,10 +204,11 @@ export function applyOccBuckets(occ: CMapShortOcc, s: { n?: number; count?: numb
   }
 }
 
-/** +0x42 das estruturas do save (as que não estão nele: 0). */
+/** A vida +0x42 dos prédios do save (`sh`; o `sf` dos saves antigos era um campo nunca escrito e fica ignorado: a vida da carga). */
 export function structsFromJson(m: MapRec, j: MapRecJson): void {
-  const sf = new Map(j.sf ?? []);
-  for (const [a, st] of m.structs) st.f42 = sf.get(a) ?? 0;
+  if (!j.sh) return;
+  const sh = new Map(j.sh);
+  for (const [a, st] of m.structs) { const v = sh.get(a); if (v !== undefined) st.hp = v; }
 }
 
 export function mapRecFromJson(m: MapRec, base: Uint8Array, j: MapRecJson): void {

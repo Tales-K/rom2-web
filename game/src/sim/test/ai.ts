@@ -354,6 +354,11 @@ console.log("\n[magias] efeitos");
   const dealt = new Map<number, number>();
   const realDamage = w.damage.bind(w);
   w.damage = (src, t, dmg, el, quiet) => { dealt.set(t.id, (dealt.get(t.id) ?? 0) + dmg); realDamage(src, t, dmg, el, quiet); };
+  // o dano da magia portada (Spell_Apply 0x519db8: Fireball/Wall of Fire/Blizzard...) vai direto ao registro (0x51e65b), sem World.damage:
+  // conta pelo aviso ao cliente (0x504b1d, gancho clientSpellHit)
+  const hk = (w as unknown as { exeHooks: { clientSpellHit?: (a: unknown, t: { addr: number }, d: number, id: number) => void } }).exeHooks;
+  const hit0 = hk.clientSpellHit!;
+  hk.clientSpellHit = (a2, t2, d2, id2) => { const v = w.unitByAddr(t2.addr); if (v) dealt.set(v.id, (dealt.get(v.id) ?? 0) + d2); hit0(a2, t2, d2, id2); };
   const took = (u: Unit) => dealt.get(u.id) ?? 0;
   w.dip[2]![1] = 0;
   setAutocastLevel(w, 0);
@@ -379,6 +384,9 @@ console.log("\n[magias] efeitos");
   void before;
   run(w, sec(4));
   check(took(a) > tookBefore, `Wall of Fire queima com o tempo (${took(a) - tookBefore})`);
+  // a Wall of Fire do exe (SpellArea com fogo, 0x5182b6 → 0x5184bf/0x5189b5) anula a nuvem venenosa lançada nas células dela: espera
+  // a parede acabar (duração 10 + poder) antes do Poison Cloud
+  run(w, sec(12));
   cast(SPELL.PoisonCloud, undefined, 21, 20);
   run(w, sec(3));
   check(w.exeFxHas(b, SPELL.PoisonCloud), "Poison Cloud envenena");   // lote 5: a SpellArea do exe põe o efeito 6 (contínuo) na lista +0x20

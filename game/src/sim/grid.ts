@@ -38,7 +38,8 @@ export class Grid {
   /** estruturas com máscara de passagem (data.bin Buildings.Passability), na ordem do mapa: canto, largura, altura, máscara (bit
    *  dy×w + dx = bloqueia) e o bloqueio que cada célula do pé tinha antes da estrutura — o exe guarda um registro de ocupação por
    *  célula do pé (sim/exe/mapbuild.ts) */
-  readonly structs: { x: number; y: number; w: number; h: number; pass: number; under: Uint8Array; n: number }[] = [];
+  /** `sid` = id da estrutura no script; `hp`/`hpMax` = a vida do prédio do exe (+0x42/+0x44; 0x51ff33: máx. = data.bin Buildings[3]) */
+  readonly structs: { x: number; y: number; w: number; h: number; pass: number; under: Uint8Array; n: number; sid?: number; hp?: number; hpMax?: number }[] = [];
   readonly alt: Int16Array;
   /** id cru do tile por célula (map.tiles; só na grade de um mapa): o passo do MapRec sai dele pela classe 0x55494d (sim/exe/mapbuild.ts) */
   tile: Uint16Array | null = null;
@@ -83,7 +84,7 @@ export class Grid {
   }
 
   /** Constrói a grade a partir do mapa JSON. */
-  static fromMap(map: MapLike, terr: TerrainTable | undefined, objects: Record<string, { name: string }>, structures: Record<string, { name: string; tw: number; th: number; pass?: number }>): Grid {
+  static fromMap(map: MapLike, terr: TerrainTable | undefined, objects: Record<string, { name: string }>, structures: Record<string, { name: string; tw: number; th: number; pass?: number; health?: number }>): Grid {
     const g = new Grid(map.w, map.h, terr?.classes ?? []);
     const costByClass = terr ? terr.classes.map(c => terr.cost[c] ?? 8) : [];
     const blockedClass = terr ? terr.classes.map(c => terr.blocked.includes(c)) : [];
@@ -139,7 +140,10 @@ export class Grid {
       if (!def) continue;
       const x0 = Math.floor(s.x), y0 = Math.floor(s.y);
       const bridge = /bridge/i.test(def.name);
-      const rec = def.pass !== undefined ? { x: x0, y: y0, w: def.tw, h: def.th, pass: def.pass >>> 0, under: new Uint8Array(def.tw * def.th), n: def.tw * def.th } : null;
+      // vida: máx. = Buildings[3] de data.bin; a do mapa é a porcentagem dela (medido na imagem da m10: casa 100/100 com 100, 0/100 com 0;
+      // casa dos ogros 500/500 com 100; esfinge/torre 0/0)
+      const hpMax = def.health ?? 0, hp0 = Math.trunc(hpMax * (s.hp ?? 100) / 100);
+      const rec = def.pass !== undefined ? { x: x0, y: y0, w: def.tw, h: def.th, pass: def.pass >>> 0, under: new Uint8Array(def.tw * def.th), n: def.tw * def.th, sid: s.id ?? 0, hp: hp0, hpMax } : null;
       if (rec) g.structs.push(rec);
       cells: for (let dy = 0; dy < def.th; dy++) for (let dx = 0; dx < def.tw; dx++) {
         const x = x0 + dx, y = y0 + dy;

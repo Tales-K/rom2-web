@@ -60,7 +60,7 @@ import { aiUnitDistance, dirFromDelta16, fn_0x5568e4, NotPorted, unitSetPosition
 import { fn_0x5508a0, fn_0x550966, fn_0x550a53, fn_0x551edb, fn_0x559bc9 } from "./wave";
 import { vt2c, vt34, vt6c, vt70 } from "./vtables";
 import {
-  DmgRec, EXE_GLOBALS, MAP_MASK_OFF, MapObjRec, SpellObjRec, SpellPayloadRec, VT_DIRECT_DAMAGE, VT_EFFECT, VT_POINT_EFFECT, VT_SPELL_AREA,
+  CellStructRec, DmgRec, EXE_GLOBALS, MAP_MASK_OFF, MapObjRec, SpellObjRec, SpellPayloadRec, VT_DIRECT_DAMAGE, VT_EFFECT, VT_POINT_EFFECT, VT_SPELL_AREA,
   VT_TRANSPORT, type BookSpellRec, type ItemMagicRec, type ItemRec, type MapRec, type UnitRec, type WorldRec,
 } from "./types";
 
@@ -91,9 +91,8 @@ export interface SpellHooks {
   clientArea?(o: SpellObjRec, on: boolean): void;
   /** não é do exe: 0x504524 (o passo da área progressiva ao cliente, 0x51806c): as células do passo que não foram presas à borda. */
   clientAreaPulse?(o: SpellObjRec, cells: [number, number][]): void;
-  /** PONTE (#94): a área progressiva no objeto do mapa da célula (Map_ObjectAtCell 0x559b7f → 0x518681 → no prédio, 0x5201b2, não
-   *  portado). Sem gancho: NotPorted. */
-  areaHitObject?(o: SpellObjRec, obj: number): void;
+  /** não é do exe: 0x504b1d ('s' ao cliente) depois do dano no prédio (0x51e65b → 0x5201b2): a vida nova +0x42. */
+  clientStructHit?(s: CellStructRec, dmg: number): void;
   /** não é do exe: a invisibilidade dos `buffs` do motor antigo (script) acaba onde o exe marca os efeitos 0xc da lista +0x20 (+0x42 = 1). */
   effectExpire?(u: UnitRec, type: number): void;
   /** não é do exe: o pacote 0x86/0x8b ao cliente (0x5041d6/0x5042ba → 0x503bef) — a apresentação começa a magia. */
@@ -411,8 +410,10 @@ export function spellApplyPorted(s: BookSpellRec): boolean {
   if (id === 0x18 || id === 0x1b) return true;
   if (EFFECT_CASES.has(id)) return true;   // lote 5: as cargas "Effect" (no alvo e em área: SpellArea)
   if (id === 0x1a || id === 0) return false;
-  // dano preso ao alvo (distribuição 1) ou em área progressiva (5: Blizzard/Acid Stream, SpellArea de modo 2 → 0x51806c)
-  return ((s.def[0x10]! | 0) > 0 || (s.def[0x11]! | 0) > 0) && ((s.def[8]! | 0) === 1 || (s.def[8]! | 0) === 5);
+  // dano preso ao alvo (distribuição 1), em área de uma vez ou com duração (3: Fireball → SpellArea_ApplyAll 0x518833; 4: Wall of Fire →
+  // SpellArea_Wall 0x5182b6) ou em área progressiva (5: Blizzard/Acid Stream → 0x51806c); o prédio da célula leva o dano (0x5201b2, #94)
+  const dist = s.def[8]! | 0;
+  return ((s.def[0x10]! | 0) > 0 || (s.def[0x11]! | 0) > 0) && (dist === 1 || dist === 3 || dist === 4 || dist === 5);
 }
 
 /** `[unidade]+0x14` (dono) ≠ 0: todo registro espelhado tem dono; o endereço que saiu do espelho (objeto do exe destruído) conta como
@@ -956,6 +957,43 @@ export function spellAreaHitCell(wd: WorldRec, o: SpellObjRec, param_1: UnitRec 
   }
 }
 
+/** 0x5201b2 (thiscall; prédio, dano): 0 sem dano ou com vida máx. +0x44 = 0 (indestrutível); senão (B: +0x13 + Rand_Inclusive(+0x14), só
+ *  com a faixa +0x14 ≠ 0) − 5, 0 se < 1. Com o dano ≥ a vida +0x42, os objetos da lista [[0x6044c4]+0x7c]+0x10 na célula do prédio
+ *  (0x54fa73) saem dela e são destruídos — PONTE: essa lista (os objetos que lançam magia em quem chega perto, 0x57a47d) não é espelhada:
+ *  sem objetos. */
+export function fn_0x5201b2(wd: WorldRec, s: CellStructRec, d: DmgRec | null): number {
+  if (d === null) return 0;
+  if (((s.hpMax << 16) >> 16) === 0) return 0;
+  let local_8 = 0;
+  if ((d.elB1 & 0xff) !== 0) {
+    const bVar1 = d.elB0 & 0xff;
+    const local_c = (bVar1 + randInclusive(wd, d.elB1 & 0xff, 0x520206)) | 0;
+    local_8 = (local_8 + local_c) | 0;
+  }
+  local_8 = (local_8 - 5) | 0;
+  if (local_8 < 1) local_8 = 0;
+  return local_8;
+}
+
+/** 0x51e65b no prédio (vtable+0x2c = 0, +0x34 = 1): vida +0x42 −= 0x5201b2 (mín. 0); com dano > 0, 's' ao cliente (0x504b1d, stub). */
+export function fn_0x51e65bStruct(wd: WorldRec, o: SpellPayloadRec, s: CellStructRec, h: CombatHooks): void {
+  const iVar2 = fn_0x5201b2(wd, s, o.dmg);
+  const local_14 = (iVar2 << 16) >> 16;
+  s.hp = ((((s.hp << 16) >> 16) - local_14) << 16) >> 16;
+  if (((s.hp << 16) >> 16) < 0) s.hp = 0;
+  if (0 < iVar2) h.clientStructHit?.(s, iVar2);
+}
+
+/** 0x518681 SpellArea_HitCell no prédio da célula: a carga age nele (vtable+0x3c: Effect_DirectDamage → 0x51e65b; a carga "Effect" num
+ *  prédio, 0x51ce12, não está portada: NotPorted), salvo Wall of Earth; Fireball (2): a cópia 0x51e5db com o dano B ÷ lado² (vtable+0x1c
+ *  do prédio 0x541fe0 = 1). Sem agressor: vtable+0x20 do prédio (0x541ff0) = 0. */
+export function spellAreaHitStructure(wd: WorldRec, o: SpellObjRec, s: CellStructRec, h: CombatHooks): void {
+  if ((o.fc & 0xffff) === 0x11) return;
+  const p = wd.payloadAt(o.f48);
+  if (p.vtbl !== VT_DIRECT_DAMAGE) throw new NotPorted("0x518681 (carga Effect num prédio: 0x51ce12)");
+  fn_0x51e65bStruct(wd, (o.fc & 0xffff) === 2 ? fn_0x51e5db(p) : p, s, h);
+}
+
 /** 0x51e5db (thiscall; carga Effect_DirectDamage): o construtor de cópia — a base (0x51cb98: +0xc, +0xe, +0x14, +0x18, +0x1c, o objeto de
  *  mapa, +0x3c/+0x3d), a vtable 0x5d11d0, o dano +0x48 (6 palavras; 0x515825 o zera antes) e +0x44. A cópia de SpellArea_HitCell fica
  *  na pilha (sem endereço nem registro no mundo). */
@@ -981,7 +1019,7 @@ export function fn_0x552079(m: MapRec, cell: number): number {
  *  raio +0x4d (x por fora, y por dentro) a carga age na unidade (Map_UnitAtCell 0x55201a), na estrutura (0x552079) e no objeto
  *  (Map_ObjectAtCell 0x559b7f) da célula (0x518681); com fogo extra (carga Effect_DirectDamage com +0x5c ≠ 0) apaga as áreas opostas
  *  (0x5189b5) e marca o fogo (0x559c28); +0x40 = 1 (acabou). A "estrutura" (0x552079, ocupação +8) é a unidade grande nas células que
- *  ela cobre além da dela; o objeto do mapa (ocupação +0xc) ainda não: NotPorted. */
+ *  ela cobre além da dela; o objeto do mapa (ocupação +0xc) é o prédio (`spellAreaHitStructure`). */
 export function spellAreaApplyAll(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
   const m = wd.map;
   fn_0x5045a5(wd, o, 1, h);
@@ -997,7 +1035,8 @@ export function spellAreaApplyAll(wd: WorldRec, o: SpellObjRec, h: CombatHooks):
       // 0x12baa668): ela leva a explosão uma vez por célula, com o dano B ÷ lado² (0x518681)
       const st = fn_0x552079(m, cell);
       spellAreaHitCell(wd, o, st === 0 ? null : m.unitAt(st), h);
-      if (fn_0x559bc9(m, ((local_10 & 0xffff) * 0x100 + (local_c & 0xff)) & 0xffff) !== 0) throw new NotPorted("0x518681 num objeto do mapa");
+      const ob = fn_0x559bc9(m, ((local_10 & 0xffff) * 0x100 + (local_c & 0xff)) & 0xffff);   // Map_ObjectAtCell 0x559b7f
+      if (ob !== 0) spellAreaHitStructure(wd, o, m.structAt(ob), h);
       if (bVar1) {
         spellAreaFireExtra(wd, o, local_c & 0xff, local_10 & 0xffff, h);
         spellAreaFireExtra2(m, local_c & 0xff, local_10 & 0xff);
@@ -1042,8 +1081,7 @@ export function fn_0x54fca8(wd: WorldRec, o: MapObjRec, param_1: number, param_2
  *  (SpellArea_DirTransform), 6 passos. Em cada célula a carga leva +0xe = id × 2 + 9 e vai para a célula (0x54fca8); se ela não foi
  *  presa à borda: cliente (0x504524, stub), e a carga age na unidade (Map_UnitAtCell 0x55201a), na unidade grande (0x552079) e no
  *  objeto do mapa (Map_ObjectAtCell 0x559b7f) da célula (0x518681). No fim, +0x40 = 1.
- *  PONTE (#94): o objeto do mapa (o prédio, ocupação +0xc) vai ao gancho `areaHitObject` (sem ele, NotPorted 0x5201b2): o dano no
- *  prédio não está portado, e o passo da lista do mundo não tem rede para NotPorted. */
+ *  O objeto do mapa é o prédio da ocupação +0xc (`spellAreaHitStructure`). */
 export function spellAreaProgressive(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
   const sVar1 = (o.f50 << 16) >> 16;
   o.f50 = ((o.f50 - 1) << 16) >> 16;
@@ -1080,11 +1118,8 @@ export function spellAreaProgressive(wd: WorldRec, o: SpellObjRec, h: CombatHook
       spellAreaHitCell(wd, o, un === 0 ? null : wd.map.unitAt(un), h);
       const st = fn_0x552079(wd.map, cell);
       spellAreaHitCell(wd, o, st === 0 ? null : wd.map.unitAt(st), h);
-      const ob = fn_0x559bc9(wd.map, cell);   // Map_ObjectAtCell 0x559b7f → 0x518681: PONTE (#94)
-      if (ob !== 0) {
-        if (!h.areaHitObject) throw new NotPorted("0x5201b2");
-        h.areaHitObject(o, ob);
-      }
+      const ob = fn_0x559bc9(wd.map, cell);   // Map_ObjectAtCell 0x559b7f → 0x518681
+      if (ob !== 0) spellAreaHitStructure(wd, o, wd.map.structAt(ob), h);
     }
   }
   if (shown.length) h.clientAreaPulse?.(o, shown);

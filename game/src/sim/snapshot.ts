@@ -217,7 +217,8 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   world.projectiles.length = 0;
   for (const p of s.projectiles) {
     const { spellDef, ...rest } = p;
-    const spell = findSpell(world.get(p.from), p.spell) ?? (spellDef ? { ...spellDef } : null);
+    // a cópia guardada vale antes da do livro: o projétil da magia portada leva o tempo de voo do exe (`flightTime`, hookMissile)
+    const spell = spellDef ? { ...spellDef } : findSpell(world.get(p.from), p.spell);
     world.projectiles.push({ ...rest, spell });
   }
   world.knockOutAtFirstStep = [...(s.knockOutAtFirstStep ?? [])];

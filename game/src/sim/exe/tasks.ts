@@ -71,7 +71,7 @@ export function aiTaskDispatcher(wd: WorldRec, param_1: UnitRec, h: ThinkHooks):
     case 2: throw new NotPorted("0x56c8da");
     case 3: aiTaskAttack(wd, param_1, wd.map.unitAt(ai.f0c), h); break;
     case 4: throw new NotPorted("0x569638");
-    case 8: throw new NotPorted("0x5696e8");
+    case 8: if (!h.castClass?.(wd, param_1)) throw new NotPorted("0x5696e8"); break;   // PONTE: gancho `castClass`
     case 0xa: aiTaskPatrol(wd, param_1, h); break;
     case 0xb: fn_0x569cc9(wd, param_1, h); break;
     case 0xc: aiTaskStandGround(wd, param_1, h); break;

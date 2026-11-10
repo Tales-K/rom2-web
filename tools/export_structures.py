@@ -19,6 +19,22 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
 
 
+_DBH = None
+
+
+def health(sid: int):
+    """Vida máxima da estrutura (data.bin, tabela Buildings, coluna 3; linha = ID − 1): o exe a põe em +0x44 e em +0x42 ao criar o prédio
+    (0x51ff33); 0 = indestrutível (0x5201b2 não dá dano). Lê data/databin_raw.json (tools/data/databin.py)."""
+    global _DBH
+    if _DBH is None:
+        p = os.path.join(ROOT, "data", "databin_raw.json")
+        _DBH = json.load(open(p, encoding="utf-8"))["buildings"] if os.path.exists(p) else []
+    if not (0 < sid <= len(_DBH)):
+        return None
+    v = _DBH[sid - 1]["values"]
+    return v[3] if len(v) > 3 else None
+
+
 def main():
     a = sys.argv[1:]
     extracted = a[a.index("--extracted") + 1] if "--extracted" in a else r"C:\Users\TALES K\Games\allods2-extracted"
@@ -50,6 +66,9 @@ def main():
         w, h = im.size
         im.save(os.path.join(out_dir, "st_%d.png" % o["ID"]))
         table[o["ID"]] = {"name": o.get("DescText") or key, "w": w, "h": h, "tw": tw, "th": th}
+        hp = health(o["ID"])
+        if hp is not None:
+            table[o["ID"]]["health"] = hp
     with open(os.path.join(WEB, "data", "structures.json"), "w", encoding="utf-8") as fh:
         json.dump(table, fh, separators=(",", ":"))
     print("estruturas exportadas:", len(table), " ignorados:", skipped[:8], "...", len(skipped))

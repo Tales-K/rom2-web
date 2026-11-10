@@ -68,6 +68,10 @@ export interface ThinkHooks {
   /** não é do exe: true = a unidade pensa no motor antigo (modo sem tratador portado, exec 0: defend 0x56d5b9, follow 0x56d638, still
    *  0x56dafe/0x56a909) e o comando 0 do grupo (0x56fe34) não a despacha. */
   legacyThink?(wd: WorldRec, u: UnitRec): boolean;
+  /** PONTE: a classe 8 (magia na unidade IA+0x10) de dono humano no despachante de tarefas (0x569321 → 0x5696e8: alcance IA+0x70, chegar
+   *  perto 0x56c960 ou lançar 0x56a73b/0x569968 — não portados). true = tratada (no mundo, a ordem `cast` do motor antigo segue pondo a
+   *  tarefa 8 no passo). Sem gancho: NotPorted. */
+  castClass?(wd: WorldRec, u: UnitRec): boolean;
 }
 
 // ---------------------------------------------------------------------------------------------------------- folhas por unidade

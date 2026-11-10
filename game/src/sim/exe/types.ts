@@ -448,8 +448,13 @@ export function newPathRec(): PathRec {
 
 /** Estrutura apontada por OccRec+0xc (objeto fixo na célula; lido por 0x550a96). */
 export class CellStructRec {
+  vtbl = 0x5d1268;                     // +0x00 vtable do prédio (0x51fd8c; 0x5d1228 só difere em +0x54): +0x1c 0x541fe0 (lado 1), +0x20 0x541ff0
+                                       //       (0), +0x2c 0x542010 (0: não é unidade), +0x34 0x543390 (1: leva dano, 0x5201b2)
   mapObj: MapObjRec = new MapObjRec(); // +0x10 ptr objeto de mapa (canto)
-  f42 = 0;                             // +0x42 u16 máscara dos jogadores humanos nos blocos em volta (0x55b507, a cada pensamento)
+  hp = 0;                              // +0x42 i16 vida (0x51ff33: = +0x44; dano 0x5201b2 via 0x51e65b)
+  hpMax = 0;                           // +0x44 i16 vida máxima (data.bin, Buildings coluna 3; 0 = indestrutível: 0x5201b2 dá 0)
+  /** não é do exe: o id da estrutura no script ("Health of building": `MissionHost.buildingHp`) */
+  sid = 0;
   width = 0;                           // +0x60 u8  largura em células
   cellMask = 0;                        // +0x64 u32 bit (dy*largura+dx): célula ocupada pela estrutura
 }

@@ -319,6 +319,9 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   for (const [g, list] of host.groups) world.initGroupGuard(g, list, 0, true);   // Guard da carga do mapa (0x570aba)
   for (const u of mapUnits) world.initLoadGuardAlone(u);   // o grupo só dela da unidade sem grupo no .alm (0x562745 → 0x570aba)
   for (const st of map.structures) if (st.id != null) host.bindStructure(st.id, st.hp ?? 100, st.kind, st.x, st.y);
+  // a vida do prédio do exe (+0x42, o dano 0x5201b2 da Fireball/Blizzard/Acid Stream) é a do "Health of building" do script [est: o valor
+  // do script lê o +0x42 cru]
+  world.onStructHp = (sid, hp) => host.setBuildingHealth(sid, hp);
   // armadilhas do bloco 9 do .alm (0x564072 → 0x55ba36): o registro de ocupação da célula com [magia, poder, ponto 1, ponto 2]; quem
   // entra na célula (0x5503af) é teleportado ao ponto 2 (magia 0x17: IA+0xb0 → Unit_TeleportTo 0x55a96c) ou leva a magia do ponto 1
   // (0x4f0832; ponte `trapCast` do mundo)

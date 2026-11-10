@@ -744,3 +744,33 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   `keep` do pilot.ts.
 - Bateria: as 9 antigas, m31, m50 e m70 sem divergência; m30 2037, m60 302 e m110 517 iguais; golden 80,75 % (sai com 0); loadcmp
   46/46; test:sim, test:script e typecheck verdes.
+
+# Lote do prédio (#94): a vida +0x42/+0x44 e o dano da Fireball, da Blizzard e do Acid Stream; Fireball/Wall of Fire pela porta
+- **Prédio no espelho** (`CellStructRec`): vtable 0x5d1268, vida +0x42 e máxima +0x44, e o id do script (`sid`). O +0x42 era tido como
+  "máscara dos jogadores" (o 0x55b507 escreve o +0x42 dos objetos de MAGIA, não dos prédios). A vida máx. vem de data.bin (Buildings,
+  coluna 3, como o 0x51ff33 a lê): `tools/export_structures.py` grava `health` no structures.json. A vida inicial é a máx. × a vida do
+  mapa ÷ 100 (casas 100/100, 0/100 com 0, casa dos ogros 500/500, esfinge/torre 0/0 = indestrutível). O save guarda a vida (`sh`); o
+  `sf` antigo fica ignorado.
+- **Portados**: 0x5201b2 (dano B = +0x13 + Rand(+0x14) − 5, só com a faixa ≠ 0; 0 com a vida máx. 0); o ramo do prédio do 0x51e65b
+  (`fn_0x51e65bStruct`: vida −= dano, mín. 0); o 0x518681 no prédio (`spellAreaHitStructure`; Fireball pela cópia 0x51e5db; a carga
+  "Effect" num prédio fica NotPorted). Ligados no 0x51806c (Blizzard/Acid Stream: sai o gancho `areaHitObject`) e no 0x518833 (a
+  explosão da Fireball: sai o NotPorted do objeto). **PONTE**: com o dano ≥ a vida, o exe tira da lista [[0x6044c4]+0x7c]+0x10 os
+  objetos na célula do prédio; essa lista não é espelhada.
+- **Spell_Apply**: as distribuições 3 (Fireball) e 4 (Wall of Fire) com dano saíram do gancho do motor antigo (`spellApplyPorted`).
+- Prova: `synth_spells.py --scene bldg` (pasta `refs/oracle/pairs/synth_m10_bldg`: Fireball/Blizzard/Acid Stream no chão nas células
+  da casa 27 e da casa dos ogros da m10): 0x5201b2 19/19 (todos com dano > 0), 0x51e65b 22/22 e 0x518681 231/231 (o arnês confere a
+  vida +0x42/+0x44 dos prédios tocados), 0x518833 3/3, 0x51806c 110/110, 0x519db8 7/7. Os pares antigos de bliz/fire também passam
+  agora sem gancho.
+- No jogo: a vida do prédio do exe vai ao "Health of building" do script (`World.onStructHp` → `host.setBuildingHealth`; [est] o
+  valor do script lê o +0x42 cru). PONTE [est, como no motor antigo]: a Wall of Fire, a explosão da Fireball e a Blizzard do exe
+  dissipam as nuvens (camada 2) do motor antigo (o enigma da m95).
+- Também no commit:
+  - O despachante de tarefas do lado humano na classe 8 (0x5696e8, não portado) passa por um gancho `castClass` (PONTE: a ordem
+    `cast` do motor antigo segue pondo a tarefa 8). Com a ordem da entrada nova, o saveroundtrip (m20) chegava lá e caía em
+    NotPorted — **o commit 241737e deixou o test:sim vermelho por isso** (eu só tinha rodado a missions_80s depois do ajuste).
+  - O restore do projétil prefere a cópia guardada da magia (`flightTime` do exe).
+- Testes (com o motivo anotado):
+  - ai.ts conta o dano da magia portada pelo gancho `clientSpellHit` (o 0x51e65b não passa por `World.damage`).
+  - ai.ts lança o Poison Cloud depois do fim da Wall of Fire: a área com fogo do exe anula a nuvem nas células dela.
+- Bateria: test:sim, test:script 49/49 e typecheck verdes; as 9 antigas, m31, m50 e m70 sem divergência; golden 80,75 % (sai com 0);
+  loadcmp 46/46 com e sem MapRec.
