@@ -17,9 +17,12 @@ function noSlot(u: UnitRec, slot: number): never {
   throw new Error(`vtable 0x${u.vtbl.toString(16)} sem slot +0x${slot.toString(16)} espelhado`);
 }
 
-/** +0x2c: 0x542410 / 0x542720 → 1 (a unidade pode ser golpeada de perto; 0x516c1f). */
+/** Os prédios (ocupação +0xc da célula: 0x5d1268; 0x5d1228 só difere em +0x54): +0x2c 0x542010 → 0, +0x34 0x543390 → 1. */
+export const VT_BUILDING = 0x5d1268, VT_BUILDING2 = 0x5d1228;
+
+/** +0x2c: 0x542410 / 0x542720 → 1 (a unidade pode ser golpeada de perto; 0x516c1f); prédio 0x542010 → 0. */
 export function vt2c(u: UnitRec): number {
-  switch (u.vtbl) { case VT_MONSTER: case VT_HUMAN: case VT_HERO: return 1; }
+  switch (u.vtbl) { case VT_MONSTER: case VT_HUMAN: case VT_HERO: return 1; case VT_BUILDING: case VT_BUILDING2: return 0; }
   return noSlot(u, 0x2c);
 }
 
@@ -29,9 +32,9 @@ export function vt30(u: UnitRec): number {
   return noSlot(u, 0x30);
 }
 
-/** +0x34: 0x542030 → 0 (golpe à distância 0x516ea0 nunca; 0x516c1f). */
+/** +0x34: 0x542030 → 0 (golpe à distância 0x516ea0 nunca; 0x516c1f); prédio 0x543390 → 1. */
 export function vt34(u: UnitRec): number {
-  switch (u.vtbl) { case VT_MONSTER: case VT_HUMAN: case VT_HERO: return 0; }
+  switch (u.vtbl) { case VT_MONSTER: case VT_HUMAN: case VT_HERO: return 0; case VT_BUILDING: case VT_BUILDING2: return 1; }
   return noSlot(u, 0x34);
 }
 

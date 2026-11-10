@@ -528,3 +528,30 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   Também ficou de fora o resto de `tools/refcap` não versionado (hit_regions/*.json, overlay/, original/ e trace/ restantes), de
   outras frentes.
 - Nada do sim mudou (a bateria do 89af147 vale; typecheck refeito).
+
+# m110 T=14 → T=27: a Blizzard/Acid Stream do exe (0x51806c), o texto do efeito exato e a ação do grupo suspenso
+- **T=14** (rng): os sorteios 0x51814a/0x51815c (a célula do passo da Blizzard) saíam no T=14 no nosso e no T=15 no original. A
+  Blizzard ainda era o motor antigo (`stepAreas`, pulso estimado). **Portados**: Spell_AreaProgressive 0x51806c (modo 2: um passo a
+  cada 3 tiques por +0x50; Blizzard 32 células sorteadas em ±2; Acid Stream 6 passos pelas tabelas 0x5f8550/0x5f8928 lidas do exe, na
+  direção +0x4e por SpellArea_DirTransform), 0x54fca8 (a carga vai à célula, presa a 8..lado−9; só pulsa se não foi presa) e 0x517e80
+  (embutida). O `spellApplyPorted` passou a cobrir a distribuição 5 (o ramo de Spell_Apply que monta a área de modo 2 já estava
+  portado). Apresentação: `clientAreaPulse` (o 0x504524) faz o "blast" e, na Blizzard, o `onAreaCells` das alavancas, como o motor
+  antigo. **PONTE (#94)**: o objeto do mapa da célula (o prédio, ocupação +0xc) vai ao gancho `areaHitObject`, que no mundo não faz nada
+  (o dano 0x5201b2 é do lote do prédio); sem gancho, NotPorted 0x5201b2. Vtables do prédio (0x5d1268/0x5d1228): +0x2c 0x542010 → 0,
+  +0x34 0x543390 → 1 (lidas do exe).
+  Prova: `synth_spells.py --scene bliz` (pasta `refs/oracle/pairs/synth_m10_bliz`: Blizzard e Acid Stream no alvo e no chão, poder
+  0..255): 0x51806c 310/310 (+4 em gancho: o prédio), 0x54fca8 146/146, 0x519db8 12/12, 0x517cfe 102/102, 0x518681 404/404,
+  0x51e65b 12/12 (+4 no prédio). O arnês do 0x51806c pega o mapa pelo objeto da carga (+0x48 → +0x10 → +8) quando o [0x670e48] não
+  foi lido (todas as células na borda).
+- **T=16** (`absorb` do 24890: 7 × 12): a Stone Curse do 24796. O texto do efeito em data.bin é `"absorbtion=+5:duration 8,defence=-20:
+  duration 8"` COM as aspas (lido na definição +0x1c no oráculo). O 0x51e8fa do exe não acha o nome `"absorbtion` e o efeito fica
+  sem tipo (+0x3c = 0, +0x40 = 0); o nosso `spells.json` tirava as aspas (`derive.py`: `strip('"')`) e o efeito somava 5 na absorção.
+  Correção: o `derive.py` (fora do git, `/tools/data/` no .gitignore) grava também `effectsRaw` (o texto exato; só a Stone Curse
+  difere), e o `bookSpellRec` usa `effectsRaw ?? effects`. Os outros 5 arquivos que o derive.py gera saíram iguais byte a byte.
+  **Quem tiver outro clone precisa regerar o `game/public/data/spells.json`** (`tools/data/derive.py`).
+- **T=21** (`act` 13 × 27 em 8 lançadores do grupo suspenso): artefato da medida. O tickcmp punha 27 em toda unidade de grupo
+  dormindo (regra do motor antigo); o despachante 0x56dca2 portado só põe 0x1b com a sub-ação IA+9 = 0, e no original os lançadores
+  terminam a magia com a ação 0xd (act_cnt 6..1). Agora a medida é o `act` do registro.
+- Medidas: as 9 corridas antigas sem divergência; golden 79,99 % (CI ok); loadcmp 46/46 (com e sem MapRec); test:sim, test:script
+  49/49 e typecheck verdes. Corrida livre: m30 T=1076, m31 T=997, m50 T=834, m60 T=13, m70 T=21, **m110 T=14 → T=27**
+  (`act` do 24910: 13 × 3).

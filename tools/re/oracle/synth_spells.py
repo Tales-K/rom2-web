@@ -34,7 +34,7 @@ import fnprobe as F  # noqa: E402
 EP, OUT = "m10_mage_s102", "synth_m10_mage"
 SPELL_APPLY = 0x519DB8
 DEF0, DEF_STRIDE = 0x29A16A0, 0x20          # definição do id k = DEF0 + k × 0x20 (a tabela de data.bin na imagem; nome +4, colunas +8, texto +0x1c)
-SPHERE = {2: 1, 3: 1, 4: 1, 6: 2, 8: 2, 0xC: 3, 0xD: 3, 0xE: 3, 0xF: 3, 0x12: 4, 0x13: 4, 0x14: 5, 0x15: 5, 0x1B: 5, 0x1C: 5, 0x1D: 5}
+SPHERE = {2: 1, 3: 1, 4: 1, 6: 2, 7: 2, 8: 2, 9: 2, 0xC: 3, 0xD: 3, 0xE: 3, 0xF: 3, 0x12: 4, 0x13: 4, 0x14: 5, 0x15: 5, 0x1B: 5, 0x1C: 5, 0x1D: 5}
 MAGE, ALLY, MONSTER, MONSTER2 = 1, 24608, 24611, 24612
 T0 = 200
 # (id, quem lança, alvo, poder): a cena aplicada e tiquetada
@@ -61,6 +61,14 @@ FIRE_SCENE = [(2, MAGE, MONSTER, 0), (2, MAGE, MONSTER2, 60), (3, MAGE, MONSTER,
               (3, MAGE, MONSTER2, 90)]
 FIRE_FNS = [SPELL_APPLY, 0x518D1E, 0x518EFD, 0x517C1A, 0x517CFE, 0x518833, 0x518681, 0x51E5DB, 0x552079, 0x51E65B, 0x5183A2,
             0x518024, 0x518594, 0x55A8F8, 0x542D50, 0x51366B, 0x5118BE]
+
+# `--scene bliz` (8b, área progressiva): Blizzard (7) e Acid Stream (9), distribuição 5 → área de modo 2 (Spell_AreaProgressive 0x51806c:
+# um passo a cada 3 tiques; Blizzard 32 células sorteadas em ±2, Acid Stream 6 passos pelas tabelas na direção de quem lança), umas no
+# alvo (unidade) e outras no chão; saída à parte
+BLIZ_OUT = "synth_m10_bliz"
+BLIZ_SCENE = [(7, MAGE, MONSTER, 0, False), (9, MAGE, MONSTER2, 60, False), (7, MAGE, ALLY, 120, True), (9, MAGE, MONSTER, 200, True),
+              (7, MAGE, MONSTER2, 255, True)]
+BLIZ_FNS = [SPELL_APPLY, 0x517C1A, 0x517CFE, 0x51806C, 0x54FCA8, 0x518681, 0x552079, 0x51E65B, 0x542D50, 0x51366B, 0x5118BE]
 
 
 def units(o, corpses: bool = False) -> dict[int, int]:
@@ -122,10 +130,13 @@ def main():
         return default
     ticks, nver = int(opt("--ticks", "400")), int(opt("--verify", "0"))
     only = int(opt("--verify-only", "0"))
-    fire = opt("--scene", "") == "fire"
+    sc = opt("--scene", "")
+    fire, bliz = sc == "fire", sc == "bliz"
     global OUT, FNS
     if fire:
         OUT, FNS = FIRE_OUT, FIRE_FNS
+    if bliz:
+        OUT, FNS = BLIZ_OUT, BLIZ_FNS
     if only:                                                         # só o replay dos pares já gravados
         verify(only)
         return
@@ -138,9 +149,9 @@ def main():
     pr.t = T0
     pr.refresh_objects()
     us = units(o)
-    scene = FIRE_SCENE if fire else SCENE
-    for sid, c, t, p in scene:
-        if fire:                                                     # no chão: a célula do alvo (Spell_Apply com alvo 0)
+    scene = FIRE_SCENE if fire else BLIZ_SCENE if bliz else SCENE
+    for sid, c, t, p, *g in scene:
+        if fire or (g and g[0]):                                                     # no chão: a célula do alvo (Spell_Apply com alvo 0)
             mo = o.u32(us[t] + 0x10)
             cast(o, pr, sid, us[c], None, p, o.read(mo, 1)[0], o.read(mo + 1, 1)[0])
         else:
@@ -158,7 +169,7 @@ def main():
     pr.t = T0 + ticks
     pr.refresh_objects()
     n = 0
-    for sid in ([] if fire else SWEEP):
+    for sid in ([] if fire or bliz else SWEEP):
         for p in range(0, 256, SWEEP_STEP.get(sid, 17)):
             tgt = us[MONSTER] if sid in (0x12, 0x1D, 0x1C) and MONSTER in us else us[MAGE]
             cast(o, pr, sid, us[MAGE], tgt, p, no_xp=True)

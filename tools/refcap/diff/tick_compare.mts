@@ -114,8 +114,9 @@ export function origFields(o: Any): Record<string, Val | undefined> {
 /** Campos da nossa unidade (u) no formato do original; `rev` = id nosso → id do original. */
 export function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any): Record<string, Val | undefined> {
   const s = u.stats;
-  // a ação é a do registro do exe (a máquina 0x50f12c portada a escreve; 0x10 na morte consumada); grupo dormindo pelo motor antigo
-  const act = !w.awake(u) ? 27 : u.rec.act;
+  // a ação é a do registro do exe (a máquina 0x50f12c e o despachante 0x56dca2 portados a escrevem; 0x10 na morte consumada; 0x1b do
+  // grupo dormindo só com a sub-ação IA+9 = 0 — m110 T=21: o lançador do grupo suspenso termina a magia com a ação 0xd)
+  const act = u.rec.act;
   // classe da tarefa (+0x50) do registro, com a mesma regra do lado do original (origFields) — não da ordem apresentada (`u.order`),
   // que segue o registro um tique depois (o fim de caminho/a magia acabam a classe no despachante; a ordem acompanha no `act`)
   const tc0 = TASK_CLASS[u.rec.task] ?? `#${u.rec.task}`;

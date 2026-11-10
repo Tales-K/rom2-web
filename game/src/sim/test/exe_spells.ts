@@ -11,7 +11,7 @@
  */
 import {
   fn_0x517949, fn_0x518024, fn_0x518d1e, fn_0x518efd, fn_0x51e65b, fn_0x52c279, fn_0x5238c5, fn_0x542d50, fn_0x543130, fn_0x54feae,
-  fn_0x54ff06, fn_0x552079, fn_0x55a8f8, spellApply, spellAreaApplyAll, spellAreaConstruct, spellAreaHitCell, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
+  fn_0x54fca8, fn_0x54ff06, fn_0x552079, fn_0x55a8f8, spellApply, spellAreaProgressive, spellAreaApplyAll, spellAreaConstruct, spellAreaHitCell, spellAreaMarkCells, spellAreaProcess, spellAreaUnmark,
   spellAttachToTarget, spellDamageObject, spellFireDamageObj, spellInstance, spellProjectileDist, spellRelease, unitAddHeal,
 } from "../exe/spells";
 import type { CombatHooks } from "../exe/combat";
@@ -32,8 +32,8 @@ const HX = (w: WorldRec): CombatHooks => {
   const h: CombatHooks = { xpOnHit: (a, t, dmg, p3) => unitXpOnHit(w, a, t, dmg, p3, h), xpOnCast: (r, t, id) => fn_0x5131ef(w, r, t, id, h) };
   return h;
 };
-/** NotPorted esperado: os `case` de Spell_Apply fora da porta (gancho `spellApply` do motor antigo). */
-const HOOKED = new Set(["0x519db8"]);
+/** NotPorted esperado: os `case` de Spell_Apply fora da porta (gancho `spellApply` do motor antigo) e o dano no prédio. */
+const HOOKED = new Set(["0x519db8", "0x5201b2"]);   // 0x5201b2: a área no prédio (#94)
 
 /** Mundo com o mapa remontado (as unidades por endereço: quem lançou +0x44/+0x3c, o alvo +0x48). */
 const world = (c: Ctx): WorldRec => worldRec(c, c.cm.u32(WORLD_PTR), M(c, c.cm.u32(MAP_PTR)));
@@ -107,6 +107,21 @@ const CHECKS: Record<string, Check> = {
   "0x518833": runS((c, d) => { const w = world(c); spellAreaApplyAll(w, obj(c, w, d.this, VT_SPELL_AREA), HX(w)); return null; }),
   "0x552079": runS((c, d) => { const w = worldRec(c, c.cm.u32(WORLD_PTR), M(c, d.this)); return fn_0x552079(w.map, A(d, 0) & 0xffff); }, (v) => v >>> 0),
   "0x542d50": runS((c, d) => { const w = world(c); fn_0x542d50(w, obj(c, w, d.this, VT_SPELL_AREA)); return null; }),
+  // área progressiva (Blizzard/Acid Stream; pares sintéticos: synth_spells.py --scene bliz, pasta synth_m10_bliz)
+  "0x51806c": runS((c, d) => {
+    // o 0x54fca8 lê o mapa do objeto da carga (+0x48 → +0x10 → +8); quando todas as células batem na borda, o [0x670e48] nem é lido
+    const p = c.cm.u32(d.this + 0x48), mo = p && c.cm.has(p + 0x10) ? c.cm.u32(p + 0x10) : 0;
+    const w = c.cm.has(MAP_PTR) || !mo || !c.cm.has(mo + 8) ? world(c) : worldRec(c, c.cm.u32(WORLD_PTR), M(c, c.cm.u32(mo + 8)));
+    spellAreaProgressive(w, obj(c, w, d.this, VT_SPELL_AREA), HX(w));
+    return null;
+  }),
+  "0x54fca8": (d, cm) => {
+    // o mapa é o do objeto (+8), não o [0x670e48] (o par não o lê)
+    const c = ctx(d, cm), o = mapObjFrom(cm, d.this), before = packMapObj(o);
+    const w = worldRec(c, 0, M(c, cm.u32(d.this + 8)));
+    const r = fn_0x54fca8(w, o, A(d, 0) & 0xff, A(d, 1) & 0xff) ? 1 : 0;
+    return done(c, null) ?? cm.checkRecord(d.this, before, packMapObj(o)) ?? eq("retorno", r, d.eax & 0xff);
+  },
   "0x519db8": runSp((c, d, s) => { spellApply(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), A(d, 2) & 0xff, A(d, 3) & 0xff, H); return null; }),
   "0x519d7f": runSp((c, d, s) => { spellRelease(world(c), s, U(c, A(d, 0)), T(c, A(d, 1)), H); return null; }),
 };

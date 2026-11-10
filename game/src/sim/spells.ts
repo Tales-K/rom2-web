@@ -71,7 +71,7 @@ export interface SpellDef {
 export interface SpellJsonLike {
   id?: number; name?: string; school?: string; level?: number; manaCost?: number; range?: number;
   damage?: { min: number; max: number } | null; duration?: number; frequency?: number; radius?: number;
-  areaDuration?: number; areaFrequency?: number; defensive?: boolean; effects?: string | null; castType?: string | null;
+  areaDuration?: number; areaFrequency?: number; defensive?: boolean; effects?: string | null; effectsRaw?: string | null; castType?: string | null;
   effectSpeed?: number; [k: string]: unknown;
 }
 export type SpellTable = Record<string, SpellJsonLike>;

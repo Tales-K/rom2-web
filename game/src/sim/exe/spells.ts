@@ -45,7 +45,7 @@
  *    anulam, SpellArea_FireExtra 0x5189b5), conta os tiques, a cada 16 a carga age em quem está nas células marcadas (0x55a8f8/0x55a88b →
  *    0x551edb → SpellArea_HitCell 0x518681) e no fim desmarca (SpellArea_Unmark 0x518594 → 0x55a4de/0x55a533) e acaba); 0x5045a5 (a
  *    máscara ao cliente: as consultas 0x55a88b mexem no registro corrente; o pacote é o stub `clientArea`); 0x542d50/0x517c72 (destrói).
- *  - NotPorted (exec 0, áreas de dano): Spell_AreaProgressive 0x51806c (modo 2), SpellArea_ApplyAll 0x518833 (modo 0), SpellArea_Wall
+ *  - NotPorted (exec 0, áreas de dano): SpellArea_ApplyAll 0x518833 (modo 0), SpellArea_Wall
  *    0x5182b6 ([8] = 4), a Fireball em 0x518681 (0x51e5db).
  */
 import { fn_0x53a5a0 } from "./action";
@@ -53,10 +53,10 @@ import { deletePayload as deleteFx, EFFECT_CASES, fn_0x51ce12, spellApplyEffect 
 import { fn_0x5106d2, fn_0x53b120fx, fn_0x542560, fn_0x56e6b8, unitPhysicalDamage, type CombatHooks } from "./combat";
 import { CListPtrIter } from "./mfc";
 import { crtFtol, mapObjCellX, mapObjCellY, mapObjFineX, mapObjFineY, unitCenterX, unitCenterY, vtGetSize } from "./path";
-import { randOne } from "./rand";
-import { fn_0x55b507 } from "./think";
+import { randInclusive, randOne } from "./rand";
+import { fn_0x550d9f, fn_0x550db3, fn_0x55b507 } from "./think";
 import { cellOff10000, crtAbs, fn_0x55f330, mapObjCellOf, mapObjInit, mapObjInitPacked16, mapObjSetFine, occRecIsEmpty } from "./walk";
-import { dirFromDelta16, NotPorted } from "./walk_action";
+import { dirFromDelta16, NotPorted, unitSetPosition } from "./walk_action";
 import { fn_0x5508a0, fn_0x550966, fn_0x550a53, fn_0x551edb, fn_0x559bc9 } from "./wave";
 import { vt2c, vt34, vt6c, vt70 } from "./vtables";
 import {
@@ -89,6 +89,11 @@ export interface SpellHooks {
   clientEffect?(u: UnitRec, id: number, type: number, v: number, on: boolean): void;
   /** não é do exe: 0x5045a5 (área ao cliente; lote 5): a área `o` marcou (`on`) ou tirou as células (o fim, ou anulada por outra). */
   clientArea?(o: SpellObjRec, on: boolean): void;
+  /** não é do exe: 0x504524 (o passo da área progressiva ao cliente, 0x51806c): as células do passo que não foram presas à borda. */
+  clientAreaPulse?(o: SpellObjRec, cells: [number, number][]): void;
+  /** PONTE (#94): a área progressiva no objeto do mapa da célula (Map_ObjectAtCell 0x559b7f → 0x518681 → no prédio, 0x5201b2, não
+   *  portado). Sem gancho: NotPorted. */
+  areaHitObject?(o: SpellObjRec, obj: number): void;
   /** não é do exe: a invisibilidade dos `buffs` do motor antigo (script) acaba onde o exe marca os efeitos 0xc da lista +0x20 (+0x42 = 1). */
   effectExpire?(u: UnitRec, type: number): void;
   /** não é do exe: o pacote 0x86/0x8b ao cliente (0x5041d6/0x5042ba → 0x503bef) — a apresentação começa a magia. */
@@ -311,14 +316,15 @@ export function fn_0x518d1e(wd: WorldRec, param_1: SpellObjRec, param_2: MapObjR
 }
 
 /** Os `case` de Spell_Apply que a porta cobre (o resto vai inteiro para o gancho `spellApply` antes de qualquer efeito): Heal (0x18) e o
- *  objeto de dano (dano na definição; não Heal/Drain Life) preso ao alvo (definição[8] = 1). O teste do dano da instância (+0xe + +0xf
+ *  objeto de dano (dano na definição; não Heal/Drain Life) preso ao alvo (definição[8] = 1) ou na área progressiva (definição[8] = 5). O teste do dano da instância (+0xe + +0xf
  *  ≠ 0) é o do exe; aqui vale o da definição ([0x10] ou [0x11] > 0 ⇒ instância ≠ 0, salvo o byte que dá a volta: NotPorted). */
 export function spellApplyPorted(s: BookSpellRec): boolean {
   const id = s.id & 0xff;
   if (id === 0x18 || id === 0x1b) return true;
   if (EFFECT_CASES.has(id)) return true;   // lote 5: as cargas "Effect" (no alvo e em área: SpellArea)
   if (id === 0x1a || id === 0) return false;
-  return ((s.def[0x10]! | 0) > 0 || (s.def[0x11]! | 0) > 0) && (s.def[8]! | 0) === 1;
+  // dano preso ao alvo (distribuição 1) ou em área progressiva (5: Blizzard/Acid Stream, SpellArea de modo 2 → 0x51806c)
+  return ((s.def[0x10]! | 0) > 0 || (s.def[0x11]! | 0) > 0) && ((s.def[8]! | 0) === 1 || (s.def[8]! | 0) === 5);
 }
 
 /** `[unidade]+0x14` (dono) ≠ 0: todo registro espelhado tem dono; o endereço que saiu do espelho (objeto do exe destruído) conta como
@@ -775,12 +781,12 @@ export function spellAreaMarkCells(wd: WorldRec, o: SpellObjRec, h: CombatHooks)
  *  diagonal (9 células). */
 const WALL_STRAIGHT = { n: 10, dx: [-2, -1, 0, 1, 2, -2, -1, 0, 1, 2], dy: [1, 1, 1, 1, 1, 0, 0, 0, 0, 0] };
 const WALL_DIAG = { n: 9, dx: [-2, -1, 0, 1, 2, -1, 0, 1, 2], dy: [2, 1, 0, -1, -2, 2, 1, 0, -1] };
+interface WallTable { n: number; dx: number[]; dy: number[] }
 interface WallXf { dx: number[]; dy: number[]; n: number; sx: number; sy: number }
 /** 0x517ec3 SpellArea_DirTransform (thiscall; reta, diagonal, direção 0..7 de +0x4e): as tabelas de dx/dy, o número e os sinais. Pares
  *  (0, 2, 4, 6) usam a reta (2 e 6 com dx/dy trocados), ímpares a diagonal; sinais: 0 → y −1, 1 → y −1, 4 → x −1, 5 → x −1, 6 → x −1,
  *  7 → os dois; 3 (e o resto) a diagonal sem sinal. */
-export function spellAreaDirTransform(param_3: number): WallXf {
-  const p1 = WALL_STRAIGHT, p2 = WALL_DIAG;
+export function spellAreaDirTransform(param_3: number, p1: WallTable = WALL_STRAIGHT, p2: WallTable = WALL_DIAG): WallXf {
   const t: WallXf = { dx: p2.dx, dy: p2.dy, n: p2.n, sx: 1, sy: 1 };
   switch (param_3 & 0xff) {
     case 0: t.dx = p1.dx; t.dy = p1.dy; t.n = p1.n; t.sy = -1; break;
@@ -913,12 +919,97 @@ export function spellAreaApplyAll(wd: WorldRec, o: SpellObjRec, h: CombatHooks):
   o.f40 = 1;
 }
 
+/** As tabelas do Acid Stream (.rdata, como as da parede: número, 20 dx, 20 dy; passo k a 0xa4 × k): 0x5f8550 a reta e 0x5f8928 a
+ *  diagonal, 6 passos (0x5f854c). O passo 5 da reta não tem célula. */
+const ACID_STRAIGHT: WallTable[] = [
+  { n: 1, dx: [0], dy: [0] }, { n: 3, dx: [-1, 0, 1], dy: [1, 1, 1] }, { n: 5, dx: [-1, -1, 0, 1, 2], dy: [2, 2, 2, 2, 2] },
+  { n: 7, dx: [-3, -2, -1, 0, 1, 2, 3], dy: [3, 3, 3, 3, 3, 3, 3] }, { n: 9, dx: [-4, -3, -2, -1, 0, 1, 2, 3, 4], dy: [4, 4, 4, 4, 4, 4, 4, 4, 4] },
+  { n: 0, dx: [], dy: [] },
+];
+const ACID_DIAG: WallTable[] = [
+  { n: 1, dx: [0], dy: [0] }, { n: 2, dx: [1, 0], dy: [0, 1] }, { n: 3, dx: [2, 1, 0], dy: [0, 1, 2] }, { n: 4, dx: [3, 2, 1, 0], dy: [0, 1, 2, 3] },
+  { n: 5, dx: [4, 3, 2, 1, 0], dy: [0, 1, 2, 3, 4] }, { n: 6, dx: [5, 4, 3, 2, 1, 0], dy: [0, 1, 2, 3, 4, 5] },
+];
+const ACID_STEPS = 6;   // DAT_005f854c
+
+/** 0x54fca8 (thiscall; objeto de mapa, x, y em byte): prende x/y a 8..largura−9 / 8..altura−9 do mapa ([0x670e48]: 0x550d9f/0x550db3),
+ *  põe o objeto lá (Unit_SetPosition 0x54fbf7) e devolve 1 só se nada foi preso. */
+export function fn_0x54fca8(wd: WorldRec, o: MapObjRec, param_1: number, param_2: number): boolean {
+  let x = param_1 & 0xff, y = param_2 & 0xff;
+  const bVar1 = x < 8;
+  if (bVar1) x = 8;
+  const bVar3 = fn_0x550d9f(wd.map) - 9 < x;
+  if (bVar3) x = (fn_0x550d9f(wd.map) - 9) & 0xff;
+  const bVar2 = y < 8;
+  if (bVar2) y = 8;
+  const bVar4 = fn_0x550db3(wd.map) - 9 < y;
+  if (bVar4) y = (fn_0x550db3(wd.map) - 9) & 0xff;
+  unitSetPosition(o, x, y);
+  return !bVar4 && !bVar2 && !bVar3 && !bVar1;
+}
+
+/** 0x51806c Spell_AreaProgressive (fastcall; modo 2, distribuição 5): a cada 3 tiques (+0x50: 0 → 2 e pulsa, senão −1) um passo +0x4f.
+ *  Blizzard (7): uma célula sorteada em −2..+2 dos dois eixos (Rand_Inclusive(5) − 2 nos sítios 0x51814a/0x51815c; tabela 0x5f8358 de
+ *  uma célula, sinais 1), 32 passos; Acid Stream (9): as células do passo pelas tabelas 0x5f8550/0x5f8928 na direção +0x4e
+ *  (SpellArea_DirTransform), 6 passos. Em cada célula a carga leva +0xe = id × 2 + 9 e vai para a célula (0x54fca8); se ela não foi
+ *  presa à borda: cliente (0x504524, stub), e a carga age na unidade (Map_UnitAtCell 0x55201a), na unidade grande (0x552079) e no
+ *  objeto do mapa (Map_ObjectAtCell 0x559b7f) da célula (0x518681). No fim, +0x40 = 1.
+ *  PONTE (#94): o objeto do mapa (o prédio, ocupação +0xc) vai ao gancho `areaHitObject` (sem ele, NotPorted 0x5201b2): o dano no
+ *  prédio não está portado, e o passo da lista do mundo não tem rede para NotPorted. */
+export function spellAreaProgressive(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
+  const sVar1 = (o.f50 << 16) >> 16;
+  o.f50 = ((o.f50 - 1) << 16) >> 16;
+  if (sVar1 !== 0) return;
+  o.f50 = 2;
+  const local_c = mapObjCellX(o.mapObj) & 0xff;
+  const local_10 = mapObjCellY(o.mapObj) & 0xff;
+  let local_30 = 0;
+  let t: WallXf;
+  const id = o.fc & 0xffff;
+  if (id === 7) {
+    const dx = (randInclusive(wd, 5, 0x51814a) - 2) | 0;
+    const dy = (randInclusive(wd, 5, 0x51815c) - 2) | 0;
+    t = { dx: [dx], dy: [dy], n: 1, sx: 1, sy: 1 };   // 0x517e80 na tabela 0x5f8358
+    local_30 = 0x20;
+  } else if (id === 9) {
+    const k = o.f4f & 0xff;
+    if (k >= ACID_STEPS) throw new NotPorted("0x51806c (passo do Acid Stream além da tabela)");
+    t = spellAreaDirTransform(o.f4e & 0xff, ACID_STRAIGHT[k]!, ACID_DIAG[k]!);
+    local_30 = ACID_STEPS;
+  } else {
+    throw new NotPorted(`0x51806c (magia 0x${id.toString(16)})`);
+  }
+  const p = wd.payloadAt(o.f48);
+  const shown: [number, number][] = [];
+  for (let local_2c = 0; local_2c < t.n; local_2c++) {
+    const bVar3 = (local_c + t.sx * t.dx[local_2c]!) & 0xff;
+    const bVar4 = (local_10 + t.sy * t.dy[local_2c]!) & 0xff;
+    p.fe = (id * 2 + 9) & 0xffff;
+    if (fn_0x54fca8(wd, p.mapObj, bVar3, bVar4)) {
+      shown.push([bVar3, bVar4]);   // 0x504524: cliente (stub)
+      const cell = (bVar3 + bVar4 * 0x100) & 0xffff;
+      const un = fn_0x551edb(wd.map, cell);   // Map_UnitAtCell 0x55201a
+      spellAreaHitCell(wd, o, un === 0 ? null : wd.map.unitAt(un), h);
+      const st = fn_0x552079(wd.map, cell);
+      spellAreaHitCell(wd, o, st === 0 ? null : wd.map.unitAt(st), h);
+      const ob = fn_0x559bc9(wd.map, cell);   // Map_ObjectAtCell 0x559b7f → 0x518681: PONTE (#94)
+      if (ob !== 0) {
+        if (!h.areaHitObject) throw new NotPorted("0x5201b2");
+        h.areaHitObject(o, ob);
+      }
+    }
+  }
+  if (shown.length) h.clientAreaPulse?.(o, shown);
+  o.f4f = (o.f4f + 1) & 0xff;
+  if (local_30 <= (o.f4f & 0xff)) o.f40 = 1;
+}
+
 /** 0x517cfe SpellArea_Process (fastcall; vtable+0x18 da área): modo 2 → Spell_AreaProgressive 0x51806c e modo 0 → SpellArea_ApplyAll
  *  0x518833 (a explosão da Fireball); modo 1: sem células marcadas → 0x518024; tempo +0x50 = 0 → desmarca e acaba (+0x40 = 1); senão
  *  +0x50−− e a cada 16 tiques as unidades nas células do quadrado do raio onde a vaga desta área está ocupada (0x55a8f8 → 0x551edb)
  *  levam a carga (0x518681). */
 export function spellAreaProcess(wd: WorldRec, o: SpellObjRec, h: CombatHooks): void {
-  if ((o.f08 & 2) !== 0) throw new NotPorted("0x51806c");
+  if ((o.f08 & 2) !== 0) { spellAreaProgressive(wd, o, h); return; }
   if ((o.f08 & 1) === 0) { spellAreaApplyAll(wd, o, h); return; }
   if ((o.f4c & 0xff) === 0) {
     fn_0x518024(wd, o, h);

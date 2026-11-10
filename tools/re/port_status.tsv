@@ -285,7 +285,7 @@ addr	name	size	file	line	status	ts	note
 0x504391	FUN_00504391	263	game/g_500000.c	3331	pending		
 0x504498	FUN_00504498	34	game/g_500000.c	3372	out		cliente: aviso do efeito (stub; gancho clientEffect)
 0x5044ba	FUN_005044ba	106	game/g_500000.c	3382	out		cliente: aviso do efeito (stub; gancho clientEffect)
-0x504524	FUN_00504524	129	game/g_500000.c	3401	pending		
+0x504524	FUN_00504524	129	game/g_500000.c	3401	out		pacote 0x86 ao cliente (passo da área progressiva): gancho clientAreaPulse
 0x5045a5	FUN_005045a5	616	game/g_500000.c	3418	ported	fn_0x5045a5	só o efeito no registro corrente (consultas 0x55a88b) é do servidor; pacote = stub clientArea (0x503e41/0x503bef); folha de 0x5183a2/0x518594
 0x50480d	FUN_0050480d	488	game/g_500000.c	3486	pending		
 0x5049f5	FUN_005049f5	195	game/g_500000.c	3549	pending		
@@ -451,10 +451,10 @@ addr	name	size	file	line	status	ts	note
 0x517c1a	SpellArea_Construct	88	game/g_510000.c	4897	ported	spellAreaConstruct	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 294/294
 0x517c72	FUN_00517c72	140	game/g_510000.c	4917	ported	fn_0x542d50	corpo de 0x542d50 (6/6)
 0x517cfe	SpellArea_Process	386	game/g_510000.c	4945	ported	spellAreaProcess	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage 468/468, synth_m10_fire 82/82); modo 0 = 0x518833 (Fireball); modo 2 (0x51806c) NotPorted
-0x517e80	FUN_00517e80	67	game/g_510000.c	5002	pending		
+0x517e80	FUN_00517e80	67	game/g_510000.c	5002	ported	spells.ts:spellAreaProgressive	embutida no 0x51806c (tabela 0x5f8358, sinais 1); pares do 0x51806c
 0x517ec3	SpellArea_DirTransform	321	game/g_510000.c	5016	ported	spellAreaDirTransform	exe_spells.ts: dentro de 0x518024/0x5182b6 (synth_m10_fire, Wall of Fire 2/2); tabelas 0x5f8400/0x5f84a8 lidas do exe
 0x518024	FUN_00518024	72	game/g_510000.c	5067	ported	fn_0x518024	exe_spells.ts: pares sintéticos (synth_m10_mage 6/6, synth_m10_fire 2/2: definição[8] = 4 → 0x5182b6)
-0x51806c	Spell_AreaProgressive	586	game/g_510000.c	5087	pending		NotPorted em spellAreaProcess (modo 2: Blizzard/Acid Stream; exec 0, área de dano fora do lote 5)
+0x51806c	Spell_AreaProgressive	586	game/g_510000.c	5087	ported	spells.ts:spellAreaProgressive	pares sintéticos synth_m10_bliz (synth_spells.py --scene bliz) 310/310 (+4 em gancho: o prédio, #94 0x5201b2 via areaHitObject); m110_join livre T=14 -> 16
 0x5182b6	SpellArea_Wall	236	game/g_510000.c	5170	ported	spellAreaWall	exe_spells.ts: pares sintéticos (synth_spells.py --scene fire, Wall of Fire) dentro de 0x518024 2/2 e 0x517cfe
 0x5183a2	SpellArea_MarkCells	285	game/g_510000.c	5217	ported	spellAreaMarkCells	exe_spells.ts: pares sintéticos (oracle/synth_spells.py, synth_m10_mage) 6/6 (Light×Darkness anulados); replay isolado idêntico (em série difere só pelo endereço do heap HLE do CMap)
 0x5184bf	FUN_005184bf	213	game/g_510000.c	5258	ported	fn_0x5184bf	folha de 0x5183a2/0x518024 (6/6); ramo Wall of Earth (0x11) sem par
@@ -1295,7 +1295,7 @@ addr	name	size	file	line	status	ts	note
 0x54fb7f	FUN_0054fb7f	120	game/g_540000.c	13842	ported	fn_0x54fb7f	exe/action.ts; Chebyshev entre objetos de mapa; pares 396/396
 0x54fbf7	Unit_SetPosition	74	game/g_540000.c	13870	ported	unitSetPosition	exe_walkaction.ts: pares sintéticos (synth_m10_trap) 6/6
 0x54fc41	FUN_0054fc41	103	game/g_540000.c	13886	ported	mapObjSetFine	exe_walk.ts: pares 100% (3 episódios)
-0x54fca8	FUN_0054fca8	207	game/g_540000.c	13900	pending		
+0x54fca8	FUN_0054fca8	207	game/g_540000.c	13900	ported	spells.ts:fn_0x54fca8	pares sintéticos synth_m10_bliz 146/146
 0x54feae	FUN_0054feae	88	game/g_540000.c	13995	ported	fn_0x54feae	exe_spells.ts: pares 100% (m10_mage) 22/22
 0x54ff06	FUN_0054ff06	85	game/g_540000.c	14010	ported	fn_0x54ff06	exe_spells.ts: pares 100% (m10_mage) 24/24
 0x54ff5b	FUN_0054ff5b	33	game/g_540000.c	14025	ported	path.ts:mapObjFineX	pares do oraculo 100% (m10_start_s1, m10_mage_s102, m20_start_s203); retorno na largura declarada

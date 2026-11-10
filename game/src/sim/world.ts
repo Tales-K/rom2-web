@@ -989,7 +989,8 @@ export class World {
     const row = this.spellTable?.[String(id)];
     if (row) {
       r.def.set(spellDefColumns(row));
-      r.effText = String(row.effects ?? "");   // definição+0x1c: o texto do efeito (0x51caa0 → 0x51e8fa)
+      // definição+0x1c: o texto do efeito (0x51caa0 → 0x51e8fa), exato como em data.bin (`effectsRaw`, com as aspas da Stone Curse)
+      r.effText = String(row.effectsRaw ?? row.effects ?? "");
     } else {
       // [est] sem a tabela: o texto do efeito montado dos efeitos da SpellDef (tipos de 0x5f8f50)
       const fx = (s.effects ?? []).map(e => `${FX_NAME[e.kind] ?? "unused_value_0"}=${e.amount}:duration ${Math.round(s.duration)}`);
@@ -2288,6 +2289,15 @@ export class World {
     clientSpellHit: (a, t, dmg, id) => this.hookSpellHit(a, t, dmg, id),
     clientMissile: (sp, r, t, ticks) => this.hookMissile(sp, r, t, ticks),
     clientArea: o => this.hookArea(o),
+    // 0x51806c portado (exe/spells.ts): o passo da Blizzard/Acid Stream na apresentação e nas alavancas (`onAreaCells`, como o motor
+    // antigo fazia só na Blizzard)
+    clientAreaPulse: (o, cells) => {
+      const id = o.fc & 0xffff, src = o.f3c ? this.unitByAddr(o.f3c) : undefined;
+      if (id === 7 && this.onAreaCells) this.onAreaCells(cells, String(id));
+      this.events.push({ type: "blast", spell: String(id), x: cells[0]![0] + 0.5, y: cells[0]![1] + 0.5, radius: 0.5, unit: src?.id ?? 0 });
+    },
+    // PONTE (#94): o dano da área progressiva no prédio (0x5201b2) não está portado; o prédio fica como estava
+    areaHitObject: () => { /* nada */ },
     clientHit: (a, t, dmg) => this.hookHit(a, t, dmg),
     xpOnHit: (a, t, dmg, p3) => this.exeXp(a, () => unitXpOnHit(this.exeWorld, a, t, dmg, p3, this.exeHooks)),
     fell: r => this.hookFell(r),
