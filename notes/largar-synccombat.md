@@ -591,3 +591,19 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   vão ao livro espelhado) entram em `u.spells`; a instância continua vindo do despejo (`keep`). m30/m50/m70 ganham o Igles; m60 a Dina.
 - Medidas: **m60 T=13 → T=33** (`turn` do herói: 19 × 16); m30 1076, m31 997, m50 834, m70 21 e m110 85 iguais; as 9 corridas
   antigas sem divergência; golden 79,99 % (CI ok); loadcmp 46/46; test:sim e test:script verdes.
+
+# m70 T=21: causa achada (o "Phase out unit" do exe tira a unidade do contentor); a porta deixa a m70 SEM divergência, mas ficou de fora
+- Sorteios no T=21: o original chama AI_CasterShield 0x57a999 (sítio 0x57aad9) 6 vezes, o nosso 7. A chamada a mais é do dragão
+  24699 (jogador 6), que o script põe fora de fase no T=6 ("Phase Out dragon"; no original ele some do despejo nesse tique). No exe,
+  "Phase out unit" (instante 16 → 0x57821e → **0x5102a3**): com +0x4c sem o bit 8, Unit_RemoveFromCells, +0x4c |= 8 e **sai de
+  [0x68d2dc]+4** (`lists.all`: não pensa, não age, não regenera); "Phase in" (17 → 0x578236 → **0x5103ae**): a colocação 0x510089,
+  AddTail no contentor (0x52b22a) e +0x4c &= ~8. O nosso `phaseOut` só tirava das células: a unidade fora de fase seguia pensando.
+- **A porta** (3 trechos em `world.ts`: `phaseOut` tira de `lists.all` e liga o bit 8; `phaseIn` volta ao fim e apaga o bit; o
+  `stable(w.lists.all, …)` do `exeSyncWorld` exclui as fora de fase) **leva a m70 a nenhuma divergência em 2400 tiques** e deixa as 9
+  corridas, o golden (79,99 %), o loadcmp e o test:script iguais. **Desfeita** porque quebra um teste do test:sim:
+  missions_druids m60 "e atacam a maga (Dina)". Os morcegos do grupo 9 voltam de fase e recebem "Attack unit" no mesmo tique (153).
+  Com a porta, o `applyTaskOrder` do pensamento lê a IA+8 = 0 e apaga a ordem antes de ela virar a tarefa 5 (sem a porta, a IA+8 já
+  é 5 no mesmo tique). A unidade volta ao fim da lista, e a passagem que converte a ordem do motor antigo em tarefa do exe
+  (world.ts ~2158) já tinha passado.
+- **Próximo**: achar, no C, quando o exe processa o "Attack unit" (o instante e a IA+8 que ele escreve) de uma unidade recém-voltada
+  de fase, e fazer a conversão ordem → tarefa não depender da posição na lista. Depois religar os 3 trechos acima.
