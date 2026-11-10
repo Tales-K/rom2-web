@@ -244,6 +244,9 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
   const map = data.map;
   const grid = Grid.fromMap(map, data.terrain, data.objects, data.structures);
   const world = new World(grid, map.players.length, opts.seed ?? 0x10a + data.id);
+  // missão nova: o herói entra DEPOIS das unidades do mapa na lista [0x68d2dc]+4 (pacote 4: 0x4f2c83 → 0x52b22a AddTail; m110_join,
+  // herói em 259 de 260); a carga de save mantém a regra dos saves (herói à frente: despejos m10/m20) — `restoreMission`
+  world.heroListFront = false;
   const dipFromMap = map.players.every(p => Array.isArray(p.diplomacy)) ? map.players.map(p => p.diplomacy!) : undefined;
   const dip = dipFromMap ?? data.meta?.diplomacy;
   // byte de diplomacia do exe (mundo+0xa8bc, como os jogadores da carga 0x561422 o deixam; 46 despejos do tique 0): consigo mesmo 0x12;

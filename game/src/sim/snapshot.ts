@@ -121,6 +121,8 @@ export interface WorldSnapshot {
   traps?: Trap[];
   /** grupos com o "Suspend group" do script (0x5781a7: sem o "sempre acordado") */
   asleepGroups?: number[];
+  /** a regra da ordem da lista das unidades ([0x68d2dc]+4): herói à frente (saves) ou na ordem de entrada (missão nova: depois do mapa) */
+  heroListFront?: boolean;
   /** ajustes de IA por jogador (Formation/Retreat/AutoCasting) */
   playerAi?: PlayerAi[];
   /** guarda dos grupos de IA (raio-base, raio atual, em combate) [World.groupState] */
@@ -172,6 +174,7 @@ export function snapshotWorld(world: World): WorldSnapshot {
     areas: world.areas.map(a => JSON.parse(JSON.stringify(a)) as SpellArea),
     traps: world.traps.map(t => JSON.parse(JSON.stringify(t)) as Trap),
     asleepGroups: [...world.exeAsleepGroups],
+    heroListFront: world.heroListFront,
     playerAi: world.playerAi.map(p => ({ ...p })),
     groupState: [...world.groupState].map(([g, v]) => [g, { ...v }] as [number, { base: number; radius: number; combat: boolean; cmd12?: boolean }]),
   };
@@ -227,6 +230,7 @@ export function restoreWorld(world: World, s: WorldSnapshot): void {
   for (const a of s.areas ?? []) { const c = JSON.parse(JSON.stringify(a)) as SpellArea; world.areas.push(c); if (c.kind === "wall") world.applyWall(c, true); }
   world.exeAsleepGroups.clear();
   for (const g of s.asleepGroups ?? []) world.exeAsleepGroups.add(g);
+  world.heroListFront = s.heroListFront ?? true;   // save antigo: a regra dos saves
   world.traps.length = 0;
   for (const t of s.traps ?? []) world.traps.push(JSON.parse(JSON.stringify(t)) as Trap);
   // ocupação do exe: a gravada (exata) ou, em save antigo, refeita das unidades

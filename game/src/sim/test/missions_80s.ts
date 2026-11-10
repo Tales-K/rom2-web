@@ -29,6 +29,7 @@ import { availableMissions, availableTowns, enterLocation, getVar, innPatrons, i
 import type { CampaignData, CampaignState } from "../../campaign/types";
 
 import { TICKS_PER_SEC } from "../types";
+import { keep as keepImmortal, makeImmortal } from "./pilot";
 let passes = 0, failures = 0;
 function check(cond: unknown, msg: string): void {
   if (cond) { passes++; console.log(`  ok   ${msg}`); } else { failures++; console.log(`  FALHOU: ${msg}`); }
@@ -296,8 +297,10 @@ async function campMission(c: Camp): Promise<void> {
   r = start(); w = r.b.world; h = r.b.hero;
   const near = ofPlayer(r, 2).sort((a, b) => dist(a, h) - dist(b, h))[0]!;
   at(r, h, near.cx + 4, near.cy); const hp0 = near.hp;
-  for (const id of [10001, 10002, 10003]) { const u = unit(r, id); u.maxHp = u.hp = 5000; } // grupo "imortal" só neste trecho
-  run(r, 20 * 20, () => keep(r));
+  // grupo "imortal" só neste trecho: `makeImmortal` (pilot.ts) — o recálculo 0x51366b do herói refaz a vida máx. pelo corpo, e o `keep`
+  // daqui só repunha a vida até ela (o herói caía num golpe com a ordem de entrada nova da lista das unidades, herói depois do mapa)
+  for (const id of [10001, 10002, 10003]) makeImmortal(unit(r, id));
+  run(r, 20 * 20, () => keepImmortal(r));
   console.log(`  info: inimigo mais próximo (${near.name}): vida ${Math.ceil(hp0)} -> ${Math.ceil(near.hp)}, estado ${near.state}, a ${dist(near, h).toFixed(0)} células do herói após 20 s`);
   check(!r.outcome && w.units.every(u => Number.isFinite(u.x) && Number.isFinite(u.y)), `20 s de combate real ao lado de um bando: sem desfecho e sem NaN (${JSON.stringify(r.outcome)})`);
   companionsFail(start);
@@ -632,9 +635,9 @@ async function m87(): Promise<void> {
   }
   // combate real: o grupo na casa (54,13) com os 10 mortos-vivos do grupo 6 ao redor; invulnerável só neste trecho, os livros só valem com eles mortos
   r = start(); w = r.b.world; h = r.b.hero; settle(r, 5);
-  for (const id of [10001, 10002, 10003]) { const u = unit(r, id); u.maxHp = u.hp = 5000; }
+  for (const id of [10001, 10002, 10003]) makeImmortal(unit(r, id));   // (ver o combate real acima)
   beside(r, h, 36); settle(r); at(r, h, 54, 15);
-  run(r, 20 * 25, () => keep(r));
+  run(r, 20 * 25, () => keepImmortal(r));
   const left = defenders(r).filter(u => u.alive).length;
   console.log(`  info: defensores da casa vivos após 25 s de combate real: ${left}/10`);
   check(!has(r, 8) && !r.outcome && w.units.every(u => Number.isFinite(u.x)) && (left < 10 || defenders(r).some(u => u.state === "attack" || u.hp < u.maxHp)), "25 s junto à casa com os defensores vivos: combate real e nenhuma descoberta dos livros");

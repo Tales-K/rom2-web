@@ -733,3 +733,14 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   useFrom/areaHitStructures/exists/wake/teleportation...). O coordenador foi avisado na hora, e o arquivo foi restaurado por outra
   sessão. Conferido contra a última compilação em cache do tsx antes do incidente (`%TEMP%\tsx-TALES K\17940-e497…`, 06/11 23:26):
   idêntico, salvo `groupUnits` (`this.exists(u)` antes × `u.alive` no restaurado) — avisado.
+
+# buildMission: a entrada nova × a carga de save (ordem da lista das unidades)
+- Missão nova (`buildMission`): `World.heroListFront = false`. O herói entra DEPOIS das unidades do mapa em [0x68d2dc]+4, como o
+  pacote 4 do exe (0x4f2c83 → 0x52b22a, AddTail; m110_join: herói em 259 de 260). Carga de save (`restoreMission`): a regra do save
+  vai no snapshot (`heroListFront`), e o save antigo fica com a regra dos saves (herói à frente, despejos m10/m20). A importação do
+  golden/tickcmp: `heroListFront = !from_load`.
+- Testes (missions_80s, com o motivo anotado): dois combates reais "imortais" (vida 5000) perdiam o herói num golpe com a ordem nova.
+  O recálculo 0x51366b refaz a vida máx. do herói, e o `keep` local só repunha a vida até ela; passaram a usar `makeImmortal` e o
+  `keep` do pilot.ts.
+- Bateria: as 9 antigas, m31, m50 e m70 sem divergência; m30 2037, m60 302 e m110 517 iguais; golden 80,75 % (sai com 0); loadcmp
+  46/46; test:sim, test:script e typecheck verdes.
