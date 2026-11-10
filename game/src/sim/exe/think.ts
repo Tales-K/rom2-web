@@ -598,6 +598,34 @@ export function aiCanCastCost(u: UnitRec, param_2: number): number {
   return iVar1.addr;
 }
 
+/** 0x57a769 AI_CasterOffensiveSpell (thiscall; mundo, unidade, alvo): Mind (+0x88) < 60, ou o sorteio 0..99 (0x57afd0, sítio 0x57a7b8)
+ *  acima de 29 → a lista das magias do livro 1..28 com custo (+0xc) ≤ mana (+0x9a) e que não são de apoio (+0xa = 0), uma sorteada
+ *  (sítio 0x57a862; índice além da lista = a última; lista vazia = nada) e AI_CastAtTarget nela (IA+0x60 = 1) → 1; senão (os 30 % da
+ *  arma) AI_Task_Attack 0x56acc8, que reentra aqui → 0. Antes num gancho do motor antigo (oráculo m110_join, T=5: 18 chamadas). */
+export function aiCasterOffensiveSpell(wd: WorldRec, param_1: UnitRec, param_2: UnitRec, h: ThinkHooks): number {
+  let local_14 = 0;
+  if (i16(param_1.f88) < 0x3c || (local_14 = fn_0x57afd0(wd, 100, 0x57a7b8), 0x1d < local_14)) {
+    const local_38: BookSpellRec[] = [];   // List_Construct 0x57c9a0
+    let local_18: BookSpellRec | null = null;
+    for (let local_1c = 1; local_1c < 0x1d; local_1c++) {
+      local_18 = unitGetBookSpell(param_1.book, local_1c);
+      if (local_18 !== null && i16(local_18.cost) <= i16(param_1.mana) && (local_18.f0a & 0xff) === 0) local_38.push(local_18);
+    }
+    local_14 = fn_0x57afd0(wd, local_38.length, 0x57a862);
+    for (let local_1c = 0; local_1c < local_38.length; local_1c++) {
+      local_18 = local_38[local_1c]!;
+      if (local_1c === local_14) break;
+    }
+    if (local_38.length < 1) local_18 = null;
+    if (local_18 === null) return 0;
+    param_1.ai.f60 = 1;
+    aiCastAtTarget(wd, param_1, param_2, local_18, h);
+    return 1;
+  }
+  aiTaskAttack(wd, param_1, param_2, h);
+  return 0;
+}
+
 /** 0x56acc8 AI_Task_Attack (thiscall; mundo, unidade, alvo). */
 export function aiTaskAttack(wd: WorldRec, u: UnitRec, param_2: UnitRec, h: ThinkHooks): void {
   let local_10: UnitRec | null = param_2;
@@ -639,10 +667,7 @@ export function aiTaskAttack(wd: WorldRec, u: UnitRec, param_2: UnitRec, h: Thin
     }
   } else {
     let cast = 0;
-    if (fn_0x53a5a0(u) !== 0) {
-      if (!h.casterOffensiveSpell) throw new NotPorted("0x57a769");
-      cast = h.casterOffensiveSpell(wd, u, local_10);
-    }
+    if (fn_0x53a5a0(u) !== 0) cast = aiCasterOffensiveSpell(wd, u, local_10, h);
     if (cast === 0) {
       u.ai.task = 5;
       u.ai.f0c = local_10.addr >>> 0;

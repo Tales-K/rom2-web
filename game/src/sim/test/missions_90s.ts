@@ -935,7 +935,16 @@ async function m103(): Promise<void> {
     // uma súcubo pode ter começado Stone Curse no portador antes do teleporte: a magia pousa onde ele está (máquina 0x50f12c);
     // o cenário tira a pedra e manda de novo
     at(q, stone, s.x - 2, s.y + 1);
-    for (let k = 0; k < 6 && !pickupAt(q, stone, s.x, s.y, TICKS_PER_SEC * 20); k++) unstone(q);
+    // com a escolha de magia do exe (AI_CasterOffensiveSpell 0x57a769, portado) as brigas em volta do saco mudam de lugar: um monstro
+    // de lado 2 (tipo 66, jogador 7) parado atacando cobre a célula do saco com a pegada 2×2 (registro de ocupação +4) e a coleta nunca
+    // chega. O cenário afasta quem cobre a célula do saco antes de cada tentativa (o teste é do fluxo do script, não da briga)
+    const clear = (): void => {
+      for (const u of q.b.world.units) {
+        const sz = Math.max(1, u.stats.size ?? 1);
+        if (u !== stone && u.active && s.x >= u.cx && s.x < u.cx + sz && s.y >= u.cy && s.y < u.cy + sz) q.b.world.teleport(u, s.x + 5, s.y + 5);
+      }
+    };
+    for (let k = 0; k < 6 && (clear(), !pickupAt(q, stone, s.x, s.y, TICKS_PER_SEC * 20)); k++) unstone(q);
     beside(q, stone, 30); settle(q, 25);
     q.b.world.teleport(unit(q, 30), 128, 72); at(q, q.b.hero, 126, 71); settle(q, 25);
     return q;

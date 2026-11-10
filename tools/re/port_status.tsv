@@ -1804,7 +1804,7 @@ addr	name	size	file	line	status	ts	note
 0x579ddf	Spell_PrismaticTargets	1113	game/g_570000.c	6172	pending		
 0x57a307	FUN_0057a307	374	game/g_570000.c	6334	pending		
 0x57a47d	FUN_0057a47d	395	game/g_570000.c	6390	out		armadilhas do script: laço vazio no corpus (0x57a307 exec 0); gancho traps do pensamento (etapa 9 lote 2)
-0x57a769	AI_CasterOffensiveSpell	444	game/g_570000.c	6490	pending		
+0x57a769	AI_CasterOffensiveSpell	444	game/g_570000.c	6490	ported	aiCasterOffensiveSpell	sorteios do oráculo m110_join T=5 (sítios 0x57a7b8/0x57a862, 18 chamadas); cenário sintético do Summon (alcance 0: persegue, não lança)
 0x57a951	FUN_0057a951	61	game/g_570000.c	6582	pending		
 0x57a999	AI_CasterShield	974	game/g_570000.c	6610	ported	think.ts:aiCasterShield	pares m10_start+m10_mage 240/240 (exe_think.ts; etapa 9 lote 2): sorteios 0x57aad9/0x57ac98
 0x57ad79	FUN_0057ad79	30	game/g_570000.c	6743	pending		

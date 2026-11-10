@@ -1124,19 +1124,6 @@ export class World {
       if (u.alive && !u.phased && !u.suspended && !u.helpless && !this.stunned(u)) legacyThink(this, u);
       return true;
     },
-    // 0x57a769: a escolha é a do motor antigo (8b); o fim é o do exe — AI_CastAtTarget 0x56c72b (tarefa 8 no alvo, portada), que o
-    // `applyTaskOrder` torna a ordem de lançar (sem a tarefa, a ordem dada aqui era apagada pela tarefa 0 do pensamento)
-    casterOffensiveSpell: (w, r, t) => {
-      const u = this.unitByAddr(r.addr), tu = this.unitByAddr(t.addr);
-      if (!u || !tu) return 0;
-      const s = pickOffensive(this, u, tu);
-      if (!s) return 0;
-      if (r.book.src !== World.bookSig(u)) this.exeSyncBook(u);
-      const b = r.book.spells[Number(s.base ?? s.id) | 0];
-      if (!b) { this.command(u, castAt(u, s, tu)); u.orderTick = -1e9; return 1; }
-      aiCastAtTarget(w, r, s.kind === "summon" ? r : t, b, this.thinkHooks);
-      return 1;
-    },
     traps: () => { for (let i = 0; i < this.traps.length; i++) this.rng.draw(0x57a409); },
     // o script roda dentro do pensamento (0x57485b), antes do AI_PlayerThink: a diplomacia e os comandos de grupo que ele dá já valem
     // neste pensamento (o exe os escreve direto no mundo e nos grupos; aqui passam pelo motor antigo e são espelhados de novo)

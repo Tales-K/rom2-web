@@ -265,7 +265,7 @@ console.log("\n[magia escolhida] o ataque do jogador lança a magia no lugar do 
 }
 
 // ------------------------------------------------------------------------------------------------ IA conjuradora
-console.log("\n[IA] conjurador de IA sorteia Summon/Animate Dead como as demais magias não defensivas [exe 0x57a769]");
+console.log("\n[IA] conjurador de IA com só o Summon no livro não invoca: o 0x57a769 o põe no alvo inimigo com alcance 0 [exe, oráculo]");
 {
   const w = makeWorld(17);
   const h = heroMage(w, 10, 10, 30);
@@ -277,7 +277,11 @@ console.log("\n[IA] conjurador de IA sorteia Summon/Animate Dead como as demais 
   dr.mana = dr.maxMana = 1000;
   const t = run(w, sec(40), () => w.units.some(u => u.summoner === dr.id));
   const m = w.units.find(u => u.summoner === dr.id);
-  check(!!m && m.player === 2, `druida inimigo invoca em combate (${(t / TICKS_PER_SEC).toFixed(1)} s, jogador ${m?.player})`);
+  // oráculo (cenário sintético na m10_mage_s102: um monstro com só o Summon no livro, mana 1000, a 3 células da maga): o
+  // AI_CasterOffensiveSpell 0x57a769 escolhe o Summon e o põe no ALVO INIMIGO (AI_CastAtTarget, IA+0x28 = a maga), com IA+0x14 = o
+  // alcance 0 da magia ("Caster Only"); o despachante 0x56ebc0 nunca o acha ao alcance, ele persegue, passa a bater (tarefas 5/6) e
+  // em 640 tiques não invoca nem gasta mana. O motor antigo lançava o Summon em si mesmo (o gancho de antes, sem base no C)
+  check(!m && dr.mana === 1000, `druida inimigo com só o Summon não invoca em 40 s (${(t / TICKS_PER_SEC).toFixed(1)} s; mana ${dr.mana})`);
 }
 
 console.log(`\n${passes} ok, ${failures} falha(s)`);

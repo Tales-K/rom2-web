@@ -469,7 +469,9 @@ console.log("\n[IA do exe] guarda do grupo (0x57275f), pensamento 1×/s (0x57008
   // giro: o lich de costas para o alvo (oeste → leste = 180°) leva ceil(128/16) = 8 tiques de 16/s a mais para lançar
   const delay = (dir0: number): number => {
     const w = makeWorld(4);
-    const lich = mon(w, 672, 2, 10, 30), h = heroFighter(w, 14, 30);
+    // o lich do lado do jogador 1: o pensamento de grupo do exe (AI_Task_Attack → AI_CasterOffensiveSpell 0x57a769, portado) daria a
+    // ele a tarefa de magia por conta própria (o `suspended` do motor antigo não a desliga) e o teste mede só o giro da ordem
+    const lich = mon(w, 672, 1, 10, 30), h = heroFighter(w, 14, 30);
     installMissionAi(w, { spells });
     h.hp = h.maxHp = 50000; h.stats = { ...h.stats, healthRegen: 0 }; lich.suspended = true; lich.dir = dir0; lich.mana = 1000;
     const l = lich.spells.find(s => Number(s.id) === SPELL.Lightning)!;

@@ -495,3 +495,15 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   `side-session-notes/local_c595edc7-3cc5-4c16-8649-e63ff20be6a9/porta-0x57a769.patch`
   (`git apply` na raiz do repo). Com ele, as 9 corridas antigas seguem sem divergência, o golden fica em 79,99 % e a m110 vai do
   T=5 ao T=14; o único vermelho é o necro.ts acima. A árvore ficou no HEAD (bateria verde).
+
+# A porta do AI_CasterOffensiveSpell 0x57a769 RELIGADA (com o Summon resolvido pelo oráculo)
+- **Summon no exe** (cenário sintético, imagem m10_mage_s102; sonda de rascunho fora do git): um monstro com só o Summon no livro
+  (0x53a600, 0x51906d, 0x51c29e), mana 1000, vida 30000, bit de livro em +0x4c, posto a 3 células da maga (Unit_TeleportTo).
+  O 0x57a769 escolhe o Summon e o põe no ALVO INIMIGO (IA+8 = 8, IA+0x28 = a maga), com IA+0x14 = 0 (o alcance da magia, "Caster
+  Only"). Ele é chamado uma vez em 640 tiques; o despachante 0x56ebc0 nunca acha o alvo ao alcance, e o monstro persegue e depois
+  bate corpo a corpo (tarefas 5/6). Em 40 s não invoca nem gasta mana. A porta literal (sem o caso especial "Summon em si mesmo" do
+  gancho antigo) faz o mesmo. O teste `necro.ts` passou a esperar isso, com o motivo anotado.
+- Os outros dois ajustes de teste (m103: afastar quem cobre a célula do saco pela pegada; ai.ts: o lich do lado do jogador 1) são
+  os da nota anterior.
+- Bateria verde: 9 corridas sem divergência, golden 79,99 % (CI ok), loadcmp 46/46, test:sim, test:script. Corrida livre: m30 T=1076,
+  m31 T=997, m50 T=834, m60 T=13, m70 T=21, **m110 T=5 → T=14** (rng).
