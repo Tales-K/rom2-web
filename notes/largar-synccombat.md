@@ -555,3 +555,11 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - Medidas: as 9 corridas antigas sem divergência; golden 79,99 % (CI ok); loadcmp 46/46 (com e sem MapRec); test:sim, test:script
   49/49 e typecheck verdes. Corrida livre: m30 T=1076, m31 T=997, m50 T=834, m60 T=13, m70 T=21, **m110 T=14 → T=27**
   (`act` do 24910: 13 × 3).
+- **T=27** (`act` do druida 24910: 13 × 3): no exe, o "Druid_Male2" (tipo 100) tem a arma do modelo "Wood Shaman Staff
+  {castSpell=Ice_Missile:5}" em +0x74, com a magia +0x84 (Ice Missile, alcance 7). Gancho de escrita no oráculo: o despachante põe o
+  golpe (ação 3, 0x56e8c3) e a máquina 0x50f12c (0x50f430) o troca pela magia da arma (ação 0xd, +0x64 = a magia, +0x68 = a arma). No
+  nosso, só o herói tinha `weaponSpell`; o `weaponItemSync` zerava a magia da arma de toda unidade do mapa. Agora o `buildMission` dá às
+  unidades do mapa criadas pelo modelo a magia da arma (o `castSpell`/`spellPower` do item do equipamento na posição da arma); a máquina
+  portada decide pelo bit 4 de +0x4c (0x53a5a0). São 104 modelos com arma assim em data.bin (xamãs orcs, esqueletos magos, druidas,
+  catapultas...). Bateria igual (9 corridas sem divergência, golden 79,99 %, loadcmp 46/46, test:sim, test:script); **m110 T=27 → T=49**
+  (`flee_cell`/`hit_clock16`/`look_hit` do 24908).

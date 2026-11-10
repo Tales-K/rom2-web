@@ -282,6 +282,12 @@ export function buildMission(data: MissionData, hero: HeroState, cb: HostCallbac
     const u = world.spawn({ kind, typeId: tpl?.kind === "hero" && created ? created.rec.f0e : mu.kind, player: mu.player, x: mu.x, y: mu.y, stats, exactCell: true,
       timing: timingFor(am, stats, (tpl?.dyingTime as number | undefined)), scriptId, npc, name: NPC_NAMES[npc] ?? stats.name });
     if (created) { applyCreatedRec(u.rec, created.rec); u.exeBase = true; if (hp0 !== undefined && mu.hp !== 0) u.hp = hp0; }
+    // a arma do modelo que lança magia ("Wood Shaman Staff {castSpell=Ice_Missile:5}": a criação 0x511959/0x5145d1 a equipa em +0x74
+    // com a magia +0x84 e o poder no efeito 0x29): a máquina 0x50f12c troca o golpe por ela (ação 0xd) quando a unidade tem o bit 4 de
+    // +0x4c (0x53a5a0) — m110_join T=27, o druida 24910
+    const ws = ((tpl?.equipment as { id: number; mods?: Record<string, number> }[] | undefined) ?? [])
+      .find(e => (data.items as Record<string, { slot?: string }> | undefined)?.[String(e.id)]?.slot === "weapon")?.mods;
+    if (created && ws?.castSpell) u.weaponSpell = { ...spellDef(ws.castSpell, data.spells?.[String(ws.castSpell)], ws.spellPower ?? 1), mana: 0 };
     host.bindUnit(scriptId, u);
     // vida 0 no mapa: unidade inconsciente de verdade (refém ogro da 50, druida chefe moribundo da 101): vida exatamente 0, deitada, estável;
     // acorda ao chegar alguém do jogador perto ou com Heal (vida >= 25% para o script: mission/host.ts `wake`). No tique 0 do original
