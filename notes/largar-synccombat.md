@@ -677,3 +677,18 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - Medidas: **m50_join livre: nenhuma divergência** (antes 834); **m30 1076 → 2037**; **m60 98 → 282** (o `speed_eff`/`turn` da Dina:
   18 × 20, o fim do Haste); m70 e as 9 antigas sem divergência; m31 1840 e m110 517 iguais; golden 80,75 % (sai com 0); loadcmp
   46/46; test:sim, test:script e typecheck verdes.
+
+# m31 T=1840 → nenhuma; m60 T=282 → T=302: o giro e a velocidade no próprio tique do recálculo
+- m31 T=1840 (`turn` do herói 19 × 16): a subida de nível no golpe passa pelo recálculo 0x51366b no meio da máquina, e o giro vira a
+  velocidade no mesmo tique. O "−1" adiava para a máquina seguinte. Agora o gancho já põe giro = velocidade do registro.
+- m60 T=282 (`speed_eff`/`turn` da Dina 18 × 20): o fim do Haste (0x51cc9f tira da lista +0x20 e recalcula) e a velocidade do motor
+  antigo só voltava na máquina seguinte. Agora o gancho refaz a velocidade (`speedOf`, que já não conta o efeito que saiu) fora do
+  tique exato; o "−1" continua para o efeito que entra (o Haste novo só aparece na lista depois do recálculo).
+- Medidas: **m31_join livre: nenhuma divergência** (antes 1840); m60 282 → 302 (`manamax` da Dina 187 × 186). As 9 antigas, m50 e m70
+  continuam sem divergência; m30 2037 e m110 517 iguais; golden 80,75 % (sai com 0); loadcmp 46/46; test:sim, test:script e
+  typecheck verdes.
+- **Meta "tickcmp livre ≥ 99 % em ≥ 6 missões"**: sem divergência em 2400 tiques (ou no episódio inteiro) estão as missões 10 (6
+  episódios longos + tickcmp), 20 (m20_start_s203), 31, 50 e 70 = 5 missões. A m30 está em 2037/2400 (84,9 %), a m110 em 517 e a
+  m60 em 302. Obs.: o tickcmp reancorado (`--episode mXX_join`) quebra na m30/m60/m70 (CList::GetNext com POSITION nula em 0x5692d5,
+  a patrulha importada na janela) — o modo reancorado dos episódios da junção não estava na bateria; a medida da meta é a corrida
+  livre.

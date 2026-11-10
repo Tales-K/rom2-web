@@ -2351,7 +2351,13 @@ export class World {
         this.syncCombat(u); this.recomputeLater.add(u);
         // 0x51366b (humano/herói, vtable+0x30 ≠ 0): o giro = a velocidade refeita (m60_join T=33: o Bless da Dina no herói, giro 16 → 19)
         // (a velocidade do motor antigo só entra no registro na máquina, depois do efeito: −1 = "o giro segue a velocidade de lá")
-        if (vt30(r) !== 0) { if (this.exeExact) r.walk.turnRate = r.speed & 0xff; u.turnFromRecompute = this.exeExact ? r.speed & 0xff : -1; }
+        // (giro = a velocidade do registro já; fora do tique exato a máquina seguinte o refaz com a velocidade nova: m31_join T=1840, a
+        // subida de nível no golpe, giro 16 → 19 no mesmo tique)
+        // (fora do tique exato a velocidade também: o fim do Haste já saiu da lista +0x20 — m60_join T=282, a Dina 20 → 18)
+        if (vt30(r) !== 0) {
+          if (!this.exeExact) r.speed = Math.round(this.speedOf(u) * 16);
+          r.walk.turnRate = r.speed & 0xff; u.turnFromRecompute = this.exeExact ? r.speed & 0xff : -1;
+        }
       }
       // o giro do recálculo vale até o próximo (a máquina não o refaz pelos dados: `turnFromRecompute`)
       if (u?.exeBase && vt30(r) !== 0) u.turnFromRecompute = r.walk.turnRate & 0xff;
