@@ -135,8 +135,8 @@ export function ourFields(w: World, u: Unit, rev: Map<number, number>, st: Any):
   return {
     type: u.typeId, player: u.player, x: u.cx, y: u.cy, fx: R256(u.x), fy: R256(u.y), hp: u.hp, hpmax: u.maxHp, mana: u.mana, manamax: u.maxMana,
     act, task: tc, target: oid(ot), dir16: (u.dir + 8) % 16,
-    speed_eff: Math.round(s.speed * 16), scan: Math.floor(w.sightOf(u)),   /* +0xa5 do original já tem o Light/Darkness (0x51d175 mexe em +0xa4): m10_troll_chase T=2910 */ toHit: s.attack, dmin: s.damage.min, dmax: s.damage.max, defense: s.defense, absorb: s.absorption + w.exeFxSum(u, "absorption"),
-    range: s.range, turn: s.turnSpeed ?? Math.round(s.speed * 16), withdraw: u.withdrawHp, wimpy: u.wimpyHp, charge: s.charge ?? 0, relax: s.relax ?? 0,
+    speed_eff: u.rec.speed & 0xffff /* a do registro (com o Haste/Slow que a máquina põe) */, scan: Math.floor(w.sightOf(u)),   /* +0xa5 do original já tem o Light/Darkness (0x51d175 mexe em +0xa4): m10_troll_chase T=2910 */ toHit: s.attack, dmin: s.damage.min, dmax: s.damage.max, defense: s.defense, absorb: s.absorption + w.exeFxSum(u, "absorption"),
+    range: s.range, turn: u.rec.walk.turnRate & 0xff /* o giro do registro (+0x1c0+0xa; 0x51366b o refaz = velocidade) */, withdraw: u.withdrawHp, wimpy: u.wimpyHp, charge: s.charge ?? 0, relax: s.relax ?? 0,
     eldmg: el.join(","), hpregen: s.healthRegen ?? 0, manaregen: s.manaRegen ?? 0, effects, summoner: oid(u.summoner),
     post: cellCode(u.home), unreach: u.unreachSec, flee_cell: u.fleeCell, hit_clock16: u.hitClock16, look_hit: u.rec.ai.f54 ? 1 : 0,
     walk_static: listVals(r.pathStatic).join(","), walk_dynamic: listVals(r.pathDynamic).join(","), walk_goal: r.walk.dest, walk_final: r.walk.f76,

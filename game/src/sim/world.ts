@@ -386,6 +386,8 @@ export class Unit {
   spells: SpellDef[] = [];
   /** magia disparada pela arma (cajado com castSpell): o ataque normal vira projétil mágico sem gastar mana */
   weaponSpell: SpellDef | null = null;
+  /** o giro (+0x1c0+0xb) que o último recálculo vtable+0x58 (0x51366b: giro = velocidade) deixou nos humanos; sem ele, o dos dados */
+  turnFromRecompute?: number;
   /** magias lançadas no lugar do golpe com chance % [exe 0x56acc8] (montadas em behaviors.ts) */
   procSpells: ProcSpell[] = [];
   gold = 0;
@@ -2344,7 +2346,15 @@ export class World {
     recompute: r => {
       const u = this.unitByAddr(r.addr);
       if (u?.exeBase) unitVt58(this.exeWorld, r);
-      else if (u) { if (u.heroInfo) { this.heroExpFromRec(u); this.heroRecompute?.(u); } this.syncCombat(u); this.recomputeLater.add(u); }
+      else if (u) {
+        if (u.heroInfo) { this.heroExpFromRec(u); this.heroRecompute?.(u); }
+        this.syncCombat(u); this.recomputeLater.add(u);
+        // 0x51366b (humano/herói, vtable+0x30 ≠ 0): o giro = a velocidade refeita (m60_join T=33: o Bless da Dina no herói, giro 16 → 19)
+        // (a velocidade do motor antigo só entra no registro na máquina, depois do efeito: −1 = "o giro segue a velocidade de lá")
+        if (vt30(r) !== 0) { if (this.exeExact) r.walk.turnRate = r.speed & 0xff; u.turnFromRecompute = this.exeExact ? r.speed & 0xff : -1; }
+      }
+      // o giro do recálculo vale até o próximo (a máquina não o refaz pelos dados: `turnFromRecompute`)
+      if (u?.exeBase && vt30(r) !== 0) u.turnFromRecompute = r.walk.turnRate & 0xff;
     },
     clientEffect: (r, id, type, v, on) => {
       const u = this.unitByAddr(r.addr);
@@ -2376,7 +2386,8 @@ export class World {
     const f0 = (r.mapObj.x << 24) | (r.mapObj.y << 16) | (r.mapObj.fx << 8) | r.mapObj.fy;
     if (!this.exeExact) {
       r.speed = Math.round(this.speedOf(u) * 16);
-      r.walk.turnRate = (u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
+      if (u.turnFromRecompute === -1) u.turnFromRecompute = r.speed & 0xff;
+      r.walk.turnRate = (u.turnFromRecompute ?? u.stats.turnSpeed ?? Math.round(u.stats.speed * 16)) & 0xff;
       r.attackRange = this.attackRange(u) & 0xff;   // +0x12c (AI_AttackRange 0x56ac5b sem magia escolhida no registro)
       if (!u.exeTask) r.task = this.taskClass(u);   // pelo porte, a classe +0x50 vem dos tratadores das ordens (exe/orders.ts)
     }

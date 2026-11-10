@@ -489,6 +489,9 @@ export function applyState(w: World, st: OrigState, idmap: Map<number, number>, 
       if (u.rec.book.keep) { bookApplyKeep(u.rec); u.rec.book.keep = null; }
     }
     else recFromState(w, u, o, byOrig);
+    // o giro do registro do original vale até o próximo recálculo (a máquina não o refaz pelos dados: m60_join, a Dina com giro 16 e
+    // velocidade 18 — o 0x51366b ainda não rodou desde que a velocidade mudou)
+    if (o.turn) u.turnFromRecompute = o.turn & 0xff;
   }
   // guarda dos grupos: raio atual, base e combate do comando do grupo; alvo atribuído a cada unidade (0x57240b)
   for (const g of st.groups ?? []) {

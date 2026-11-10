@@ -649,3 +649,18 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
 - Aviso: `audio_hook`/`build_m103` escolhem a cópia pela variável `A2_RUN_DIR`, que o `launch.py` só lê numa mudança local de outra
   sessão, ainda não commitada (o mesmo vale para os pontos novos de `states.py` e o `dblclick` de `run_steps.py`). Sem ela, eles
   importam, mas rodam na `a2_run`.
+
+# m60 T=33 → T=98: o giro do recálculo 0x51366b (= velocidade) e a medida do giro/velocidade pelo registro
+- **T=33** (`turn` do herói: 19 × 16): o Bless da Dina no herói passa por 0x51d436 → vtable+0x58 (0x51366b), que faz giro = velocidade
+  (19). Duas partes:
+  - (a) Medida: o tickcmp lia o giro dos dados (`stats.turnSpeed`) e a velocidade efetiva de `stats.speed`. Agora lê os dois do
+    registro (+0x1c0+0xa e +0x90).
+  - (b) Motor: o gancho `recompute` dos humanos sem `exeBase` não mexia no giro, e a máquina o refazia pelos dados a cada tique. Agora
+    o recálculo marca `turnFromRecompute` (giro = velocidade; fora do tique exato, "−1": a velocidade com o Haste/Slow só entra no
+    registro na máquina, que então fixa o giro), e a máquina usa esse giro até o próximo recálculo. Nas `exeBase`, ele vem da porta.
+- **T=1** (com a medida nova; `turn` da Dina: 16 × 18): a Dina do despejo tem giro 16 e velocidade 18 (o 0x51366b ainda não rodou
+  desde que a velocidade mudou). A importação passou a guardar o giro do original em `turnFromRecompute`.
+- **T=52** (`speed_eff`/`turn` da Dina: 20 × 18, o Haste nela): resolvido pelo "−1" acima.
+- Medidas: **m60 T=33 → T=98** (o herói larga o alvo no original: `act` 0 × 1, `target` 0 × 24641, a mesma assinatura da m30 em 1076 e
+  da m50 em 834 — a próxima a ver). As outras iguais (m70 e as 9 antigas sem divergência; m30 1076, m31 1840, m50 834, m110 517);
+  golden 80,75 % (sai com 0); loadcmp 46/46; test:sim, test:script e typecheck verdes.
