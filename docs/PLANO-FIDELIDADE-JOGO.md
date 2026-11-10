@@ -62,6 +62,20 @@ O que falta para a partida iniciada pelo nosso jogo ser igual, não só a import
 5. Formação do grupo (#25) contra o original.
 Pronto quando: loadcmp 46/46, tickcmp livre ≥ 99 % em ≥ 6 missões, golden `--ci` verde e sem divergência nomeada do motor antigo.
 
+**Estado da F2 em 2026-11-10** (`notes/largar-synccombat.md`; bateria: tickcmp `--all` e `--joins`, as 6 corridas longas, golden
+`--ci`, loadcmp, test:sim, test:script):
+- loadcmp 46/46 (com e sem MapRec): **cumprido**.
+- golden `--ci` verde (80,75 %): **cumprido**.
+- tickcmp livre ≥ 99 % em ≥ 6 missões: **5 de 6**. Sem divergência na corrida livre: 10 (6 episódios longos + m10_start/m10_mage),
+  20 (m20_start), 31, 50 e 70 (episódios da junção, 2400 tiques). Fora: m30 (2037/2400, artefato do episódio — lixo de pilha de
+  0x54e886 no Unicorn), m60 (302: subida de nível do companheiro) e m110 (517: o "How many units contains this group" do script).
+- Sem divergência nomeada do motor antigo: **não cumprido**. Ficam: Summon/Animate Dead/Teleport/Wall of Earth/Drain Life no gancho
+  `spellApply`; os atributos do herói e dos companheiros pelo `syncCombat` (`exeBase` só nas unidades do mapa); o despachante humano
+  da classe 8 (0x5696e8, gancho `castClass`); o conjurador das armadilhas de magia (0x4f06ac, `trapCast`); a lista
+  [[0x6044c4]+0x7c]+0x10 (objetos que lançam magia; também o fim do prédio destruído); e a formação do grupo (#25).
+- Itens 1, 3 (salvo as magias acima) e 4: feitos. Item 2: falta criar o herói e os companheiros pelo exe (0x5145d1 com o modelo do
+  estágio). Item 5: não começado.
+
 ### F3 — A missão na tela (apresentação; paralela a F2)
 1. Render do mapa: ordem de desenho (unidades, cadáveres, sacos, estruturas), borda da névoa (#27), relevo.
 2. Sequências de animação: capturar no original (cópia `a2_lab`, relógio e rand fixos) ataque, morte, magia e ócio de cada tipo de

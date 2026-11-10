@@ -784,3 +784,9 @@ m10_hydun_x1 (2600), m10_ogre_x1 (1200).** Reancoradas 100/100/100 (as longas 99
   m31 99,9 % (livre sem divergência), m50 96,5 % (livre sem), m60 93,1 % (livre 302), m70 93,8 % (livre sem), m110 87,6 % (livre 517).
   O reancorado fica abaixo do livre nas que não divergem: a janela importada não traz tudo (as listas de patrulha, os gatilhos já
   disparados do script).
+
+# Fechamento da F2 (2026-11-10)
+- Critérios do plano, conferidos: loadcmp 46/46 ✓; golden `--ci` ✓ (80,75 %); livre ≥ 99 % em ≥ 6 missões: 5 de 6 (10, 20, 31, 50,
+  70); sem divergência nomeada do motor antigo: não. A lista do que ficou de fora está no `docs/PLANO-FIDELIDADE-JOGO.md` (F2) e as
+  pontes/estimativas no `docs/GAPS.md` ([F2] Fechamento). Para a 6.ª missão: o companheiro criado pelo exe (m60) ou a contagem do grupo
+  do script (m110).
